@@ -4,12 +4,11 @@ tags: ["homepage"]
 layout: "md.jlmd"
 ---
 
-# _Topics in Distributional Macroeconomics_
+# _Macroeconomics and Inequality_
 
- This website hosts some of the material for the PhD-level course _Topics in Distributional Macroeconomics_ at the Tinbergen Institute Amsterdam. The corresponding Github repository is [here](https://github.com/greimel/distributional-macroeconomics).
+ This website hosts some of the material for the MSc-level course _Macroeconomics and Inequality_ at the At the University of Vienna. The corresponding Github repository is [here](https://github.com/greimel/macro-inequality).
 
- The first edition of the course was in Spring 2022. Nevertheless, much of the material is unfinished.
- 
+The course is in its first edition in Spring 2025. It builds on a PhD-level course I have given at the Tinbergen Institute Amsterdam 2022–2024.
  
 > **Acknowledgement** \\
 > The design of this website is based on _**Computational Thinking**, a live online Julia/Pluto textbook._ [(computationalthinking.mit.edu)](https://computationalthinking.mit.edu)
