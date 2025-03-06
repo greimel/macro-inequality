@@ -18,7 +18,7 @@ Dict(
         :term => "Summer 2025",
         :institution => "University of Vienna",
         :institution_url => "https://econ.univie.ac.at",
-        :institution_logo => "tinbergen-institute-logo.svg",
-        :institution_logo_darkmode => "tinbergen-logo-white.svg"
+        :institution_logo => "univie-logo.svg",
+        :institution_logo_darkmode => "univie-logo-bg.svg"
     )
 )
