@@ -41,11 +41,26 @@
 \newcommand{\credittoben}{\blfootnote{Taken from Ben Moll's slides with only minor adjustments}}
 
  \author{Fabian Greimel}
-\title{Topics in Distributional Macroeconomics}
+\title{Macroeconomics and Inequality}
 
 \begin{document}
  
 \frame[plain]{\maketitle}
+
+\begin{frame}{About me}
+
+  \begin{itemize}
+  \item Austrian, married, two kids (4 and 7)
+  \item Assistant Prof. in Vienna since September 2024
+  \item before
+  \begin{itemize}
+    \item 2010-13: BSc in Economics from WU Vienna
+    \item 2013-15: MSc in Economics (Research) from IHS/TU Vienna
+    \item 2015-20: PhD in Economics from University of Mannheim
+    \item 2020-24: Assistant Prof. (TT) at University of Amsterdam
+  \end{itemize}
+\end{itemize}
+\end{frame}
 
 \begin{frame}{What is \emph{Distributional Macroeconomics}?}
 
@@ -65,63 +80,68 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Questions we address in this course}
-  \begin{enumerate}
-  \item Why have household debt and bankruptcies risen prior to 2007?
-  \item How do bankruptcy laws affect social welfare?
-  \item (How) has the housing boom prior to 2007 amplified the Great Recession?
-  \item Where did the housing boom come from?
-  \item ... And what role does inequality play in all theses questions?
-  \end{enumerate}
-\end{frame}
+%\begin{frame}{Questions we address in this course}
+  % \begin{enumerate}
+  % \item Why have household debt and bankruptcies risen prior to 2007?
+  % \item How do bankruptcy laws affect social welfare?
+  % \item (How) has the housing boom prior to 2007 amplified the Great Recession?
+  % \item Where did the housing boom come from?
+  % \item ... And what role does inequality play in all theses questions?
+  % \end{enumerate}
+%\end{frame}
 
-\begin{frame}{Course logistics: Everything is in flux}
-  \begin{columns}
-    \begin{column}{0.5\linewidth}
-      \begin{block}{Background}
+\begin{frame}{Background}
+
         \begin{itemize}
-        \item designed from scratch
         \item \emph{the course that I've always wanted}
-        \item \dots{} but things take time
-        \item your feedback will shape this course     
-        \end{itemize}
-      \end{block}
-      \begin{block}{Your Tasks}
-        \begin{enumerate}
-        \item interact with me
-        \item graded assignments
-        \item present a paper
-        \item write a short research proposal
-        \end{enumerate}
-      \end{block} 
-    \end{column}
-    \begin{column}{0.5\linewidth}
-      \begin{block}{Assignments}
+        \item started in 2022 as 5-session PhD course in Amsterdam
+        \item extended to 24-session MSc course \emph{this year} 
+        \item designed from scratch
         \begin{itemize}
-        \item focus on topics, not methods
-        \item start from runnable code
-        \end{itemize}
-      \end{block}
-      \begin{block}{Presentation}
-        \begin{itemize}
-        \item paper \emph{suggestions} in the syllabus
-        \item starting point for your proposal?
-        \end{itemize}
-      \end{block}
-      \begin{block}{Goals of Research Proposal}
-        \begin{itemize}
-        \item focus your interests
-        \item generate original idea(s)
-        \item get you started with your research
+          \item \dots{} but good things take time
+          \item your feedback will shape this course     
         \end{itemize} 
-      \end{block}
-    \end{column}
-  \end{columns}
-
+        \end{itemize}
 
 \end{frame}
 
-
+\begin{frame}{Course Logistics}
+  \begin{columns}[T]
+  \begin{column}{0.5\linewidth}
+   
+    \begin{block}{Your Tasks}
+      \begin{enumerate}
+      \item interact with me (participation)
+      \item graded assignments
+      \item midterm exam (during class of May 8)
+      \end{enumerate}
+    \end{block} 
+    \begin{block}{Participation points (20\%)}
+      \begin{itemize}
+      \item each percentage point needs to be earned ...
+      \item ... with \emph{active} participation (question, answer or comment)
+      \item collect percentage point at my desk after each lecture
+      \end{itemize}
+    \end{block}
+  \end{column}
+  \begin{column}{0.5\linewidth}
+    \begin{block}{Assignments (40\%)}
+      \begin{itemize}
+      \item using Pluto.jl notebooks and the Julia programming language
+      \item focus on content, not methods
+      \item start from runnable code
+      \end{itemize}
+    \end{block}
+     \begin{block}{Midterm Exam (May 8, 40\%)}
+      \begin{itemize}
+      \item exercises \& derivations
+      \item sample exercises will be covered in the course
+      \end{itemize} 
+     \end{block}
+  \end{column}
+\end{columns}
+  
+\end{frame}
 
 \begin{frame}{Inequality in macroeconomics: A brief history of economic hought\credittoben}
   \begin{itemize}
@@ -224,57 +244,44 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{This course is about ``3rd generation'' models\credittoben}
-  \begin{itemize}
-    %\item Methods for solving them and some fun applications
-  \item \emph{Distributional macroeconomics} is hard
-      \begin{itemize}
-      \item closed-form solutions are rare
-      \item computations are challenging
-      \item large micro datasets that may be hard to think through
-      \item (Note: even though models harder to solve, they are often easier to understand --- you have good intuition about micro behavior!)
-      \end{itemize}
-    \item Why should you be interested in this?
-      \begin{itemize}
-      \item fertile area of research, excellent dissertation topics!
-      \item many open questions
-      \item economics is becoming more empirical, macro no exception
-      % \item pays off to be a bit strategic in your choice of topic
-      \end{itemize}
-  \end{itemize}
- 
-\end{frame}
+% \begin{frame}{This course is about ``3rd generation'' models\credittoben}
+%   \begin{itemize}
+%     %\item Methods for solving them and some fun applications
+%   \item \emph{Distributional macroeconomics} is hard
+%       \begin{itemize}
+%       \item closed-form solutions are rare
+%       \item computations are challenging
+%       \item large micro datasets that may be hard to think through
+%       \item (Note: even though models harder to solve, they are often easier to understand --- you have good intuition about micro behavior!)
+%       \end{itemize}
+%     \item Why should you be interested in this?
+%       \begin{itemize}
+%       \item fertile area of research, excellent dissertation topics!
+%       \item many open questions
+%       \item economics is becoming more empirical, macro no exception
+%       % \item pays off to be a bit strategic in your choice of topic
+%       \end{itemize}
+%   \end{itemize}
+%
+%\end{frame}
 
-\section{Literature}
-%\input{literature}
-
-\section{Model}
-%\input{model}
-
-\section{Results}
-%\input{results}
-
-\section{Summary}
-%\input{conclusion}
-
-
-\appendix
+%\appendix
 % \backupbegin
 
-\begin{frame}[allowframebreaks]{Literature}
-  \bibliographystyle{ecta} 
-  \bibliography{../inequality}
-\end{frame}
+% \begin{frame}[allowframebreaks]{Literature}
+%   \bibliographystyle{ecta} 
+%   \bibliography{../inequality}
+% \end{frame}
 
 
-\section{Back-up slides}
+% \section{Back-up slides}
 
-\begin{frame}{Back-up 1}
-  bla
-\end{frame}
-\begin{frame}{Back-up 2}
-  bla bla   
-\end{frame}
+% \begin{frame}{Back-up 1}
+%   bla
+% \end{frame}
+% \begin{frame}{Back-up 2}
+%   bla bla   
+% \end{frame}
 
 
 % \backupend
