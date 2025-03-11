@@ -230,7 +230,9 @@ const SCF_YEARS = 1989:3:2022
 # ╔═╡ 851f601f-fa14-4678-9655-4f1f1a626edc
 begin
 	using DataDeps; ENV["DATADEPS_ALWAYS_ACCEPT"] = true
-
+	
+	using DataDeps: @datadep_str
+	
 	for year in SCF_YEARS
 		register(DataDep(
     		"SCF$(year)",
