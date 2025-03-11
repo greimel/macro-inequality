@@ -3,8 +3,8 @@
 
 #> [frontmatter]
 #> chapter = 2
-#> section = 3
-#> order = 3
+#> section = 1
+#> order = 1
 #> title = "Baseline two-period model"
 #> layout = "layout.jlhtml"
 #> tags = ["lifecycle"]
@@ -64,7 +64,7 @@ $$\max_{c_0, c_1 > 0} u(c_0, c_1)$$
 
 subject to the constraint
 
-$$c_0 + \frac{p_1}{p_0} x_1 \leq \frac{m}{p_0}.$$
+$$c_0 + \frac{p_1}{p_0} c_1 \leq \frac{m}{p_0}.$$
 
 (Good ``0`` is the numeraire.)
 
@@ -84,9 +84,9 @@ md"""
 $(@bind u_1 Select([u₁]))
 """
 
-# ╔═╡ 0abfec1a-27fe-44b1-9a1f-1b5a42cb94b4
+# ╔═╡ 76d8a623-c5f5-447f-8246-6806e376dded
 md"""
-## 1. Indifference curves
+## 1. Utility function and indifference curves
 
 Let's visualize indifference curves using a contour plot. First, pick parameters ``\beta, \gamma``
 """
@@ -114,11 +114,6 @@ function log_grid(from, to; length=10)
 	scale(x) = (1.0 - from + to)^x - 1.0 + from
 	scale.(xs)
 end
-
-# ╔═╡ 76d8a623-c5f5-447f-8246-6806e376dded
-md"""
-## Utility function and indifference curves
-"""
 
 # ╔═╡ b166a2ce-4a91-4c34-a0b8-d03f614006cb
 md"""
@@ -155,14 +150,84 @@ md"""
 choose the highlighted indifference curve ``k`` $(@bind k₂_i Slider(1:((u_grid_levels_2.nlevels - 1) * 2)))
 """
 
+# ╔═╡ 6d12f0e8-4b77-4a94-8876-ce7f95ff366f
+md"""
+## 2. Budget constraint
+
+* Micro 1: ``c_0 + \frac{p_1}{p_0} c_1 \leq \frac{m}{p_0}``
+* Macro 1: ``c_0 + \frac{1}{1+r} c_1 \leq y₀ + \frac{1}{1+r}y₁ = 𝒴``
+
+
+"""
+
+# ╔═╡ f073112e-d63d-4655-b6e8-633eb16ca30a
+md"""
+* interest rate ``r``: $(@bind r_1 Slider(0.00:0.01:0.2, show_value=true, default=0.05))
+* human capital/budget ``\mathcal{Y}``:   $(@bind 𝒴_1  Slider(0:7, show_value=true, default=5.0))
+"""
+
+# ╔═╡ 301372f3-7b76-4ba8-981f-7f99c231efb9
+budget_set(r, m) = [Point2f(0,0), Point2f(0, m * (1+r)), Point2f(m, 0)]
+
+# ╔═╡ dd09ef44-efa0-4eba-8a94-f69f6fb28f9b
+function budget_constraint(r, m)
+	function bc(c₀)
+		c₁ = (m - c₀) * (1+r)
+		c₁ ≥ 0 ? c₁ : NaN
+	end
+end
+
+# ╔═╡ 3f881e70-6e21-4c0a-b391-4cafc9473840
+md"""
+## 3. Optimal Choice
+"""
+
+# ╔═╡ 2b3dde07-ba9f-4b25-9c93-8abd95124e58
+par_3 = (; β = 0.95, γ = 2.0, r = 0.07, 𝒴 = 5.5)
+
+# ╔═╡ 83356c73-25ef-4c99-8b4b-85183c48451d
+u_3(c₀, c₁) = u₁(c₀, c₁, par_3)
+
+# ╔═╡ ab0a3d72-31b1-4d62-a4f9-423b73380a60
+optf(u, r, 𝒴) = (x₁, _) -> -u(only(x₁), budget_constraint(r, 𝒴)(only(x₁)))
+
+# ╔═╡ a72816e0-aff9-499d-99be-55d613d51410
+(; x₁_opt, u_opt) = let
+	u = u_3
+	par = par_3
+	
+	(; 𝒴, r) = par
+	
+	f = OptimizationFunction(optf(u, r, 𝒴), Optimization.AutoForwardDiff())
+	prob = OptimizationProblem(f, [𝒴/2], Float64[], lb = [eps()], ub = [𝒴-eps()])
+	sol = solve(prob, LBFGS())
+	x₁_opt = only(sol.u)
+	x₂_opt = budget_constraint(r, 𝒴)(x₁_opt)
+	u_opt = u(x₁_opt, x₂_opt)
+	(; x₁_opt, x₂_opt, u_opt)
+end
+
+# ╔═╡ c77856f3-50d7-4aef-a8ec-1ae4784db2ad
+md"""
+move indifference curve: $(@bind kk Slider(reverse((0.1:0.1:2.0) .* u_opt), default = u_opt))
+"""
+
+# ╔═╡ 6db4e107-d9d9-4421-8b6f-a4e52b8af4f3
+md"""
+# Appendix
+"""
+
+# ╔═╡ 8233e487-70a9-4f2d-a88c-b5d20e35f9a4
+fonts = (regular = Makie.MathTeXEngine.texfont(:regular), bold = Makie.MathTeXEngine.texfont(:regular))
+
 # ╔═╡ 11847305-e0f1-4a35-a2cf-6b715d5cd98e
 let 
 	(; u_grid, levels, levels2) = u_grid_levels_2
 	
 	#levels = Makie._get_isoband_levels(nlevels, extrema(u_grid)...)[2:end-1]
 	
-	fig = Figure(
-		size = (1000, 300), fonts = (regular = "CMU", bold = "CMU"), 
+	fig = Figure(;
+		size = (1000, 300), fonts 
 	)
 	
 	ax1 = Axis3(fig[1,1], xlabel = L"x_1", ylabel = L"x_2", zlabel = L"u(x_1, x_2)", zlabeloffset=40, title = "Surface plot")
@@ -216,36 +281,9 @@ let
 	fig #|> as_svg 
 end
 
-# ╔═╡ 6d12f0e8-4b77-4a94-8876-ce7f95ff366f
-md"""
-## Budget constraint
-
-* Micro 1: ``c_0 + \frac{p_1}{p_0} c_1 \leq \frac{m}{p_0}``
-* Macro 1: ``c_0 + \frac{1}{1+r} c_1 \leq y₀ + \frac{1}{1+r}y₁ = 𝒴``
-
-
-"""
-
-# ╔═╡ f073112e-d63d-4655-b6e8-633eb16ca30a
-md"""
-* interest rate ``r``: $(@bind r_1 Slider(0.00:0.01:0.2, show_value=true, default=0.05))
-* human capital/budget ``\mathcal{Y}``:   $(@bind 𝒴_1  Slider(0:7, show_value=true, default=5.0))
-"""
-
-# ╔═╡ 301372f3-7b76-4ba8-981f-7f99c231efb9
-budget_set(r, m) = [Point2f(0,0), Point2f(0, m * (1+r)), Point2f(m, 0)]
-
-# ╔═╡ dd09ef44-efa0-4eba-8a94-f69f6fb28f9b
-function budget_constraint(r, m)
-	function bc(c₀)
-		c₁ = (m - c₀) * (1+r)
-		c₁ ≥ 0 ? c₁ : NaN
-	end
-end
-
 # ╔═╡ 07adc926-2e54-4bd8-ae37-90d16bf32a9b
 let
-	fig = Figure(size = (350, 300), fonts = (regular = "CMU", bold = "CMU"))
+	fig = Figure(; size = (350, 300), fonts)
 	ax = Axis(fig[1,1], 
 		limits = ((-0.1,10), (-0.1, 10)), aspect=1,
 		xlabel = L"consumption today ($c_0$)",
@@ -256,41 +294,6 @@ let
 	#axislegend(ax)
 	fig
 end
-
-# ╔═╡ 3f881e70-6e21-4c0a-b391-4cafc9473840
-md"""
-## Optimal Choice
-"""
-
-# ╔═╡ 2b3dde07-ba9f-4b25-9c93-8abd95124e58
-par_3 = (; β = 0.95, γ = 2.0, r = 0.07, 𝒴 = 5.5)
-
-# ╔═╡ 83356c73-25ef-4c99-8b4b-85183c48451d
-u_3(c₀, c₁) = u₁(c₀, c₁, par_3)
-
-# ╔═╡ ab0a3d72-31b1-4d62-a4f9-423b73380a60
-optf(u, r, 𝒴) = (x₁, _) -> -u(only(x₁), budget_constraint(r, 𝒴)(only(x₁)))
-
-# ╔═╡ a72816e0-aff9-499d-99be-55d613d51410
-(; x₁_opt, u_opt) = let
-	u = u_3
-	par = par_3
-	
-	(; 𝒴, r) = par
-	
-	f = OptimizationFunction(optf(u, r, 𝒴), Optimization.AutoForwardDiff())
-	prob = OptimizationProblem(f, [𝒴/2], Float64[], lb = [eps()], ub = [𝒴-eps()])
-	sol = solve(prob, LBFGS())
-	x₁_opt = only(sol.u)
-	x₂_opt = budget_constraint(r, 𝒴)(x₁_opt)
-	u_opt = u(x₁_opt, x₂_opt)
-	(; x₁_opt, x₂_opt, u_opt)
-end
-
-# ╔═╡ c77856f3-50d7-4aef-a8ec-1ae4784db2ad
-md"""
-move indifference curve: $(@bind kk Slider(reverse((0.1:0.1:2.0) .* u_opt), default = u_opt))
-"""
 
 # ╔═╡ be92c434-d00d-432b-aead-4e43e097ee86
 let u = u_3
@@ -321,7 +324,7 @@ let u = u_3
 	)
 	) |> only |> Contour.coordinates
 
-	fig = Figure(size = (600, 300), fonts = (regular = "CMU", bold = "CMU"))
+	fig = Figure(; size = (600, 300), fonts)
 
 	ax1 = Axis3(fig[1,1], xlabel = L"c_0", ylabel = L"c_1", zlabel = L"U(c_0, c_1)", zlabeloffset=40)
 	
@@ -374,11 +377,6 @@ let u = u_3
 
 	fig
 end
-
-# ╔═╡ 6db4e107-d9d9-4421-8b6f-a4e52b8af4f3
-md"""
-# Appendix
-"""
 
 # ╔═╡ ae5ee7be-2102-11eb-2517-bf07efcd17c4
 TableOfContents()
@@ -2491,13 +2489,12 @@ version = "3.6.0+0"
 # ╠═f0fb1dc4-2100-11eb-1ff4-15c5b095ef74
 # ╠═e8f04a33-3ae2-48a2-856c-d13d5e1bb40a
 # ╟─59a9646a-2107-11eb-2ce2-ab3390cae267
-# ╟─0abfec1a-27fe-44b1-9a1f-1b5a42cb94b4
+# ╟─76d8a623-c5f5-447f-8246-6806e376dded
 # ╠═12f1186e-07f8-4d6b-9bd3-5facf801182f
 # ╟─9a5af728-c3cf-42dd-b8c3-0cc4ec399582
 # ╟─a9777ed2-2102-11eb-1eb5-7193eed7a15b
 # ╠═93129842-f38b-4c03-a71e-e39c090c6cf8
 # ╠═324f493c-5a13-4d02-ad68-733050f736a8
-# ╟─76d8a623-c5f5-447f-8246-6806e376dded
 # ╟─b166a2ce-4a91-4c34-a0b8-d03f614006cb
 # ╟─69f3c66d-5d95-4bc5-a274-b6921909aa9b
 # ╟─11847305-e0f1-4a35-a2cf-6b715d5cd98e
@@ -2513,13 +2510,14 @@ version = "3.6.0+0"
 # ╠═83356c73-25ef-4c99-8b4b-85183c48451d
 # ╠═2b3dde07-ba9f-4b25-9c93-8abd95124e58
 # ╟─c77856f3-50d7-4aef-a8ec-1ae4784db2ad
-# ╠═be92c434-d00d-432b-aead-4e43e097ee86
+# ╟─be92c434-d00d-432b-aead-4e43e097ee86
 # ╠═ae252db3-60a4-46fe-9512-6ccedf952d39
 # ╠═dc8de3d7-d6b4-4bc3-94d4-21898c1309a1
 # ╠═4e96c6d9-657e-4973-8c5a-c6b72b828dbb
 # ╠═a72816e0-aff9-499d-99be-55d613d51410
 # ╠═ab0a3d72-31b1-4d62-a4f9-423b73380a60
 # ╟─6db4e107-d9d9-4421-8b6f-a4e52b8af4f3
+# ╠═8233e487-70a9-4f2d-a88c-b5d20e35f9a4
 # ╠═86c9ffdd-373c-47bb-97df-6e12053731bf
 # ╠═48c51a5a-bf7c-4f02-9348-fa6202ea2edc
 # ╠═6cfa177f-ecbc-4924-8b19-3490001b0023
