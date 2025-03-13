@@ -70,10 +70,80 @@ using Interpolations: LinearInterpolation, Line
 # ╔═╡ d92ab8ba-7cf8-4555-aac3-4c3feeb321d9
 using LinearAlgebra: dot
 
+# ╔═╡ e49ead45-1127-48ba-adaa-232e903722d4
+using PlutoTest: @test
+
+# ╔═╡ 29747435-deaf-47e5-ad4d-a83a9c5e48a5
+using HypertextLiteral
+
+# ╔═╡ efc60fe8-52f2-49d2-9b21-abf9bb3539a8
+using MarkdownLiteral: @markdown
+
 # ╔═╡ 169ec33a-1ddd-4e48-a6dd-c70eafcada30
 md"""
-`simple-lifecycle.jl` | **Version 0.1** | _last updated: March 10 2024_
+`simple-lifecycle.jl` | **Version 1.0** | _last updated: March 13 2025_
 """
+
+# ╔═╡ cbf50012-bd63-4f94-84bf-bec616ba3499
+md"""
+# Assignment 2: Overlapping generations
+"""
+
+# ╔═╡ 65174bb5-2119-40a1-bb51-f3b7ad220afb
+md"""
+## Task 1: Household's problem (3 points)
+
+👉 (1.1 | 2 points) Implement the solution of the household's problem. Extend the given code.
+"""
+
+# ╔═╡ 4f5e61e8-40ed-412f-9cb8-b463c1593217
+function solve_simple_household((; γ, β, δ), (; r, w), (; y, a₀))
+
+	inc = w*y
+	𝒴 = inc + 1/(1+r) * inc + (1+r) * a₀
+	
+	c₀ = 𝒴/(1+ β^(1/γ) * (1+r)^(1/γ - 1))
+	c₁ = c₀ * (β * (1+r))^(1/γ)
+	
+	a₁ = inc + (1+r) * a₀ - c₀
+	a₂ = 0.0
+	
+	check_BC = c₀ + c₁/(1+r) - 𝒴
+		
+	(; c₀, c₁, 𝒴, a₁, a₂, check_BC, c12 = c₁/c₀)
+		
+end
+
+# ╔═╡ a4a1ce8b-7df8-420d-a05d-fcea2c79d037
+md"""
+## Test against more general code
+"""
+
+# ╔═╡ 05d6d3d4-9f24-4dfb-9b59-f35b316df1d4
+answer1_1 = md"""
+You answer goes here ...
+"""
+
+# ╔═╡ da6f4405-a569-453e-9d26-700c5235d4e0
+answer1_2 = md"""
+You answer goes here ...
+"""
+
+# ╔═╡ ef65c11b-5a8c-4e2d-b643-aafbd7129419
+md"""
+## Task 1: Solve two-period household
+"""
+
+# ╔═╡ 68310142-9bf0-41a7-8cfc-49adcf46678e
+md"""
+## Task 2: Compute General Equilibrium
+"""
+
+# ╔═╡ 1268e1cd-6987-4ccc-b73c-5447d2f7fbb6
+function aggregate_simple_household((; c₀, c₁, a₁, a₂))
+
+	(; C = mean([c₀, c₁]), A = mean([a₁, a₂]))
+end
 
 # ╔═╡ fb3e7ec9-2ee0-4325-aa78-5b9d18f8949d
 md"""
@@ -141,6 +211,56 @@ md"""
 # A motivating example
 """
 
+# ╔═╡ 5426d021-3deb-4cea-a7d0-4a08869bd0ac
+# ╠═╡ disabled = true
+#=╠═╡
+(; simulated_data) = let
+	y = income_profile(120, 41)
+	
+	par = get_par(; demo = :lifecycle, y)
+	a_grid = range(0.0, 12.0, length = 600)
+	
+	K_guess = 4.522301994771901
+	r = interest_rate(K_guess, par) 
+	w = wage(K_guess, par)
+
+	out = partial_equilibrium(par, a_grid, (; K_guess, r, w), return_df = true)
+	out = general_equilibrium(par, a_grid, return_df = true, solution_method = EGM())
+	
+	(; sol, K_hh, pmf_df) = out
+
+	(; sim_df) = sol
+
+	simulated_data = @chain out.sol.sim_df begin
+		leftjoin(_, pmf_df, on = :j)
+		leftjoin(_, DataFrame(y), on = :j)
+	end
+
+	(; simulated_data)
+end
+  ╠═╡ =#
+
+# ╔═╡ 173f36c4-a96f-4dfe-824c-076961808073
+@chain simulated_data begin
+	stack([:a, :a_next, :c, :y, #=:m,=# :pmf], :j)
+	data(_) * mapping(:j => L"age $j$", :value, layout = :variable) * visual(Lines)
+	draw(facet = (; linkyaxes = false))
+end	
+
+# ╔═╡ 2f6611c7-e0fa-4585-989a-6c28f069a4fa
+@chain simulated_data begin
+	@select(:a, :pmf)
+	dropmissing
+	hist(_.a, weights=_.pmf)
+end
+
+# ╔═╡ f44f2681-d8ed-460e-b827-ce5cbe603a19
+@chain simulated_data begin
+	@select(:y, :pmf)
+	dropmissing
+	hist(_.y, weights=_.pmf)
+end
+
 # ╔═╡ 73aaf053-3630-4330-9d7b-dde3997b0f27
 md"""
 # Multiple income types
@@ -168,6 +288,32 @@ md"""
 # ╔═╡ 57cf5d02-64ba-48ed-a8f9-b64319c5f598
 JR = 51
 
+# ╔═╡ 83ca3e5b-9097-4224-bd6f-aa63e4b1d221
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	(; y_df, ys) = multi_type_incomes([1.0, 2.3], [0.9, 0.1])
+		
+	par₁ = get_par(; demo = :lifecycle, y = ys[1])
+	par₂ = get_par(; demo = :lifecycle, y = ys[2])
+	
+	grid = range(0.0, 12.0, length = 600)
+	
+	K_guess = 4.522301994771901
+	r = interest_rate(K_guess, par₁) 
+	w = wage(K_guess, par₁)
+
+	out₁ = partial_equilibrium(par₁, grid, (; K_guess, r, w), return_df = true)
+	out₂ = partial_equilibrium(par₂, grid, (; K_guess, r, w), return_df = true)
+
+	#	out = general_equilibrium(par, a_grid, return_df = true, solution_method = EGM())
+	
+	#(; sol, K_hh, pmf_df) = out
+
+	#(; sim_df) = sol
+end
+  ╠═╡ =#
+
 # ╔═╡ 243d22c2-974a-4e10-9bab-7893fcbebea1
 md"""
 # Simple framework from the course
@@ -181,35 +327,42 @@ md"""
 * pick ``J = `` $(@bind J Slider(2:1:10, default = 2, show_value = true))
 """
 
-# ╔═╡ ef65c11b-5a8c-4e2d-b643-aafbd7129419
-md"""
-## Task 1: Solve two-period household
-"""
-
-# ╔═╡ 68310142-9bf0-41a7-8cfc-49adcf46678e
-md"""
-## Task 2: Compute General Equilibrium
-"""
-
-# ╔═╡ 4f5e61e8-40ed-412f-9cb8-b463c1593217
-function solve_simple_household((; γ, β, δ), (; r, w), (; y, a₀))
-
-	𝒴 = y + 1/(1+r) * y + (1+r) * a₀
+# ╔═╡ 9e317a63-1884-46ac-bae5-95a2ffc92550
+let
+	df = crossjoin(DataFrame(born = -(J-1):0), simulated_data)
+	@chain df begin
+		@transform(:t = :born + :j)
+		stack(Not(:t, :j, :born))
+		data(_) * mapping(
+			:t, :value,
+			layout = :variable, color = :born => nonnumeric
+		) * visual(ScatterLines)
+		draw(facet = (; linkyaxes = true))
+	end
 	
-	c₀ = 𝒴/(1+ β^(1/γ) * (1+r)^(1/γ - 1))
-	c₁ = c₀ * (β * (1+r))^(1/γ)
-	a₁ = y + (1+r) * a₀ - c₀
-	a₂ = 0.0
-	check_BC = c₀ + c₁/(1+r) - 𝒴
-		
-	(; c₀, c₁, 𝒴, a₁, a₂, check_BC)
-		
 end
 
-# ╔═╡ 1268e1cd-6987-4ccc-b73c-5447d2f7fbb6
-function aggregate_simple_household((; c₀, c₁, a₁, a₂))
+# ╔═╡ c8f177b3-2900-4712-ad9a-9b632514a8b8
+let
+	vars = [:c, :a_next, :a, :y]
+	@chain simulated_data begin
+		dropmissing
+		@combine(
+			vars = sum({Cols(vars)}, weights(:pmf)),
+			:pmf = sum(:pmf),
+		)
+		only
+		NamedTuple
+	end
+end
 
-	(; C = mean([c₀, c₁]), A = mean([a₁, a₂]))
+# ╔═╡ ef289601-31a8-487a-9b6b-703f442d15f6
+let
+	@chain simulated_data begin
+		stack([:c, :a_next, :a, :y, :pmf], [:j])
+		data(_) * mapping(:j, :value, layout = :variable) * visual(ScatterLines)
+		draw(; facet = (; linkyaxes = false))
+	end
 end
 
 # ╔═╡ ca0b3312-eed9-458b-8825-fdf07cbafbc6
@@ -1037,31 +1190,48 @@ function partial_equilibrium(par, a_grid, (; K_guess, r, w); pmf = pmf(par.m), d
 	end
 end
 
-# ╔═╡ 83ca3e5b-9097-4224-bd6f-aa63e4b1d221
-# ╠═╡ disabled = true
-#=╠═╡
-let
-	(; y_df, ys) = multi_type_incomes([1.0, 2.3], [0.9, 0.1])
+# ╔═╡ b17271bd-de0c-4a53-93bf-575002126179
+function solve_using_fabians_code(par, (; K_guess, r, w), (; y))
+	J = 2
+	
+	y = simple_income_profile(J, J; y)
+	
+	par = get_par(; demo = :perpetual_youth, y, mm = 0, par...)
 		
-	par₁ = get_par(; demo = :lifecycle, y = ys[1])
-	par₂ = get_par(; demo = :lifecycle, y = ys[2])
+	a_grid = unique(sort([0.0; range(-1.0, 1.0, length = 1000)]))
 	
-	grid = range(0.0, 12.0, length = 600)
 	
-	K_guess = 4.522301994771901
-	r = interest_rate(K_guess, par₁) 
-	w = wage(K_guess, par₁)
+	a_init = 0.0
 
-	out₁ = partial_equilibrium(par₁, grid, (; K_guess, r, w), return_df = true)
-	out₂ = partial_equilibrium(par₂, grid, (; K_guess, r, w), return_df = true)
-
-	#	out = general_equilibrium(par, a_grid, return_df = true, solution_method = EGM())
+	out = partial_equilibrium(par, a_grid, (; K_guess, r, w); return_df = true, solution_method = EGM(), a_init)
 	
-	#(; sol, K_hh, pmf_df) = out
+	(; sol, K_hh, pmf_df) = out
 
-	#(; sim_df) = sol
+	(; sim_df) = sol
+
+	simulated_data = @chain out.sol.sim_df begin
+		leftjoin(_, pmf_df, on = :j)
+		leftjoin(_, DataFrame(y), on = :j)
+	end
+
+	(; simulated_data, par)
 end
-  ╠═╡ =#
+
+# ╔═╡ bf674d98-e6b9-4bc3-b3c3-e4b6c038a0bf
+let
+	par = (; γ = 2.0, β = 0.95, δ = 0.1, α = 0.33)
+	income = (; y = 1.0, a₀ = 0.0)
+
+	K_guess = 0.1
+#	prices = (; r = 0.05, w = 1.0)
+	prices = compute_prices(K_guess, par)
+	@info prices
+	out = solve_simple_household(par, prices, income)
+	(; simulated_data, par) = solve_using_fabians_code(par, (; K_guess, prices...), income)
+
+	out, simulated_data
+	#par
+end
 
 # ╔═╡ 1a8146ba-de20-4e6b-aeb3-77eaf6656594
 let
@@ -1148,65 +1318,6 @@ function general_equilibrium(
 	
 end
 
-# ╔═╡ 173f36c4-a96f-4dfe-824c-076961808073
-@chain simulated_data begin
-	stack([:a, :a_next, :c, :y, #=:m,=# :pmf], :j)
-	data(_) * mapping(:j => L"age $j$", :value, layout = :variable) * visual(Lines)
-	draw(facet = (; linkyaxes = false))
-end	
-
-# ╔═╡ 2f6611c7-e0fa-4585-989a-6c28f069a4fa
-@chain simulated_data begin
-	@select(:a, :pmf)
-	dropmissing
-	hist(_.a, weights=_.pmf)
-end
-
-# ╔═╡ f44f2681-d8ed-460e-b827-ce5cbe603a19
-@chain simulated_data begin
-	@select(:y, :pmf)
-	dropmissing
-	hist(_.y, weights=_.pmf)
-end
-
-# ╔═╡ 9e317a63-1884-46ac-bae5-95a2ffc92550
-let
-	df = crossjoin(DataFrame(born = -(J-1):0), simulated_data)
-	@chain df begin
-		@transform(:t = :born + :j)
-		stack(Not(:t, :j, :born))
-		data(_) * mapping(
-			:t, :value,
-			layout = :variable, color = :born => nonnumeric
-		) * visual(ScatterLines)
-		draw(facet = (; linkyaxes = true))
-	end
-	
-end
-
-# ╔═╡ c8f177b3-2900-4712-ad9a-9b632514a8b8
-let
-	vars = [:c, :a_next, :a, :y]
-	@chain simulated_data begin
-		dropmissing
-		@combine(
-			vars = sum({Cols(vars)}, weights(:pmf)),
-			:pmf = sum(:pmf),
-		)
-		only
-		NamedTuple
-	end
-end
-
-# ╔═╡ ef289601-31a8-487a-9b6b-703f442d15f6
-let
-	@chain simulated_data begin
-		stack([:c, :a_next, :a, :y, :pmf], [:j])
-		data(_) * mapping(:j, :value, layout = :variable) * visual(ScatterLines)
-		draw(; facet = (; linkyaxes = false))
-	end
-end
-
 # ╔═╡ 81120e24-8d80-4cb2-a470-74d81b94a61b
 let
 	y = income_profile(120, 41)
@@ -1237,66 +1348,95 @@ let
 	
 end
 
-# ╔═╡ 5426d021-3deb-4cea-a7d0-4a08869bd0ac
-# ╠═╡ disabled = true
-#=╠═╡
-(; simulated_data) = let
-	y = income_profile(120, 41)
-	
-	par = get_par(; demo = :lifecycle, y)
-	a_grid = range(0.0, 12.0, length = 600)
-	
-	K_guess = 4.522301994771901
-	r = interest_rate(K_guess, par) 
-	w = wage(K_guess, par)
+# ╔═╡ f89b0e92-95cc-45c5-aa3f-5d2f6b55d3f3
+md"""
+# Assignment infrastructure
+"""
 
-	out = partial_equilibrium(par, a_grid, (; K_guess, r, w), return_df = true)
-	out = general_equilibrium(par, a_grid, return_df = true, solution_method = EGM())
-	
-	(; sol, K_hh, pmf_df) = out
-
-	(; sim_df) = sol
-
-	simulated_data = @chain out.sol.sim_df begin
-		leftjoin(_, pmf_df, on = :j)
-		leftjoin(_, DataFrame(y), on = :j)
-	end
-
-	(; simulated_data)
+# ╔═╡ f256843b-e4f8-480a-8a9f-b999252d7346
+function wordcount(text)
+	stripped_text = strip(replace(string(text), r"\s" => " "))
+   	words = split(stripped_text, (' ', '-', '.', ',', ':', '_', '"', ';', '!', '\''))
+   	length(filter(!=(""), words))
 end
-  ╠═╡ =#
 
-# ╔═╡ b17271bd-de0c-4a53-93bf-575002126179
-(; simulated_data) = let
-	y = income_profile(120, 41)
-	#J = 4
-	y = simple_income_profile(J, J; y = 1.0)
-	
-	par = get_par(; demo = :perpetual_youth, y, mm = 0, γ)
-		
-	a_grid = unique(sort([0.0; range(-1.0, 1.0, length = 1000)]))
-	
-	a_i_init = findfirst(==(0), a_grid)
-	a_init = a_grid[a_i_init]
-	@info (; a_init, a_i_init)
-	
-	K_guess = 1.0 # irrelevant
-	r = par.r + Δr
-	w = 1.0
+# ╔═╡ d931cfea-4fc2-45ed-9653-5cba0aaddcf5
+@test wordcount("  Hello,---it's me.  ") == 4
 
-	out = partial_equilibrium(par, a_grid, (; K_guess, r, w); return_df = true, solution_method = EGM(), a_init)
-	
-	(; sol, K_hh, pmf_df) = out
+# ╔═╡ af8df71f-fa24-4204-b24b-e7628513afba
+@test wordcount("This;doesn't really matter.") == 5
 
-	(; sim_df) = sol
+# ╔═╡ 77a382fa-1708-4888-9f26-1a889284ca30
+show_words(answer) = md"_approximately $(wordcount(answer)) words_"
 
-	simulated_data = @chain out.sol.sim_df begin
-		leftjoin(_, pmf_df, on = :j)
-		leftjoin(_, DataFrame(y), on = :j)
+# ╔═╡ 7d9ee50a-efa2-477a-bcbc-3566bdb5e6da
+function show_words_limit(answer, limit)
+	count = wordcount(answer)
+	if count < 1.02 * limit
+		return show_words(answer)
+	else
+		return almost(md"You are at $count words. Please shorten your text a bit, to get **below $limit words**.")
 	end
-
-	(; simulated_data)
 end
+
+# ╔═╡ 97c433fc-6cbf-4b90-890d-9657f6cf3f46
+limit1_1 = 100; show_words_limit(answer1_1, limit1_1)
+
+# ╔═╡ 29690f1f-40d2-4dd1-aa11-dea9e38778e1
+limit1_2 = 100; show_words_limit(answer1_2, limit1_2)
+
+# ╔═╡ e4df08d3-7cf1-4b4c-a0c2-2d65bd5beda6
+md"""
+👉 (1.2 | 2 points) Compute aggregate income, consumption and savings for this economy and explain what you did. *(< $(limit1_2) words)*
+"""
+
+# ╔═╡ 502c938b-a895-43d8-8e48-1e3ed30da0fa
+strike(str) = @htl("<s>$str</s>")
+
+# ╔═╡ 7c743d49-7752-4c7b-9d86-112fa550f1a1
+cell_id() = "#" * (string(PlutoRunner.currently_running_cell_id[]))
+
+# ╔═╡ f9602466-b64b-4d64-91bf-56fae3d6cef5
+grpmid = cell_id(); group_members = ([
+	(firstname = "Ella-Louise", lastname = "Flores"),
+	(firstname = "Padraig", 	lastname = "Cope"),
+	(firstname = "Christy",  	lastname = "Denton")
+	]);
+
+# ╔═╡ 8f11743f-9386-4a50-9038-8dfa56cc1d2d
+members = let
+	names = map(group_members) do (; firstname, lastname)
+		firstname * " " * lastname
+	end
+	join(names, ", ", " & ")
+end
+
+# ╔═╡ 5cfdde20-ad4d-4641-b57f-0ca2deb30029
+grpnid = cell_id(); group_number = 99
+
+# ╔═╡ 59547c23-70cf-4500-b246-3f75f4c33591
+if group_number == 99 || (group_members[1].firstname == "Ella-Louise" && group_members[1].lastname == "Flores")
+	@markdown("""
+!!! danger "Note!"
+    **Before you submit**, please replace the randomly generated names [in this cell]($grpmid) by the names of your group and put the right group number in [this cell]($grpnid)).
+	""")
+end
+
+# ╔═╡ 77baf9db-4339-44c2-8a16-fbe720c5ead3
+md"""
+*submitted by* **$members** (*group $(group_number)*)
+"""
+
+# ╔═╡ f681f7e1-a16c-4f18-bc7e-da277257b866
+@markdown("""
+#### Before you submit ...
+
+👉 Make sure you have inserted your names [in this cell]($grpmid) and put the right group number in [this cell]($grpnid)).
+
+👉 Make sure that that **all group members proofread** your submission.
+
+👉 Go to the very top of the notebook and click on the symbol in the very top-right corner. **Export a static html file** of this notebook for submission. (The source code is embedded in the html file.)
+""")
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1308,8 +1448,10 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MarkdownLiteral = "736d6165-7244-6769-4267-6b50796e6954"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
@@ -1323,7 +1465,9 @@ Chain = "~0.6.0"
 DataFrameMacros = "~0.4.1"
 DataFrames = "~1.7.0"
 DimensionalData = "~0.29.12"
+HypertextLiteral = "~0.9.5"
 Interpolations = "~0.15.1"
+MarkdownLiteral = "~0.1.1"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.61"
 Roots = "~2.2.1"
@@ -1336,7 +1480,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "2d4ab40f9968427d7de6d46f2f86e5899607d963"
+project_hash = "0ac35914c088f9a5d7bb41e0a0aa37851fb50ba6"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1585,6 +1729,12 @@ deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
 git-tree-sha1 = "64e15186f0aa277e174aa81798f7eb8598e0157e"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.13.0"
+
+[[deps.CommonMark]]
+deps = ["Crayons", "JSON", "PrecompileTools", "URIs"]
+git-tree-sha1 = "294d62bdb4e1809302f8927abdd0b19464147fb1"
+uuid = "a80b9123-70ca-4bc0-993e-6e3bcb318db6"
+version = "0.8.13"
 
 [[deps.CommonSolve]]
 git-tree-sha1 = "0eee5eb66b1cf62cd6ad1b460238e60e4b09400c"
@@ -2346,6 +2496,12 @@ version = "0.4.2"
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 version = "1.11.0"
+
+[[deps.MarkdownLiteral]]
+deps = ["CommonMark", "HypertextLiteral"]
+git-tree-sha1 = "0d3fa2dd374934b62ee16a4721fe68c418b92899"
+uuid = "736d6165-7244-6769-4267-6b50796e6954"
+version = "0.1.1"
 
 [[deps.MathTeXEngine]]
 deps = ["AbstractTrees", "Automa", "DataStructures", "FreeTypeAbstraction", "GeometryBasics", "LaTeXStrings", "REPL", "RelocatableFolders", "UnicodeFun"]
@@ -3147,7 +3303,28 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─59547c23-70cf-4500-b246-3f75f4c33591
 # ╟─169ec33a-1ddd-4e48-a6dd-c70eafcada30
+# ╟─cbf50012-bd63-4f94-84bf-bec616ba3499
+# ╟─77baf9db-4339-44c2-8a16-fbe720c5ead3
+# ╟─65174bb5-2119-40a1-bb51-f3b7ad220afb
+# ╠═4f5e61e8-40ed-412f-9cb8-b463c1593217
+# ╟─a4a1ce8b-7df8-420d-a05d-fcea2c79d037
+# ╠═bf674d98-e6b9-4bc3-b3c3-e4b6c038a0bf
+# ╠═05d6d3d4-9f24-4dfb-9b59-f35b316df1d4
+# ╟─97c433fc-6cbf-4b90-890d-9657f6cf3f46
+# ╟─e4df08d3-7cf1-4b4c-a0c2-2d65bd5beda6
+# ╠═da6f4405-a569-453e-9d26-700c5235d4e0
+# ╠═29690f1f-40d2-4dd1-aa11-dea9e38778e1
+# ╟─ef65c11b-5a8c-4e2d-b643-aafbd7129419
+# ╠═b70813d6-0875-49c5-9d07-6a30918d7e24
+# ╟─68310142-9bf0-41a7-8cfc-49adcf46678e
+# ╠═5e34c59f-fbb0-41e7-99cc-9fdefc01b913
+# ╠═78537c58-4031-43dd-b7b2-13499aabf641
+# ╠═1268e1cd-6987-4ccc-b73c-5447d2f7fbb6
+# ╟─f681f7e1-a16c-4f18-bc7e-da277257b866
+# ╠═f9602466-b64b-4d64-91bf-56fae3d6cef5
+# ╠═5cfdde20-ad4d-4641-b57f-0ca2deb30029
 # ╠═fb3e7ec9-2ee0-4325-aa78-5b9d18f8949d
 # ╟─1bec2715-1ce0-4ae9-a599-c2c004ad0af8
 # ╠═d2d95e1f-790e-4f3b-9fec-fc83e78cbd21
@@ -3170,18 +3347,11 @@ version = "3.6.0+0"
 # ╠═c3e0c0c5-b7ae-4b55-aca8-05d1f8f0351a
 # ╟─243d22c2-974a-4e10-9bab-7893fcbebea1
 # ╠═64de1600-1108-40e6-addd-f92cdedd2c06
-# ╟─a6a57dde-7b16-4ec3-9de1-f8a1265067a9
+# ╠═a6a57dde-7b16-4ec3-9de1-f8a1265067a9
 # ╠═9e317a63-1884-46ac-bae5-95a2ffc92550
-# ╟─b17271bd-de0c-4a53-93bf-575002126179
+# ╠═b17271bd-de0c-4a53-93bf-575002126179
 # ╠═c8f177b3-2900-4712-ad9a-9b632514a8b8
 # ╠═ef289601-31a8-487a-9b6b-703f442d15f6
-# ╟─ef65c11b-5a8c-4e2d-b643-aafbd7129419
-# ╠═b70813d6-0875-49c5-9d07-6a30918d7e24
-# ╟─68310142-9bf0-41a7-8cfc-49adcf46678e
-# ╠═5e34c59f-fbb0-41e7-99cc-9fdefc01b913
-# ╠═78537c58-4031-43dd-b7b2-13499aabf641
-# ╠═4f5e61e8-40ed-412f-9cb8-b463c1593217
-# ╠═1268e1cd-6987-4ccc-b73c-5447d2f7fbb6
 # ╟─ca0b3312-eed9-458b-8825-fdf07cbafbc6
 # ╠═1a8146ba-de20-4e6b-aeb3-77eaf6656594
 # ╠═2b580848-d2ab-428a-becb-9a708bdd5d1a
@@ -3249,5 +3419,17 @@ version = "3.6.0+0"
 # ╠═30def3a5-5bf2-4c44-b0a3-8cdc9b2985b3
 # ╠═d92ab8ba-7cf8-4555-aac3-4c3feeb321d9
 # ╠═85456d46-574f-400c-9063-46a7ee39e724
+# ╟─f89b0e92-95cc-45c5-aa3f-5d2f6b55d3f3
+# ╠═f256843b-e4f8-480a-8a9f-b999252d7346
+# ╠═e49ead45-1127-48ba-adaa-232e903722d4
+# ╠═d931cfea-4fc2-45ed-9653-5cba0aaddcf5
+# ╠═af8df71f-fa24-4204-b24b-e7628513afba
+# ╠═77a382fa-1708-4888-9f26-1a889284ca30
+# ╠═7d9ee50a-efa2-477a-bcbc-3566bdb5e6da
+# ╠═8f11743f-9386-4a50-9038-8dfa56cc1d2d
+# ╠═29747435-deaf-47e5-ad4d-a83a9c5e48a5
+# ╠═efc60fe8-52f2-49d2-9b21-abf9bb3539a8
+# ╠═502c938b-a895-43d8-8e48-1e3ed30da0fa
+# ╠═7c743d49-7752-4c7b-9d86-112fa550f1a1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
