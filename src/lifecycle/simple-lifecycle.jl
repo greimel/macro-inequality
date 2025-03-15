@@ -240,27 +240,6 @@ md"""
 end
   ╠═╡ =#
 
-# ╔═╡ 173f36c4-a96f-4dfe-824c-076961808073
-@chain simulated_data begin
-	stack([:a, :a_next, :c, :y, #=:m,=# :pmf], :j)
-	data(_) * mapping(:j => L"age $j$", :value, layout = :variable) * visual(Lines)
-	draw(facet = (; linkyaxes = false))
-end	
-
-# ╔═╡ 2f6611c7-e0fa-4585-989a-6c28f069a4fa
-@chain simulated_data begin
-	@select(:a, :pmf)
-	dropmissing
-	hist(_.a, weights=_.pmf)
-end
-
-# ╔═╡ f44f2681-d8ed-460e-b827-ce5cbe603a19
-@chain simulated_data begin
-	@select(:y, :pmf)
-	dropmissing
-	hist(_.y, weights=_.pmf)
-end
-
 # ╔═╡ 73aaf053-3630-4330-9d7b-dde3997b0f27
 md"""
 # Multiple income types
@@ -327,44 +306,6 @@ md"""
 * pick ``J = `` $(@bind J Slider(2:1:10, default = 2, show_value = true))
 """
 
-# ╔═╡ 9e317a63-1884-46ac-bae5-95a2ffc92550
-let
-	df = crossjoin(DataFrame(born = -(J-1):0), simulated_data)
-	@chain df begin
-		@transform(:t = :born + :j)
-		stack(Not(:t, :j, :born))
-		data(_) * mapping(
-			:t, :value,
-			layout = :variable, color = :born => nonnumeric
-		) * visual(ScatterLines)
-		draw(facet = (; linkyaxes = true))
-	end
-	
-end
-
-# ╔═╡ c8f177b3-2900-4712-ad9a-9b632514a8b8
-let
-	vars = [:c, :a_next, :a, :y]
-	@chain simulated_data begin
-		dropmissing
-		@combine(
-			vars = sum({Cols(vars)}, weights(:pmf)),
-			:pmf = sum(:pmf),
-		)
-		only
-		NamedTuple
-	end
-end
-
-# ╔═╡ ef289601-31a8-487a-9b6b-703f442d15f6
-let
-	@chain simulated_data begin
-		stack([:c, :a_next, :a, :y, :pmf], [:j])
-		data(_) * mapping(:j, :value, layout = :variable) * visual(ScatterLines)
-		draw(; facet = (; linkyaxes = false))
-	end
-end
-
 # ╔═╡ ca0b3312-eed9-458b-8825-fdf07cbafbc6
 md"""
 # General equilibrium
@@ -393,6 +334,33 @@ let
 	prices = compute_prices(K_guess, par)
 	
 	out = solve_simple_household(par, prices, income)
+end
+
+# ╔═╡ 5e34c59f-fbb0-41e7-99cc-9fdefc01b913
+let
+	par = (; γ = 2.0, β = 0.95, δ = 0.1, α = 0.33)
+	income = (; y = 1.0, a₀ = 0.0)
+
+	K_guess = 1.0
+	for i ∈ 1:100
+		
+		prices = compute_prices(K_guess, par)
+		
+		out = solve_simple_household(par, prices, income)
+	
+		(; C, A) = aggregate_simple_household(out)
+
+		@info (; K_guess, A, ζ_A = K_guess - A)
+		
+
+		if K_guess ≈ A
+			break
+		end
+
+		K_guess = A
+	end
+
+	#solve_general_equilibrium(par, income)
 end
 
 # ╔═╡ 092040f8-172d-4de7-8b04-52629fda0a67
@@ -1104,23 +1072,6 @@ function solve_general_equilibrium(par, income; K_guess = 1.0, maxit = 100, λ =
 end
 	
 
-# ╔═╡ 5e34c59f-fbb0-41e7-99cc-9fdefc01b913
-let
-	par = (; γ = 2.0, β = 0.95, δ = 0.1, α = 0.33)
-	income = (; y = 1.0, a₀ = 0.0)
-
-	K_guess = 0.1
-	prices = compute_prices(K_guess, par)
-	
-	out = solve_simple_household(par, prices, income)
-
-	(; C, A) = aggregate_simple_household(out)
-
-	(; K_guess, A, ζ_A = K_guess - A)
-
-	solve_general_equilibrium(par, income)
-end
-
 # ╔═╡ 9f078e6c-eb1f-45f4-a844-184d92f9ff68
 df_test = let
 	a_next = [0.06688963210702341, 0.13377926421404682, 0.20066889632107024, 0.26755852842809363, 0.33444816053511706, 0.4013377926421405, 0.4682274247491639, 0.5351170568561873, 0.6020066889632107, 0.6688963210702341, 0.7357859531772575, 0.802675585284281, 0.8695652173913043, 0.9364548494983278, 1.0033444816053512, 1.0702341137123745, 1.137123745819398, 1.2040133779264215, 1.2709030100334449, 1.3377926421404682, 1.4046822742474916, 1.4548494983277591, 1.5050167224080269, 1.5551839464882944, 1.605351170568562, 1.6555183946488294, 1.705685618729097, 1.7558528428093645, 1.806020066889632, 1.8561872909698998, 1.9063545150501673, 1.9565217391304348, 2.0066889632107023, 2.05685618729097, 2.1070234113712374, 2.157190635451505, 2.2073578595317724, 2.25752508361204, 2.3076923076923075, 2.3578595317725752, 2.408026755852843, 2.4414715719063547, 2.4749163879598663, 2.508361204013378, 2.5418060200668897, 2.5752508361204014, 2.608695652173913, 2.6421404682274248, 2.6755852842809364, 2.709030100334448, 2.74247491638796, 2.7759197324414715, 2.7926421404682276, 2.809364548494983, 2.8260869565217392, 2.842809364548495, 2.859531772575251, 2.8762541806020065, 2.8929765886287626, 2.9096989966555182, 2.9096989966555182, 2.9096989966555182, 2.9096989966555182, 2.9096989966555182, 2.9096989966555182, 2.9096989966555182, 2.8929765886287626, 2.8762541806020065, 2.859531772575251, 2.842809364548495, 2.8260869565217392, 2.7926421404682276, 2.759197324414716, 2.725752508361204, 2.6923076923076925, 2.6588628762541804, 2.608695652173913, 2.5585284280936453, 2.508361204013378, 2.4414715719063547, 2.3745819397993313, 2.3076923076923075, 2.240802675585284, 2.157190635451505, 2.0735785953177257, 1.9899665551839465, 1.8896321070234114, 1.7892976588628762, 1.6889632107023411, 1.5719063545150502, 1.4548494983277591, 1.3210702341137124, 1.1872909698996656, 1.0367892976588629, 0.8862876254180602, 0.7357859531772575, 0.568561872909699, 0.38461538461538464, 0.20066889632107024, 0.0]
@@ -1191,8 +1142,8 @@ function partial_equilibrium(par, a_grid, (; K_guess, r, w); pmf = pmf(par.m), d
 end
 
 # ╔═╡ b17271bd-de0c-4a53-93bf-575002126179
-function solve_using_fabians_code(par, (; K_guess, r, w), (; y))
-	J = 2
+function solve_using_fabians_code(par, (; K_guess, r, w), (; y); J = 2)
+	#J = 2
 	
 	y = simple_income_profile(J, J; y)
 	
@@ -1231,6 +1182,81 @@ let
 
 	out, simulated_data
 	#par
+end
+
+# ╔═╡ ea1e355f-3bdd-44c1-9725-1e3747925b27
+simulated_data = let
+	par = (; γ, β = 0.95, δ = 0.1, α = 0.33)
+	income = (; y = 1.0, a₀ = 0.0)
+
+	K_guess = 0.1
+	prices = (; r = 1/par.β - 1 + Δr, w = 1.0)
+	#prices = compute_prices(K_guess, par)
+	@info prices
+	#out = solve_simple_household(par, prices, income)
+	(; simulated_data, par) = solve_using_fabians_code(par, (; K_guess, prices...), income; J)
+
+	simulated_data
+	#par
+end
+
+# ╔═╡ 173f36c4-a96f-4dfe-824c-076961808073
+@chain simulated_data begin
+	stack([:a, :a_next, :c, :y, #=:m,=# :pmf], :j)
+	data(_) * mapping(:j => L"age $j$", :value, layout = :variable) * visual(Lines)
+	draw(facet = (; linkyaxes = false))
+end	
+
+# ╔═╡ 2f6611c7-e0fa-4585-989a-6c28f069a4fa
+@chain simulated_data begin
+	@select(:a, :pmf)
+	dropmissing
+	hist(_.a, weights=_.pmf)
+end
+
+# ╔═╡ f44f2681-d8ed-460e-b827-ce5cbe603a19
+@chain simulated_data begin
+	@select(:y, :pmf)
+	dropmissing
+	hist(_.y, weights=_.pmf)
+end
+
+# ╔═╡ 9e317a63-1884-46ac-bae5-95a2ffc92550
+let
+	df = crossjoin(DataFrame(born = -(J-1):0), simulated_data)
+	@chain df begin
+		@transform(:t = :born + :j)
+		stack(Not(:t, :j, :born))
+		data(_) * mapping(
+			:t, :value,
+			layout = :variable, color = :born => nonnumeric
+		) * visual(ScatterLines)
+		draw(facet = (; linkyaxes = true))
+	end
+	
+end
+
+# ╔═╡ c8f177b3-2900-4712-ad9a-9b632514a8b8
+let
+	vars = [:c, :a_next, :a, :y]
+	@chain simulated_data begin
+		dropmissing
+		@combine(
+			vars = sum({Cols(vars)}, weights(:pmf)),
+			:pmf = sum(:pmf),
+		)
+		only
+		NamedTuple
+	end
+end
+
+# ╔═╡ ef289601-31a8-487a-9b6b-703f442d15f6
+let
+	@chain simulated_data begin
+		stack([:c, :a_next, :a, :y, :pmf], [:j])
+		data(_) * mapping(:j, :value, layout = :variable) * visual(ScatterLines)
+		draw(; facet = (; linkyaxes = false))
+	end
 end
 
 # ╔═╡ 1a8146ba-de20-4e6b-aeb3-77eaf6656594
@@ -3308,7 +3334,7 @@ version = "3.6.0+0"
 # ╟─cbf50012-bd63-4f94-84bf-bec616ba3499
 # ╟─77baf9db-4339-44c2-8a16-fbe720c5ead3
 # ╟─65174bb5-2119-40a1-bb51-f3b7ad220afb
-# ╠═4f5e61e8-40ed-412f-9cb8-b463c1593217
+# ╟─4f5e61e8-40ed-412f-9cb8-b463c1593217
 # ╟─a4a1ce8b-7df8-420d-a05d-fcea2c79d037
 # ╠═bf674d98-e6b9-4bc3-b3c3-e4b6c038a0bf
 # ╠═05d6d3d4-9f24-4dfb-9b59-f35b316df1d4
@@ -3347,8 +3373,9 @@ version = "3.6.0+0"
 # ╠═c3e0c0c5-b7ae-4b55-aca8-05d1f8f0351a
 # ╟─243d22c2-974a-4e10-9bab-7893fcbebea1
 # ╠═64de1600-1108-40e6-addd-f92cdedd2c06
-# ╠═a6a57dde-7b16-4ec3-9de1-f8a1265067a9
-# ╠═9e317a63-1884-46ac-bae5-95a2ffc92550
+# ╟─a6a57dde-7b16-4ec3-9de1-f8a1265067a9
+# ╟─9e317a63-1884-46ac-bae5-95a2ffc92550
+# ╠═ea1e355f-3bdd-44c1-9725-1e3747925b27
 # ╠═b17271bd-de0c-4a53-93bf-575002126179
 # ╠═c8f177b3-2900-4712-ad9a-9b632514a8b8
 # ╠═ef289601-31a8-487a-9b6b-703f442d15f6
