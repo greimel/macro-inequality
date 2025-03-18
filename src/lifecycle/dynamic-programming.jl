@@ -4,6 +4,18 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    #! format: off
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
+end
+
 # ╔═╡ 1e5e6cef-d8c4-43bf-a6be-46aa48a6f10a
 using DimensionalData
 
@@ -13,8 +25,29 @@ using DataFrames, DataFrameMacros, Chain
 # ╔═╡ 92a78493-139e-418c-b819-26435c3b59d8
 using CairoMakie, AlgebraOfGraphics
 
+# ╔═╡ b9a85bfa-5a48-4065-9f12-5f18729d61d3
+using PlutoUI: Slider
+
 # ╔═╡ 3a2b9353-9759-420b-8778-8c07a239832b
 using PlutoUI
+
+# ╔═╡ 91969709-4437-429d-8144-23fb7d3a3570
+begin
+	using CategoricalArrays
+	using StatsBase
+
+	formatter(from, to, i; kwargs...) = i
+	function CategoricalArrays.cut(x::AbstractArray, w::AbstractWeights,
+		ngroups::Integer; labels=formatter)
+  		cut(x, StatsBase.quantile(x, w, (1:ngroups-1)/ngroups); extend=true, labels)
+	end
+
+	function CategoricalArrays.cut(x::AbstractArray, w::AbstractWeights,
+		ps::Vector; labels=formatter)
+  		cut(x, StatsBase.quantile(x, w, ps); extend=true, labels)
+	end
+	
+end
 
 # ╔═╡ b712408f-5e0e-40e0-b612-6cf9a2646338
 md"""
@@ -182,6 +215,118 @@ cⱼ₋₁(a, (; r, w), (; y)) = w * y + (1+r)*a
 # ╔═╡ 1fd05a48-3a2d-47f0-b0f6-d58daeb48886
 Vⱼ₋₁(a, prices, par) = par.β * u(cⱼ₋₁(a, prices, par), par)
 
+# ╔═╡ ab32f7b3-ed28-4988-b03d-a9b9699945cf
+md"""
+# Assignment 3A: Dynamic Programming
+"""
+
+# ╔═╡ c132bfff-54f5-49b7-ae2f-a30273b593c4
+md"""
+# Assignment 3B: Income paths
+"""
+
+# ╔═╡ 4f3389e8-d927-44bc-b492-5233bc8e03fd
+md"""
+# Multiple income types
+"""
+
+# ╔═╡ af5dde71-ecff-4c8c-9039-fea9e783b0ce
+let
+	group_dim = Dim{:group}(["top 10", "middle 40", "bottom 50"])
+	year_dim  = Dim{:year}([1980, 2007])
+	
+	income_shares = DimArray(
+		[0.33 0.41;
+ 		 0.46 0.42;
+ 		 0.21 0.17], 
+		(group_dim, year_dim), name = :income_shares
+	)
+end
+
+# ╔═╡ b1e23a10-4820-4a00-8568-68bcc490e9e1
+md"""
+* $(@bind factor1 Slider(1.0:0.01:5.0, show_value = true))
+* $(@bind factor2 Slider(1.0:0.01:5.0, show_value = true))
+"""
+
+# ╔═╡ 77152848-5157-41d7-aded-2913bf0f6333
+JR = 51
+
+# ╔═╡ 62ef9200-d475-45df-89c8-a94dcd8c0fc7
+md"""
+# Old code
+"""
+
+# ╔═╡ 812667c3-e114-4028-9d78-a17b5af55241
+function my_aggregate(sim_df, pmf_df, y_df, vars = [:c, :a_next, :a, :y])
+	df = leftjoin(
+		leftjoin(sim_df, pmf_df, on = :j),
+		y_df, on = :j
+	)
+
+	@chain df begin
+		dropmissing
+		@combine(
+			vars = sum({Cols(vars)}, weights(:pmf)),
+			:pmf = sum(:pmf),
+		)
+		only
+		NamedTuple
+	end
+end
+
+# ╔═╡ a045321c-661c-43b0-bb91-7fad71d6e604
+md"""
+```math
+\begin{align}
+	&\max_{c_j} \sum_{j = 0}^{J-1} \beta^j \textcolor{lightgray}{\Phi_{j-1} \Bigl( (1-d_j)} u(c_j) \textcolor{lightgray}{+ d_j \nu(a_j) \Bigr)} \\
+	&\begin{aligned}
+\text{ subject to } & c_j + \textcolor{lightgray}{\frac{\Phi_{j+1}}{\Phi_j}} a_{j+1} = (1+r)  a_j + y_j \quad \text{ for all $j$}\\
+& (y_j) \text{ given} \\
+& a_0 \text{ given} \\
+& a_j \geq \underline{a} \\
+& a_J \geq 0
+\end{aligned}
+\end{align}
+```
+
+* ``d_j`` ... probability of dying in period ``j``
+* ``\Phi_j = \prod_{k = 0}^{j} (1-d_k)`` ... probability of being alive at the **end** of period ``j``
+  * hence, ``(1 - d_{j+1}) = \frac{\Phi_{j+1}}{\Phi_j}``
+
+* a consumer lives for ``J`` periods
+  * mortality risk
+* earn income ``y_j`` each period
+  * income risk
+* derives utility from consumption ``c_j``
+  * housing
+  * bequests
+* savings ``a_j``
+  * annuity?
+
+"""
+
+# ╔═╡ ed6390b2-6461-474f-820f-f72b3dbe7696
+function solve_general_equilibrium(par, income; K_guess = 1.0, maxit = 100, λ = 1.0)
+	for it ∈ 1:maxit
+		prices = compute_prices(K_guess, par)
+	
+		out = solve_simple_household(par, prices, income)
+
+		(; C, A) = aggregate_simple_household(out)
+
+		@info (; it, K_guess, A, ζ_A = K_guess - A)
+
+		if abs(criterion(K_guess, A)) < 1e-8 || it == maxit
+			return (; K_guess, A, ζ_A = K_guess - A, out, prices)
+		end
+		
+		K_guess = (1-λ) * K_guess + λ * A
+
+		
+	end
+end
+
 # ╔═╡ 77336c2b-08bf-4664-940c-b3939177679b
 md"""
 # Appendix
@@ -190,25 +335,240 @@ md"""
 # ╔═╡ da5c9a06-da66-4d2e-b982-92e75114af42
 TableOfContents()
 
+# ╔═╡ b2580c34-9301-46c9-96e4-746d35ce50a5
+md"""
+### Demographics
+"""
+
+# ╔═╡ 7580da01-11a1-412b-bb57-9410596af986
+function pmf(m; births = nothing)
+	
+	j_dim =	DimensionalData.dims(m, :j)
+
+	_births_ = isnothing(births) ? 1.0 : births
+
+	pmf = cumprod([_births_; (1 .- m)])[begin:end-1]
+	pmf = DimVector(pmf, j_dim, name = :pmf) 
+	
+	if isnothing(births)
+		pmf .= pmf ./ sum(pmf)
+	end
+
+	return pmf
+
+end
+
+# ╔═╡ bdb86c92-9b35-40f4-9a95-af8ff4f16708
+p_surv₀ = DimVector(
+	[0.9945385, 0.9995935, 0.9997525, 0.999799, 0.999836, 0.9998605, 0.9998755, 0.999885, 0.99989, 0.99989, 0.999884, 0.9998745, 0.9998525, 0.9998115, 0.99975, 0.9996605, 0.999536, 0.9993885, 0.999241, 0.9991345, 0.99906, 0.998978, 0.9988925, 0.99881, 0.9987215, 0.998631, 0.9985435, 0.9984545, 0.998359, 0.998259, 0.998161, 0.9980625, 0.997962, 0.997868, 0.9977805, 0.997691, 0.9975995, 0.997493, 0.997366, 0.997226, 0.997077, 0.99692, 0.9967525, 0.9965905, 0.996419, 0.9962185, 0.995971, 0.995691, 0.9953685, 0.9950285, 0.994659, 0.9942635, 0.993815, 0.993334, 0.9927975, 0.9921995, 0.9915535, 0.9908825, 0.990155, 0.9893715, 0.988523, 0.987618, 0.9866885, 0.985767, 0.9848455, 0.983935, 0.982972, 0.9818665, 0.980645, 0.9793075, 0.9778105, 0.9760855, 0.9741015, 0.971813, 0.9691475, 0.9657655, 0.9623835000000001, 0.958681, 0.9545755, 0.9497485, 0.9445295, 0.9388595, 0.9326274999999999, 0.9255175, 0.9172435, 0.907863, 0.8973555, 0.885727, 0.873394, 0.859642, 0.844195, 0.827184, 0.8087880000000001, 0.78986, 0.7707634999999999, 0.7515835, 0.732595, 0.7140934999999999, 0.6963895, 0.6798, 0.662296, 0.6438275, 0.6243405, 0.6037785, 0.5820815, 0.559187, 0.5350275, 0.509533, 0.4826284999999999, 0.454237, 0.42427349999999997, 0.39265149999999993, 0.35927850000000006, 0.32405700000000004, 0.28970799999999997, 0.25419400000000003, 0.21690299999999996, 0.17774900000000005, 0.13663599999999998, 0.093468, 1.0],
+	Dim{:j}(0:120)
+)
+
+# ╔═╡ 8d55c58c-8adc-4d62-bcb3-3ef32b459261
+function mortality(model; m = 1/45, J = 120)
+	
+	j₀ = 0
+
+	j_dim = Dim{:j}(j₀:J)
+	
+	if model == :perpetual_youth
+		return DimVector([fill(m, J); 1.0], j_dim)
+	elseif model == :lifecycle
+		return 1 .- p_surv₀[j = At(j₀:J)]
+	else
+		@error "model ∉ [:perpetual_youth, :lifecycle]. Please fix!"
+	end
+	
+end
+
+# ╔═╡ e17b670e-9248-4a97-bd44-d704b297b9f9
+md"""
+### Income profile
+"""
+
+# ╔═╡ 65ae0e63-5dc7-4cbe-81d3-d9346574244d
+"""
+	`J` ... age of death
+    `JR` ... retirement age
+"""
+function income_profile(J, JR)
+	@assert JR < J
+
+	y = [3e-06 * j^3 - 0.0012 * j^2 + 0.0589 * j + 0.9503 for j ∈ 1:JR]
+
+	y = [y; fill(y[end], J - JR)]
+
+	DimArray(y, Dim{:j}(0:J-1), name = :y)
+end
+
+# ╔═╡ 29caeff7-b4ef-4b6f-a446-1a82cd7fa352
+function multi_type_incomes(factors, type_weights; pmf = pmf(mortality(:lifecycle)))
+	ys = [DimArray(fac .* income_profile(120, JR), name = :y) for fac ∈ factors]
+
+	type_dim = Dim{:type}(1:length(ys))
+
+	yy = cat(ys..., dims = type_dim)
+	
+	type_weights = DimVector(type_weights, Dim{:type}, name = :type_weight)
+	
+	pmf_df = DataFrame(pmf)
+
+	group_names = ["bottom 50", "middle 40", "top 10"]
+	
+	y_df = @chain DataFrame(yy) begin
+		#rename(:AnonDim => :type)
+		leftjoin(_, pmf_df, on = :j)
+		leftjoin(_, DataFrame(type_weights), on = :type)
+		@transform(:weight = :type_weight * :pmf)
+		@transform(:weight = @bycol :weight ./ sum(:weight))
+		disallowmissing
+		@transform(:group = @bycol cut(:y, weights(:weight), [0.4, 0.9]))
+		@transform(:group = group_names[get(:group)])
+	end
+
+	(; y_df, ys)
+end
+
+# ╔═╡ 1de860cf-5f55-435d-9e12-ec588e7951d2
+multi_type_incomes([1.0, 2.2], [0.9, 0.1])
+
+# ╔═╡ 78f06027-635e-45b1-b4a0-8d9582155b2c
+let
+	(; y_df) = multi_type_incomes([1.0, factor2], [0.9, 0.1])
+
+	@chain y_df begin
+		@groupby(:group)
+		@combine(
+			:total_income = sum(:y, weights(:weight)),
+			:average_income = mean(:y, weights(:weight)),
+			:mass = sum(:weight)
+		)
+		@transform(:income_share = @bycol :total_income ./ sum(:total_income))
+		@info _#
+	end ###
+
+	@chain y_df begin
+		@transform(:type_x_group = "$(:type) × $(:group)")
+		@groupby(:type_x_group)
+		@transform(:xxx = @bycol [diff(:j); 0.0])
+		@aside nans = @chain _ begin
+			DataFrame
+			@transform!(
+				@subset(:xxx ∉ [0, 1]),
+				:y = NaN,
+				:j = :j + 1
+			)
+		end
+		[_; nans]
+		sort([:type_x_group, :j])
+		
+		#	@subset(:xxx ∉ [0, 1])
+#		@groupby(:type_x_group)
+
+		data(_) * mapping(:j, :y, 
+			linestyle = :type => nonnumeric, 
+			color = :group => nonnumeric,
+			group = :type_x_group,
+		) * visual(Lines)
+		draw # =#
+	end # =#
+	
+end
+
+# ╔═╡ 08121af7-7dda-41c9-9e44-bb8765c86888
+let
+	(; y_df) = multi_type_incomes([1.0, 1.5, 2.0], [0.89, 0.1, 0.01])
+
+	y_df.weight |> sum
+
+	hist(y_df.y, weights = y_df.weight)
+end
+
+# ╔═╡ b459092e-0312-428c-aaa6-e031a995aa7c
+let
+	(; y_df, ys) = multi_type_incomes([1.0, 2.3], [0.9, 0.1])
+		
+	#=par₁ = get_par(; demo = :lifecycle, y = ys[1])
+	par₂ = get_par(; demo = :lifecycle, y = ys[2])
+	
+	grid = range(0.0, 12.0, length = 600)
+	
+	K_guess = 4.522301994771901
+	r = interest_rate(K_guess, par₁) 
+	w = wage(K_guess, par₁)
+
+	out₁ = partial_equilibrium(par₁, grid, (; K_guess, r, w), return_df = true)
+	out₂ = partial_equilibrium(par₂, grid, (; K_guess, r, w), return_df = true)
+=#
+	#	out = general_equilibrium(par, a_grid, return_df = true, solution_method = EGM())
+	
+	#(; sol, K_hh, pmf_df) = out
+
+	#(; sim_df) = sol
+end
+
+# ╔═╡ be97fcaf-efe0-4876-be0c-9b246ec507d4
+(; simulated_data) = let
+	y = income_profile(120, 41)
+	
+	par = get_par(; demo = :lifecycle, y)
+	a_grid = range(0.0, 12.0, length = 600)
+	
+	K_guess = 4.522301994771901
+	r = interest_rate(K_guess, par) 
+	w = wage(K_guess, par)
+
+	out = partial_equilibrium(par, a_grid, (; K_guess, r, w), return_df = true)
+	out = general_equilibrium(par, a_grid, return_df = true, solution_method = EGM())
+	
+	(; sol, K_hh, pmf_df) = out
+
+	(; sim_df) = sol
+
+	simulated_data = @chain out.sol.sim_df begin
+		leftjoin(_, pmf_df, on = :j)
+		leftjoin(_, DataFrame(y), on = :j)
+	end
+
+	(; simulated_data)
+end
+
+# ╔═╡ 86576c8b-0270-442b-b628-e1d0344723e1
+function simple_income_profile(J, JR; y=1.0, yR = 0.0)
+	y = [fill(y, JR); fill(yR, J - JR)]
+
+	DimArray(y, Dim{:j}(0:J-1), name = :y)
+end
+
+# ╔═╡ fc3a72f7-6b13-433c-8a9c-9a26f09beeef
+simple_income_profile(100, 50) |> lines
+
+# ╔═╡ ff6d934c-24b3-4218-9466-0dc0cf40e0a9
+income_profile(120, 41) |> lines
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 AlgebraOfGraphics = "~0.9.2"
 CairoMakie = "~0.13.1"
+CategoricalArrays = "~0.10.8"
 Chain = "~0.6.0"
 DataFrameMacros = "~0.4.1"
 DataFrames = "~1.7.0"
 DimensionalData = "~0.29.12"
 PlutoUI = "~0.7.61"
+StatsBase = "~0.34.4"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -217,7 +577,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "435d62aaae1b9d84d9b4413e74e8da4dd90ad26f"
+project_hash = "ab280e4a607d5482ecaa5a0fb25b5d67d0a5b9e9"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -399,6 +759,24 @@ deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jl
 git-tree-sha1 = "009060c9a6168704143100f36ab08f06c2af4642"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.18.2+1"
+
+[[deps.CategoricalArrays]]
+deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
+git-tree-sha1 = "1568b28f91293458345dabba6a5ea3f183250a61"
+uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+version = "0.10.8"
+
+    [deps.CategoricalArrays.extensions]
+    CategoricalArraysJSONExt = "JSON"
+    CategoricalArraysRecipesBaseExt = "RecipesBase"
+    CategoricalArraysSentinelArraysExt = "SentinelArrays"
+    CategoricalArraysStructTypesExt = "StructTypes"
+
+    [deps.CategoricalArrays.weakdeps]
+    JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+    RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+    SentinelArrays = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
+    StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 
 [[deps.Chain]]
 git-tree-sha1 = "9ae9be75ad8ad9d26395bf625dea9beac6d519f1"
@@ -2006,8 +2384,35 @@ version = "3.6.0+0"
 # ╠═7ced6ada-47d1-434c-97f9-10e332db3cc7
 # ╠═1fd05a48-3a2d-47f0-b0f6-d58daeb48886
 # ╠═92a78493-139e-418c-b819-26435c3b59d8
+# ╟─ab32f7b3-ed28-4988-b03d-a9b9699945cf
+# ╟─c132bfff-54f5-49b7-ae2f-a30273b593c4
+# ╠═4f3389e8-d927-44bc-b492-5233bc8e03fd
+# ╠═af5dde71-ecff-4c8c-9039-fea9e783b0ce
+# ╠═b1e23a10-4820-4a00-8568-68bcc490e9e1
+# ╠═b9a85bfa-5a48-4065-9f12-5f18729d61d3
+# ╠═77152848-5157-41d7-aded-2913bf0f6333
+# ╠═29caeff7-b4ef-4b6f-a446-1a82cd7fa352
+# ╠═1de860cf-5f55-435d-9e12-ec588e7951d2
+# ╠═78f06027-635e-45b1-b4a0-8d9582155b2c
+# ╠═08121af7-7dda-41c9-9e44-bb8765c86888
+# ╠═b459092e-0312-428c-aaa6-e031a995aa7c
+# ╠═62ef9200-d475-45df-89c8-a94dcd8c0fc7
+# ╠═812667c3-e114-4028-9d78-a17b5af55241
+# ╠═a045321c-661c-43b0-bb91-7fad71d6e604
+# ╠═ed6390b2-6461-474f-820f-f72b3dbe7696
+# ╠═be97fcaf-efe0-4876-be0c-9b246ec507d4
 # ╟─77336c2b-08bf-4664-940c-b3939177679b
 # ╠═3a2b9353-9759-420b-8778-8c07a239832b
 # ╠═da5c9a06-da66-4d2e-b982-92e75114af42
+# ╠═91969709-4437-429d-8144-23fb7d3a3570
+# ╟─b2580c34-9301-46c9-96e4-746d35ce50a5
+# ╠═7580da01-11a1-412b-bb57-9410596af986
+# ╠═8d55c58c-8adc-4d62-bcb3-3ef32b459261
+# ╠═bdb86c92-9b35-40f4-9a95-af8ff4f16708
+# ╠═e17b670e-9248-4a97-bd44-d704b297b9f9
+# ╠═65ae0e63-5dc7-4cbe-81d3-d9346574244d
+# ╠═86576c8b-0270-442b-b628-e1d0344723e1
+# ╠═fc3a72f7-6b13-433c-8a9c-9a26f09beeef
+# ╠═ff6d934c-24b3-4218-9466-0dc0cf40e0a9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
