@@ -688,6 +688,16 @@ md"""
 # Assignment infrastructure
 """
 
+# ╔═╡ 8aea5d40-34ca-4a2a-a2d0-ac176a96ab01
+begin
+	hint(text) = Markdown.MD(Markdown.Admonition("hint", "Hint", [text]))
+	almost(text) = Markdown.MD(Markdown.Admonition("warning", "Almost there!", [text]))
+	still_missing(text=md"Replace `missing` with your answer.") = Markdown.MD(Markdown.Admonition("warning", "Here we go!", [text]))
+	keep_working(text=md"The answer is not quite right.") = Markdown.MD(Markdown.Admonition("danger", "Keep working on it!", [text]))
+	yays = [md"Great!", md"Yay ❤", md"Great! 🎉", md"Well done!", md"Keep it up!", md"Good job!", md"Awesome!", md"You got the right answer!", md"Let's move on to the next section."]
+	correct(text=rand(yays)) = Markdown.MD(Markdown.Admonition("correct", "Got it!", [text]))
+end
+
 # ╔═╡ 4bdbe5e5-41b0-49cb-80a6-39fe6dfb81c2
 function wordcount(text)
 	stripped_text = strip(replace(string(text), r"\s" => " "))
@@ -833,7 +843,7 @@ StatsBase = "~0.34.4"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.2"
+julia_version = "1.11.4"
 manifest_format = "2.0"
 project_hash = "dee1987bea955e9cbcd91239765237b2c4f788fc"
 
@@ -1953,7 +1963,7 @@ version = "3.2.4+0"
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-version = "0.8.1+2"
+version = "0.8.1+4"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
@@ -2765,6 +2775,7 @@ version = "3.6.0+0"
 # ╠═6a1e6442-f668-450a-beca-e31490ab32e3
 # ╠═a11c41a8-da02-42bd-a8d9-2ed0124ba75f
 # ╟─b8f93364-0762-4d76-ab19-0ad762f913e9
+# ╠═8aea5d40-34ca-4a2a-a2d0-ac176a96ab01
 # ╠═4bdbe5e5-41b0-49cb-80a6-39fe6dfb81c2
 # ╠═8738d49c-8a7d-4c7b-918d-2d68c67800a2
 # ╠═5f499633-4508-4aa2-a085-78c11b4e2e2c
