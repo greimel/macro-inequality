@@ -5,7 +5,7 @@
 #> chapter = 2
 #> section = 3
 #> order = 3
-#> title = "Lifecycle without income risk"
+#> title = "Assignment 2: Simple OLG Model"
 #> layout = "layout.jlhtml"
 #> tags = ["lifecycle"]
 #> description = ""
