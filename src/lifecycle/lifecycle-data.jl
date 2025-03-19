@@ -3,8 +3,8 @@
 
 #> [frontmatter]
 #> chapter = 2
-#> section = 3
-#> order = 3
+#> section = 2
+#> order = 2
 #> title = "Assignment 1: Household balance sheets"
 #> layout = "layout.jlhtml"
 #> tags = ["lifecycle"]

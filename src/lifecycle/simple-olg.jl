@@ -3,9 +3,9 @@
 
 #> [frontmatter]
 #> chapter = 2
-#> section = 2
-#> order = 2
-#> title = "Assignment 2: Simple OLG"
+#> section = 3
+#> order = 3
+#> title = "Assignment 2: Simple OLG Model"
 #> layout = "layout.jlhtml"
 #> tags = ["lifecycle"]
 #> description = ""
@@ -106,13 +106,13 @@ function solve_simple_household((; γ, β, δ), (; r, w), (; y, a₀))
 
 	inc = w*y
 	𝒴 = inc + 1/(1+r) * inc + (1+r) * a₀
+
+	c₀ = 0.0 # fix!
+	c₁ = 0.0 # fix!
 	
-	c₀ = 𝒴/(1+ β^(1/γ) * (1+r)^(1/γ - 1))
-	c₁ = c₀ * (β * (1+r))^(1/γ)
-	
-	a₁ = inc + (1+r) * a₀ - c₀
-	a₂ = 0.0
-	
+	a₁ = 0.0 # fix!
+	a₂ = 0.0 # fix!
+		
 	check_BC = c₀ + c₁/(1+r) - 𝒴 # should be close to 0
 		
 	(; c₀, c₁, 𝒴, a₁, a₂, check_BC)
@@ -133,8 +133,8 @@ You answer goes here ...
 
 # ╔═╡ 1268e1cd-6987-4ccc-b73c-5447d2f7fbb6
 function aggregate_simple_household((; c₀, c₁, a₁, a₂))
-	C = mean([c₀, c₁]) # adapt
-	A = mean([a₁, a₂]) # adapt
+	C = c₀ # fix!
+	A = a₁ # fix!
 	
 	return (; C, A)
 end
@@ -168,8 +168,8 @@ We discussed to following algorithm in class.
 # ╔═╡ 56a50830-9b59-4d79-9f46-5f2a7acfd5f2
 function compute_prices(K, (; α, δ))
 	L = 1
-	r = α * (L/K)^(1-α) - δ # adapt
-	w = (1-α) * (K/L)^α # adapt
+	r = 0.01 # fix!
+	w = 1.0  # fix!
 
 	(; r, w)
 end
@@ -185,28 +185,18 @@ let
 	income = (; y = 1.0, a₀ = 0.0)
 
 	K_guess = 1.0
-	# ζ_A = 10.0 # initialize if you want to write a for loop
+		
+	prices = compute_prices(K_guess, par)
+		
+	out = solve_simple_household(par, prices, income)
 	
-	# for i ∈ 1:100
-		
-		prices = compute_prices(K_guess, par)
-		
-		out = solve_simple_household(par, prices, income)
+	(; C, A) = aggregate_simple_household(out)
+
+	# excess demand for capital
+	ζ_A = K_guess - A 
+
+	@info @test abs(ζ_A) < 1-e5
 	
-		(; C, A) = aggregate_simple_household(out)
-
-		# excess demand for capital
-		ζ_A = K_guess - A 
-		
-		# @info (; K_guess, A, ζ_A )
-		#
-		# if K_guess ≈ A
-		#	break
-		# end
-
-		# K_guess = A
-	#end
-
 	(; K_guess, A, ζ_A)
 end
 
@@ -233,10 +223,10 @@ md"""
 """
 
 # ╔═╡ d2a1be5c-9de2-46e6-94e5-a6bf7f6eba8f
-function solve_three_types(incomes)
+function solve_three_types(incomes, par, prices)
 	(yₚ, yₘ, yᵣ) = incomes
 	
-	outₚ = nothing
+	outₚ = solve_simple_household(par, prices, (; y = yₚ, a₀ = 0.0))
 	outₘ = nothing
 	outᵣ = nothing
 
@@ -244,7 +234,7 @@ function solve_three_types(incomes)
 end
 
 # ╔═╡ 5acf7f2e-69c5-4c21-8498-e2623db5e08f
-out_types = solve_three_types(incomes)
+out_types = solve_three_types(incomes, par, prices)
 
 # ╔═╡ f42b0fc1-e434-40b8-836b-0272a396d1fe
 md"""
@@ -273,7 +263,7 @@ end
 
 # ╔═╡ c090bf4b-460b-4f2c-8fe5-c800df87a201
 let
-	out_types = solve_three_types(incomes)
+	out_types = solve_three_types(incomes, par, prices)
 	aggregate_three_types(out_types, population_shares)
 end
 
