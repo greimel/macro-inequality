@@ -25,9 +25,6 @@ macro bind(def, element)
     #! format: on
 end
 
-# ╔═╡ 64de1600-1108-40e6-addd-f92cdedd2c06
-using AlgebraOfGraphics, CairoMakie
-
 # ╔═╡ 64396e39-bbb8-4715-ab1a-395df9dcf176
 using PlutoUI
 
@@ -52,6 +49,9 @@ using PlutoUI: Slider
 # ╔═╡ a5362775-2190-4d07-8a02-d683cf2e1322
 using Statistics: mean
 
+# ╔═╡ 64de1600-1108-40e6-addd-f92cdedd2c06
+using AlgebraOfGraphics, CairoMakie
+
 # ╔═╡ d92ab8ba-7cf8-4555-aac3-4c3feeb321d9
 using LinearAlgebra: dot
 
@@ -66,7 +66,7 @@ using MarkdownLiteral: @markdown
 
 # ╔═╡ 169ec33a-1ddd-4e48-a6dd-c70eafcada30
 md"""
-`simple-olg.jl` | **Version 1.0** | _last updated: March 18 2025_
+`simple-olg.jl` | **Version 1.1** | _last updated: March 20 2025_
 """
 
 # ╔═╡ cbf50012-bd63-4f94-84bf-bec616ba3499
@@ -195,7 +195,7 @@ let
 	# excess demand for capital
 	ζ_A = K_guess - A 
 
-	@info @test abs(ζ_A) < 1-e5
+	@info @test abs(ζ_A) < 1e-5
 	
 	(; K_guess, A, ζ_A)
 end
@@ -267,14 +267,19 @@ let
 	aggregate_three_types(out_types, population_shares)
 end
 
-# ╔═╡ b7305396-ec61-4577-9d5c-16b7aa8e031c
-md"""
-## Appendix to Task 1
-"""
-
 # ╔═╡ 243d22c2-974a-4e10-9bab-7893fcbebea1
 md"""
 # Appendix to Task 1
+"""
+
+# ╔═╡ cca1a1ff-08df-447e-adea-bd544c9c947a
+md"""
+# More ideas
+
+* Play around with ``\gamma`` and ``r``
+* Analyze inequality
+* Add another income type
+* understand iteration (remove r, w, m)
 """
 
 # ╔═╡ ea3cd7ad-83f5-46e5-b2ed-0b247208048b
@@ -311,16 +316,6 @@ let
 	end
 end
   ╠═╡ =#
-
-# ╔═╡ cca1a1ff-08df-447e-adea-bd544c9c947a
-md"""
-# More ideas
-
-* Play around with ``\gamma`` and ``r``
-* Analyze inequality
-* Add another income type
-* understand iteration (remove r, w, m)
-"""
 
 # ╔═╡ b9cd138d-18ce-49df-b488-5664c29b3880
 
@@ -3110,13 +3105,11 @@ version = "3.6.0+0"
 # ╟─f681f7e1-a16c-4f18-bc7e-da277257b866
 # ╠═f9602466-b64b-4d64-91bf-56fae3d6cef5
 # ╠═5cfdde20-ad4d-4641-b57f-0ca2deb30029
-# ╟─b7305396-ec61-4577-9d5c-16b7aa8e031c
-# ╠═ea1e355f-3bdd-44c1-9725-1e3747925b27
 # ╟─243d22c2-974a-4e10-9bab-7893fcbebea1
-# ╠═64de1600-1108-40e6-addd-f92cdedd2c06
+# ╠═ea1e355f-3bdd-44c1-9725-1e3747925b27
 # ╠═b17271bd-de0c-4a53-93bf-575002126179
-# ╠═ea3cd7ad-83f5-46e5-b2ed-0b247208048b
 # ╟─cca1a1ff-08df-447e-adea-bd544c9c947a
+# ╠═ea3cd7ad-83f5-46e5-b2ed-0b247208048b
 # ╠═b9cd138d-18ce-49df-b488-5664c29b3880
 # ╟─239b9bde-5066-42f9-904c-c8a1e0f862a6
 # ╠═64396e39-bbb8-4715-ab1a-395df9dcf176
@@ -3129,6 +3122,7 @@ version = "3.6.0+0"
 # ╠═cce084ec-d8a6-4000-b640-c2e3218e00aa
 # ╠═026884a5-6f55-4010-933c-152330d1f950
 # ╠═a5362775-2190-4d07-8a02-d683cf2e1322
+# ╠═64de1600-1108-40e6-addd-f92cdedd2c06
 # ╟─57b1ad42-6061-4760-8724-860b18f5b413
 # ╠═da7b15bf-744b-47d1-9f66-53697fd010d2
 # ╟─011893e3-1b91-46ed-8e74-cc03f1b0c9a2
