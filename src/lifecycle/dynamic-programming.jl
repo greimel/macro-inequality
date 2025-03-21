@@ -54,6 +54,9 @@ md"""
 # By hand
 """
 
+# ╔═╡ cb30afb6-6fee-48d9-a673-681455e84362
+
+
 # ╔═╡ 8fcbf923-6a3c-4752-9cff-6cad4b0d0453
 md"""
 # _Discrete_ dynamic programming
@@ -130,13 +133,13 @@ end
 	draw(; facet = (; linkyaxes = false))
 end
 
-# ╔═╡ 8b656ea1-6cdb-4ee1-a315-a0093d86714f
-a_grid = range(0.01, 5.0, length = 10)
-
 # ╔═╡ 50ef7a57-b794-4a57-b08c-898696e27304
 md"""
 ## Solve backward
 """
+
+# ╔═╡ 8b656ea1-6cdb-4ee1-a315-a0093d86714f
+a_grid = sort([0.0; range(-0.1, 0.1, length = 500)])
 
 # ╔═╡ 621f0e40-d93a-4d9a-bb26-8b023f997fc9
 out = let
@@ -154,16 +157,16 @@ out = let
 	c_policy[j = At(J-1)]      .= y .* w .+ (1+r) .* a_grid
 	value[j = At(J-1)]         .= u.(c_policy[j = At(J-1)], Ref(par))
 	
-	(; value, J, a_grid, a_next_policy, c_policy)
+	(; value, J, a_grid, a_next_policy, c_policy, par)
 end
 
 # ╔═╡ be5dcc2c-b315-4c38-8923-c9d5c632bcba
 out.a_next_policy
 
 # ╔═╡ c0855958-5947-4349-a2af-80a6516ddf1e
-let
+sol = let
 	(; J, value, c_policy, a_next_policy, a_grid) = out
-	(; y) = par
+	(; y, β) = par
 	(; r, w) = prices
 	j = J-2
 	
@@ -177,7 +180,7 @@ let
 			
 			# try all possible choices for next period
 			cs = c.(a, a_grid)
-			R = u.(cs, Ref(par)) + value[j = At(j+1)]
+			R = u.(cs, Ref(par)) + β .* value[j = At(j+1)]
 			# find the best one
 			(v, a_i_opt) = findmax(R)
 	
@@ -190,19 +193,77 @@ let
 		end
 	end
 
-	df = DimStack(
+	out_vfi = DimStack(
 		c_policy, a_next_policy, value
-	) |> DataFrame
+	) 
+	
+	df = out_vfi |> DataFrame
 
-	@chain df begin
-		#@subset(:j < 3)
-		data(_) * mapping(:a, :savings, color = :j => nonnumeric) * visual(ScatterLines)
-		draw
-	end
-	#c_policy
-#	scatterlines(c_policy[j = At(j)])
+	(; out_vfi, out, df)
 	
 end
+
+# ╔═╡ 02a87443-adf8-4d72-9686-f0128bd09097
+let
+	(; df) = sol
+	@chain df begin
+		
+		@subset(:j == 9, isfinite(:value))
+		data(_) * mapping(:a, :value, layout = :j => nonnumeric) * visual(Lines)
+		draw
+	end
+end
+
+# ╔═╡ 51a5d452-7d50-4a75-8c7d-8c6f36221776
+sol_forw = let
+	(; a_grid, par) = out
+	(; J) = par
+	
+	a₀ = a_grid[findfirst(≥(0), a_grid)]
+
+	(; out_vfi) = sol
+
+	a_next = out_vfi.savings[j = At(0), a = At(a₀)]
+
+	j_dim = Dim{:j}(0:par.J-1)
+	a_path = zeros(j_dim, name = :savings)
+	c_path = zeros(j_dim, name = :consumption)
+	
+	#a_path[j = At(0)] = a₀
+	
+	for j ∈ 0:J-1
+		a = j == 0 ? a₀ : a_path[j = At(j-1)]
+		c_path[j = At(j)] = out_vfi.consumption[j = At(j), a = At(a)]
+
+		
+		a_next = out_vfi.savings[j = At(j), a = At(a)]
+		a_path[j = At(j)] = a_next
+	end
+
+	scatterlines(a_path)
+
+	DimStack(c_path, a_path)
+	
+end
+
+# ╔═╡ 16ce1c2e-f66d-4ce7-9321-7a282208e73e
+let
+	df = vcat(
+		DataFrame(sol_forw),
+		DataFrame(out_by_hand),
+		source = :method => ["DP", "by hand"]
+	)
+
+
+	@chain df begin
+		stack(Not([:method, :j]))
+		data(_) * mapping(:j, :value, layout = :variable, color = :method) * visual(ScatterLines)
+		draw(facet = (; linkyaxes = false))
+	end
+end
+
+# ╔═╡ 37962654-24d6-493a-a215-79411a757aef
+DataFrame(out_by_hand)
 
 # ╔═╡ 490181de-5739-486f-8118-cbca36052899
 md"""
@@ -212,8 +273,118 @@ md"""
 # ╔═╡ 7ced6ada-47d1-434c-97f9-10e332db3cc7
 cⱼ₋₁(a, (; r, w), (; y)) = w * y + (1+r)*a
 
-# ╔═╡ 1fd05a48-3a2d-47f0-b0f6-d58daeb48886
-Vⱼ₋₁(a, prices, par) = par.β * u(cⱼ₋₁(a, prices, par), par)
+# ╔═╡ 095daf94-7dfd-4941-8d92-36dc668f12ca
+md"""
+# Visualization: Solving backwards
+"""
+
+# ╔═╡ dce4ebe1-37d8-4453-91c6-db8dc771c228
+simple_backwards = let
+	N = 10
+	a_grid = range(-0.1, 0.1, length=N)
+	par = (; y = 1.0, γ = 2.0, β = 0.95)
+	prices = (; r = 0.05, w = 1.1)
+
+	function vⱼ₊₁(a)
+		(; y, γ) = par
+		(; r, w) = prices
+		u(y * w + (1+r) * a, (; γ))
+	end
+	
+	c(a, a_next, (; y), (; r, w)) = y * w + (1+r) * a - a_next
+	uu(a, a_next) = u(c(a, a_next, par, prices), par)
+
+	v(a, a_next) = uu(a, a_next) + par.β * vⱼ₊₁(a_next)
+
+	vⱼ = zeros(N)
+
+	a_next = a_grid
+	for i ∈ 1:N
+		a = a_grid[i]
+		(vv, a_i_opt) = findmax(v.(a, a_next))
+		vⱼ[i] = vv
+	end
+	
+	(; N, par, prices, a_grid, c, uu, v, vⱼ, vⱼ₊₁)
+end
+
+# ╔═╡ de014790-8447-4154-bd7a-ce2d992db220
+md"""
+* Pick grid point ``a^n``, ``n = ``$(@bind a_i Slider(1:simple_backwards.N+1, show_value = true, default = 1))
+* show horizontal line $(@bind show_hline CheckBox(default = false))
+
+"""
+
+# ╔═╡ b106ac88-e2a6-4bf1-8fb4-1480b691fbdb
+let
+	(; N, a_grid, vⱼ, vⱼ₊₁, par, prices) = simple_backwards
+
+	fig = Figure(size = (700, 250))
+	ax1 = Axis(fig[1,1], xlabel = L"assets $a_{j}$", title = L"v_j(a_j)")
+	#hidexdecorations!(ax1, grid = false)
+	ax2 = Axis(fig[1,2], xlabel = L"assets $a_{j+1}$", title = L"v_{j+1}(a_{j+1})")
+	
+	scatter!(ax2, a_grid, 
+		vⱼ₊₁.(a_grid),
+		label = L"v_{j+1}(a_{j+1})"
+	)
+
+	scatter!(ax1, a_grid[1:a_i-1], vⱼ[1:a_i-1])
+	
+	if a_i ≤ N && show_hline
+		hlines!(ax1, vⱼ[a_i], linestyle = :dash, color = :deepskyblue)
+	end
+	
+	text!(ax1, a_grid[a_i:N], 
+		vⱼ[a_i:N], text = fill("?", N-a_i+1),
+		label = L"v_{j}(a_{j})", align = (:center, :center)
+	)
+
+	if a_i ≤ N
+		a = a_grid[a_i]
+		scatter!(ax1, a, vⱼ[a_i], marker = :circle, strokewidth = 1.0, markersize = 20, alpha = 0.0)
+	end
+	
+	fig
+end
+
+# ╔═╡ d28be685-168c-4bff-a855-0c64fca7704b
+let
+	(; c, uu, v, a_grid, N, vⱼ₊₁) = simple_backwards
+
+	fig = Figure(size = (700, 500))
+	ax1 = Axis(fig[1,2])
+	hidexdecorations!(ax1, grid = false)
+	ax2 = Axis(fig[2,2], xlabel = L"assets $a_{j+1}$")
+	
+	scatter!(ax1, a_grid, 
+		vⱼ₊₁.(a_grid),
+		label = L"v_{j+1}(a_{j+1})"
+	)
+	
+	a_i′ = a_i ≤ N ? a_i : N
+	
+	a = a_grid[a_i′]
+	a_next = a_grid
+	
+	scatter!(ax1, a_next, uu.(a, a_next),
+		label = L"u(c(a^%$(a_i′), a_{j+1}))"
+	)
+	
+	scatter!(ax2, a_next, v.(a, a_next),
+		label = L"u(c(a^%$(a_i′), a_{j+1})) + \beta v_{j+1}(a_{j+1})"
+	)
+
+	(v, a_i_opt) = findmax(v.(a, a_next))
+
+	vlines!(ax1, a_grid[a_i_opt], linestyle = :dash, color = :lightgray)
+	vlines!(ax2, a_grid[a_i_opt], linestyle = :dash, color = :lightgray)
+	hlines!(ax2, v, linestyle = :dash, color = :deepskyblue)
+
+	axislegend(ax1, position = :cb)
+	axislegend(ax2, position = :cb)
+	fig
+end
 
 # ╔═╡ ab32f7b3-ed28-4988-b03d-a9b9699945cf
 md"""
@@ -2366,6 +2537,7 @@ version = "3.6.0+0"
 # ╟─b712408f-5e0e-40e0-b612-6cf9a2646338
 # ╠═1680c609-6397-4973-a608-6782219a7050
 # ╠═66675c55-77ed-4ce0-b302-df7992b1216c
+# ╠═cb30afb6-6fee-48d9-a673-681455e84362
 # ╟─8fcbf923-6a3c-4752-9cff-6cad4b0d0453
 # ╟─051d9342-01b0-11f0-3bf9-2f91fc6a0004
 # ╠═4d40d743-4343-4a83-8714-4507c911c755
@@ -2373,17 +2545,25 @@ version = "3.6.0+0"
 # ╠═4b808b60-a91a-4eae-a77d-795fa31f7229
 # ╠═a9c88970-187d-4998-b786-f353147d8aeb
 # ╠═04f026b0-40ad-46c1-a8e0-36717c38f6ef
-# ╠═8b656ea1-6cdb-4ee1-a315-a0093d86714f
 # ╠═1e5e6cef-d8c4-43bf-a6be-46aa48a6f10a
 # ╟─50ef7a57-b794-4a57-b08c-898696e27304
 # ╠═621f0e40-d93a-4d9a-bb26-8b023f997fc9
 # ╠═be5dcc2c-b315-4c38-8923-c9d5c632bcba
 # ╠═eb3d1625-f71b-48c6-aa10-8537f5543f2a
 # ╠═c0855958-5947-4349-a2af-80a6516ddf1e
+# ╠═02a87443-adf8-4d72-9686-f0128bd09097
+# ╠═51a5d452-7d50-4a75-8c7d-8c6f36221776
+# ╠═8b656ea1-6cdb-4ee1-a315-a0093d86714f
+# ╠═16ce1c2e-f66d-4ce7-9321-7a282208e73e
+# ╠═37962654-24d6-493a-a215-79411a757aef
 # ╠═490181de-5739-486f-8118-cbca36052899
 # ╠═7ced6ada-47d1-434c-97f9-10e332db3cc7
-# ╠═1fd05a48-3a2d-47f0-b0f6-d58daeb48886
 # ╠═92a78493-139e-418c-b819-26435c3b59d8
+# ╟─095daf94-7dfd-4941-8d92-36dc668f12ca
+# ╟─de014790-8447-4154-bd7a-ce2d992db220
+# ╟─b106ac88-e2a6-4bf1-8fb4-1480b691fbdb
+# ╟─d28be685-168c-4bff-a855-0c64fca7704b
+# ╟─dce4ebe1-37d8-4453-91c6-db8dc771c228
 # ╟─ab32f7b3-ed28-4988-b03d-a9b9699945cf
 # ╟─c132bfff-54f5-49b7-ae2f-a30273b593c4
 # ╠═4f3389e8-d927-44bc-b492-5233bc8e03fd
