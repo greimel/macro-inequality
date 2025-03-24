@@ -16,6 +16,18 @@ using CairoMakie, AlgebraOfGraphics
 # ╔═╡ 829c6847-89a5-4a4a-807e-b65b04dedc0b
 using Chain, DataFrames, DataFrameMacros
 
+# ╔═╡ e8249393-d1bb-41b0-a36c-8447bd14bc5e
+using LinearAlgebra: diag, I, /
+
+# ╔═╡ 683216f2-51d7-4650-9263-8bc234539460
+using StatsBase: weights
+
+# ╔═╡ 0471e65c-5ca8-49a5-ac32-ebddb01b9738
+using Statistics: mean
+
+# ╔═╡ ba4d8cac-7493-4c69-83b5-78f7d45ff305
+using PlutoUI
+
 # ╔═╡ b1b861ce-0659-11f0-094d-67da13f58563
 md"""
 # Housing
@@ -32,6 +44,9 @@ prices = (; p = 1.1, r = 1/par.β - 1 + Δr, w = 1.1)
 
 # ╔═╡ 8f170e55-a231-44ba-981f-b3bca28bcf9c
 u(c, h, (; ξ, γ)) = (c^(1-ξ) * h^ξ)^(1-γ)/(1-γ)
+
+# ╔═╡ 8f7bb3db-74a1-4457-8f67-9604ce5bb799
+
 
 # ╔═╡ f5de9b3b-0a20-40cb-a39b-743dd215c44e
 c_by_ph((; ξ, β, δ), (; p)) = (1-ξ)/ξ * (1 - β * (1-δ))
@@ -66,45 +81,13 @@ md"""
 # ╔═╡ d00d0c99-44e8-4131-96d7-9f7956bf9629
 #vⱼ₊₁ ωⱼ₋₁
 
-# ╔═╡ 60c29d2c-12a6-444d-9dab-4c7cabfde5cd
-function c_h(ωⱼ, ωⱼ₊₁, (; y, δ, β, ξ), (; w, r, p))
-	lhs₀ = w * y + ωⱼ - ωⱼ₊₁/(1+r)
-
-	κ = (1-ξ)/ξ * (1 - β * (1-δ)) # κ = c/ph
-
-	c₊ph = w * y + ωⱼ
-	#ph(κ + (r-δ)/(1+r)) = lhs
-
-	ph = lhs₀ / (κ + (r+δ)/(1+r))
-
-	c = κ * ph
-
-	#check = c + ph
-	
-	aⱼ₊₁ = (ωⱼ₊₁ - ph * (1-δ))/(1+r)
-
-	check = aⱼ₊₁ + c + ph - (w * y + ωⱼ)
-
-	lhsx = c + ph - ph * (1-δ)/(1+r)
-	rhsx = ωⱼ - ωⱼ₊₁/(1+r) + w * y
-	
-	(; c, ph, h = ph ./ p, check, lhs₀, aⱼ₊₁, lhsx, rhsx)
-
-	lhsy = aⱼ₊₁
-	rhsy = (ωⱼ₊₁ - ph * (1-δ))/(1+r)
-
-	lhsz = c + ph + aⱼ₊₁
-	rhsz = w * y + ωⱼ
-	(; lhsz, rhsz, lhsy, rhsy)
-	
-end
-
 # ╔═╡ c5ca1482-7252-4220-92ec-a67900f036e4
 function κ₀((; δ, ξ, β), (; p); terminal) 
 	if terminal
 		β = 0.0
 	end
-	(1-ξ)/ξ * (p - β * (1-δ) * p)
+    
+	(1-ξ)/ξ * (1 - β * (1 - δ)) # c_by_ph
 end
 
 # ╔═╡ fd3cb5a8-8717-4d2f-8e58-4151a25f79dd
@@ -119,7 +102,7 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 	phⱼ = 1/(κ + (r+δ)/(1+r)) * (ωⱼ + inc - ωⱼ₊₁/(1+r))
 	cⱼ = κ * phⱼ
 	hⱼ = phⱼ/p
-
+	
 	uⱼ = if (terminal && ωⱼ₊₁ < 0) || cⱼ < 0
 		-Inf
 	else
@@ -143,6 +126,16 @@ end
 
 # ╔═╡ 1dbb9a6c-831e-4519-a862-668e61ea6a4e
 ω_grid = sort([0.0; range(-1.0, 10.0, length = 1000)])
+
+# ╔═╡ 05e5b372-8913-48e9-b8b1-d3358e63896f
+@chain out begin
+	stack([:cⱼ, :hⱼ, :ωⱼ₊₁], :j)
+	data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
+	draw(; facet = (; linkyaxes = false))
+end
+
+# ╔═╡ 2c48fbd0-cc5b-4ade-88f5-ed4a1d7805ef
+out
 
 # ╔═╡ 53e1c988-fda6-473f-ba2c-b460483813d1
 function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
@@ -170,15 +163,12 @@ function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 end
 
 # ╔═╡ f61bf1a6-634f-4a47-8c28-efd42ce87747
-out = let
-	J = 100
+function solve_backward_forward(ω_grid, J, par, prices)
 	j_dim = Dim{:j}(0:J-1)
 	ω_dim = Dim{:ω}(ω_grid)
 
 	TT = choices(0.0, 0.0, par, prices, details = true) |> typeof
 	N = length(ω_grid)
-	
-	
 	
 	value  = zeros((ω_dim, j_dim))
 	policy = DimArray(
@@ -211,12 +201,147 @@ out = let
 	
 end
 
-# ╔═╡ 05e5b372-8913-48e9-b8b1-d3358e63896f
-@chain out begin
-	stack([:cⱼ, :hⱼ, :ωⱼ₊₁], :j)
-	data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
-	draw(; facet = (; linkyaxes = false))
+# ╔═╡ 4ee76793-be3c-4849-ab1c-cc64d0cdf906
+md"""
+# Testing against _Falling Behind_
+"""
+
+# ╔═╡ a4e70adc-7780-4456-96db-4e72feb2d032
+function choices_test(p, (; r, β, δ, ξ, ε, Φ, G, #=group_weights, α, L̄,=# y_scale), y₀, a₋₁, h₋₁)
+	
+	κ₀ = ((1 - β * (1 - δ)) * (1-ξ)/ξ * p)^(1/(1-ε))
+	@assert κ₀ ≈ ((r+δ)/(1+r) * (1-ξ)/ξ * p)^(1/(1-ε))
+
+	κ₂ = 1 / (p * (r+δ) / (1+r) + κ₀)
+	κ₁ = κ₀ * κ₂
+	κ₃ = p * (1-δ)/(1+r) * κ₂
+	
+	if ε ≈ 0.0
+		@assert κ₀ ≈ p * (1 - β * (1 - δ)) * (1-ξ)/ξ
+		@assert κ₁ ≈ (1-ξ)
+		@assert κ₂ ≈ ξ * (1+r)/(p * (δ + r))	
+	end
+
+	ϕs = diag(Φ)
+	
+	Θ = y_scale # productivity level
+	y = y₀ .* Θ
+
+	# initial wealth (including housing)
+	ã₋₁ = @. a₋₁ + (1-δ)/(1+r) * p * h₋₁	
+	𝒴 = @. r * ã₋₁ + y
+
+	IpL2(Y) = (I - κ₁ * Φ * G) \ Y
+	
+	h = κ₂ * IpL2(𝒴)		
+	
+	h̃ = G * h
+
+	c = κ₀ .* (h .- Φ * h̃)
+
+	debt = (y - c - δ * p * h) / r
+	#debt2 = (κ₃ / κ₂) .* h .- ã₋₁
+	#@assert debt ≈ debt2
+	
+	ph = p .* h
+
+	#if !(group_weights isa AbstractWeights)
+	#	group_weights = weights(group_weights)
+	#	@info "applied `weights()` to `group_weights`"
+	#end
+
+	ω = (1-δ) * ph + (1+r) * (-debt)
+	return (; c, h, ph, debt, κ₀, ω)
+	
+	#=
+	sensitivities = bellet_sensitivity.(h, h̃, [(; ϕ) for ϕ ∈ ϕs])
+	
+	avg_sensitivity = mean(sensitivities, group_weights)
+
+	hx = δ .* ph .+ r .* debt
+	tx = c + hx
+	
+	∑𝒴    = sum(𝒴, group_weights)
+	∑h    = sum(h, group_weights)
+	∑c    = sum(c, group_weights)
+	∑ph   = p * ∑h
+	∑debt = sum(debt, group_weights)
+
+	housing_expenditures =  sum(hx, group_weights)
+	total_expenditures = sum(tx, group_weights)
+
+	Iₕ_demand = ∑h * δ
+	Iₕ_supply = I_supply(p, (; α, L̄))
+
+	Nₕ = p * α / Θ * Iₕ_supply
+	ζₕ = Iₕ_demand - Iₕ_supply
+	ζₕ_rel = ζₕ / maximum(abs, [Iₕ_demand, Iₕ_supply])
+
+	group_tbl = (; 
+			c, h, h̃, ph, 
+			hx, tx, hx2y = hx ./ 𝒴, hx_share = hx ./ tx,
+			debt, d2y = debt ./ 𝒴,
+			𝒴, group = groups, group_weight = group_weights, sensitivities, ϕs
+	)
+
+	(; p, rhpi=p, Iₕ_demand, Iₕ_supply, ζₕ, ζₕ_rel, ∑h, ∑debt, ∑ph,
+		d2y = ∑debt / ∑𝒴, d2ph = ∑debt / ∑ph, ph2y = ∑ph / ∑𝒴,
+		hx2y = housing_expenditures / ∑𝒴,
+		hx_share = housing_expenditures / total_expenditures,
+		ϕs, ela, ε, group_tbl, avg_sensitivity, sensitivities, Nₕ
+	)
+	=#
 end
+
+# ╔═╡ 0af642fe-5083-4db8-8384-f0b572fa88a3
+criterion(a, b) = abs(a - b) / (1 + max(abs(a), abs(b)))
+
+# ╔═╡ e27ecff7-bf67-4c99-8970-001b078f48ff
+let
+	J = 100
+	ω_grid = sort([0.0; range(-0.5, 0.5, length = 100)])
+	
+	par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
+	prices = (; p = 1.123, r = 1/par.β - 1, w = 1.0)
+
+	out = solve_backward_forward(ω_grid, J, par, prices)
+
+	(; cⱼ, hⱼ, phⱼ, aⱼ₊₁, ωⱼ₊₁) = first(out)
+
+	out_test = let
+		y₀ = [par.y]
+		a₋₁ = 0.0
+		h₋₁ = 0.0
+
+		par_new = (; prices.r, ε = 0.0, Φ = zeros(1,1), G = zeros(1,1), y_scale = 1.0, par...)
+	
+
+		out = choices_test(prices.p, par_new, y₀, a₋₁, h₋₁)
+
+	end
+
+	c_test = only(out_test.c)
+	h_test = only(out_test.h)
+	ph_test = only(out_test.ph)
+	
+	ω_test = only(out_test.ω)
+
+	@info @test cⱼ ≈ c_test
+	@info @test hⱼ ≈ h_test
+	@info @test criterion(ωⱼ₊₁, ω_test) < 1e-10
+	
+	(; ωⱼ₊₁, ω_test, cⱼ, c_test, hⱼ, h_test)
+
+	
+end
+
+# ╔═╡ 3ed4f678-f428-4732-b2d3-db68c22669d8
+md"""
+# Appendix
+"""
+
+# ╔═╡ a6264cf7-e6dc-410b-856b-241be2c858c9
+TableOfContents()
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -227,7 +352,11 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
+PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 AlgebraOfGraphics = "~0.9.2"
@@ -237,6 +366,9 @@ DataFrameMacros = "~0.4.1"
 DataFrames = "~1.7.0"
 DimensionalData = "~0.29.12"
 PlutoTest = "~0.2.2"
+PlutoUI = "~0.7.61"
+Statistics = "~1.11.1"
+StatsBase = "~0.34.4"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -245,7 +377,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "43e84875fda848da07d4c454c5df413dd7b2d861"
+project_hash = "20784a756e5d1f00c5f7ce6859fa8360cc6a5ff0"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -257,6 +389,12 @@ weakdeps = ["ChainRulesCore", "Test"]
     [deps.AbstractFFTs.extensions]
     AbstractFFTsChainRulesCoreExt = "ChainRulesCore"
     AbstractFFTsTestExt = "Test"
+
+[[deps.AbstractPlutoDingetjes]]
+deps = ["Pkg"]
+git-tree-sha1 = "6e1d2a35f2f90a4bc7c2ed98079b2ba09c35b83a"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.3.2"
 
 [[deps.AbstractTrees]]
 git-tree-sha1 = "2d9c9a55f9c93e8887ad391fbae72f8ef55e1177"
@@ -839,11 +977,23 @@ git-tree-sha1 = "68c173f4f449de5b438ee67ed0c9c748dc31a2ec"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.28"
 
+[[deps.Hyperscript]]
+deps = ["Test"]
+git-tree-sha1 = "179267cfa5e712760cd43dcae385d7ea90cc25a4"
+uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
+version = "0.0.5"
+
 [[deps.HypertextLiteral]]
 deps = ["Tricks"]
 git-tree-sha1 = "7134810b1afce04bbc1045ca1985fbe81ce17653"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 version = "0.9.5"
+
+[[deps.IOCapture]]
+deps = ["Logging", "Random"]
+git-tree-sha1 = "b6d6bfdd7ce25b0f9b2f6b3dd56b2673a66c8770"
+uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
+version = "0.2.5"
 
 [[deps.ImageAxes]]
 deps = ["AxisArrays", "ImageBase", "ImageCore", "Reexport", "SimpleTraits"]
@@ -1177,6 +1327,11 @@ version = "0.3.29"
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 version = "1.11.0"
 
+[[deps.MIMEs]]
+git-tree-sha1 = "1833212fd6f580c20d4291da9c1b4e8a655b128e"
+uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
+version = "1.0.0"
+
 [[deps.MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "oneTBB_jll"]
 git-tree-sha1 = "5de60bc6cb3899cd318d80d627560fae2e2d99ae"
@@ -1406,6 +1561,12 @@ deps = ["HypertextLiteral", "InteractiveUtils", "Markdown", "Test"]
 git-tree-sha1 = "17aa9b81106e661cffa1c4c36c17ee1c50a86eda"
 uuid = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 version = "0.2.2"
+
+[[deps.PlutoUI]]
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
+git-tree-sha1 = "7e71a55b87222942f0f9337be62e26b1f103d3e4"
+uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+version = "0.7.61"
 
 [[deps.PolygonOps]]
 git-tree-sha1 = "77b3d3605fc1cd0b42d95eba87dfcd2bf67d5ff6"
@@ -1787,6 +1948,11 @@ git-tree-sha1 = "4d4ed7f294cda19382ff7de4c137d24d16adc89b"
 uuid = "981d1d27-644d-49a2-9326-4793e63143c3"
 version = "0.1.0"
 
+[[deps.URIs]]
+git-tree-sha1 = "67db6cc7b3821e19ebe75791a9dd19c9b1188f2b"
+uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
+version = "1.5.1"
+
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
@@ -1990,12 +2156,12 @@ version = "3.6.0+0"
 # ╠═9666b117-8273-4b32-a757-cb5a7b0ef107
 # ╠═df8d0140-cd53-4864-b5f6-900661da5113
 # ╠═8f170e55-a231-44ba-981f-b3bca28bcf9c
+# ╠═8f7bb3db-74a1-4457-8f67-9604ce5bb799
 # ╠═f5de9b3b-0a20-40cb-a39b-743dd215c44e
 # ╠═f2457772-3de4-47d2-946a-6f6e15a48fc4
 # ╟─cb7f3832-c1e9-48de-b21e-2390b6d1a2e8
 # ╠═ba62cdca-ac5a-480b-b930-7b121156eba6
 # ╠═d00d0c99-44e8-4131-96d7-9f7956bf9629
-# ╠═60c29d2c-12a6-444d-9dab-4c7cabfde5cd
 # ╠═ceda67ec-c351-4776-9980-0f2c27e0ea02
 # ╠═c5ca1482-7252-4220-92ec-a67900f036e4
 # ╠═fd3cb5a8-8717-4d2f-8e58-4151a25f79dd
@@ -2004,6 +2170,17 @@ version = "3.6.0+0"
 # ╠═f61bf1a6-634f-4a47-8c28-efd42ce87747
 # ╠═1dbb9a6c-831e-4519-a862-668e61ea6a4e
 # ╠═05e5b372-8913-48e9-b8b1-d3358e63896f
+# ╠═2c48fbd0-cc5b-4ade-88f5-ed4a1d7805ef
 # ╠═53e1c988-fda6-473f-ba2c-b460483813d1
+# ╟─4ee76793-be3c-4849-ab1c-cc64d0cdf906
+# ╠═e27ecff7-bf67-4c99-8970-001b078f48ff
+# ╠═a4e70adc-7780-4456-96db-4e72feb2d032
+# ╠═e8249393-d1bb-41b0-a36c-8447bd14bc5e
+# ╠═683216f2-51d7-4650-9263-8bc234539460
+# ╠═0471e65c-5ca8-49a5-ac32-ebddb01b9738
+# ╠═0af642fe-5083-4db8-8384-f0b572fa88a3
+# ╟─3ed4f678-f428-4732-b2d3-db68c22669d8
+# ╠═ba4d8cac-7493-4c69-83b5-78f7d45ff305
+# ╠═a6264cf7-e6dc-410b-856b-241be2c858c9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
