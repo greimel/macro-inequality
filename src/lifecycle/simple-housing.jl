@@ -28,6 +28,70 @@ using Statistics: mean
 # ╔═╡ ba4d8cac-7493-4c69-83b5-78f7d45ff305
 using PlutoUI
 
+# ╔═╡ 134ba669-b2e2-40c3-872b-b79d14d16544
+md"""
+## Model
+
+```math
+\begin{align*}
+&\max \sum_{j=0}^{J-1} \beta^t \textcolor{orange}{\frac{\Phi_j}{\Phi_{j-1}} (?)}u(c_j, s(h_j, \tilde h_j)) \\
+&\begin{aligned}\text{subject to }
+&x_j = h_j - (1-\delta)h_{t-1} \\
+&c_j + p_{t(j)} x_j + a_{j+1} = y_j + (1+r_{t(j)}) a_{j} \\
+&s(h_j, \tilde h_j) = h_j - \phi \tilde h_j \\
+&a_{0}, h_{-1} \text{ given}
+\end{aligned}
+\end{align*}
+```
+"""
+
+# ╔═╡ dd01a6ba-ea0b-4f10-8597-c7d5f36cf5fe
+md"""
+### Life-time budget constraint
+
+```math
+\begin{align*}
+	\sum_{j=0}^{J-1} \Bigl(\frac{1}{1+r}\Bigr)^j (c_j + x_j) = \sum_{j=0}^{J-1} \Bigl(\frac{1}{1+r}\Bigr)^j (y_j) + (1+r) a_0 + 
+\end{align*}
+```
+"""
+
+# ╔═╡ ee8b2332-192c-4cd3-b89a-97fd5db07fa4
+md"""
+The Lagrangian is 
+
+```math
+\sum_{t=0}^\infty \beta^t \Biggl(u(c_t, s(h_t, \tilde h_t)) - \lambda_t \Bigl(c_t + p_t h_t + a_t - y_t - (1+r_t) a_{t-1} - (1-\delta)p_t h_{t-1}\Bigr) \Biggr)
+```
+
+* ``(a_t)``: ``\textcolor{lightgray}{\beta^t} \lambda_t = \textcolor{purple}{\beta}^\textcolor{lightgray}{t+1} \lambda_{t+1} \textcolor{purple}{(1+r)} = \lambda_t = \lambda``
+* ``(c_t)``: ``u_{c_t} = \lambda_t = \lambda``
+* ``(h_t)``: ``\textcolor{lightgray}{\beta^t} (u_{s_t} \textcolor{lightgray}{s_{h_t}} - \lambda_\textcolor{lightgray}{t} p_t) + \beta^\textcolor{lightgray}{t+1} \textcolor{lightgray}{(-1)}\lambda_\textcolor{lightgray}{t+1} \textcolor{lightgray}{(-1)} (1-\delta) p_{t+1} = 0 ``
+
+"""
+
+# ╔═╡ 71fcb5c5-073f-438c-bf17-0d8f666facac
+md"""
+#### 1. Rewriting the third FOC (CD-CRRA – using ``\beta (1+r) = 1``)
+
+```math
+\begin{align}
+u_{h_t} - \lambda p_t &= - \lambda \beta (1-\delta) p_{t+1} \\
+\frac{u_{h_t}}{u_{c_t}} &= p_t -\beta (1-\delta) p_{t+1} \\
+\end{align}
+```
+
+Above, we computed ``\frac{u_{h_t}}{u_{c_t}}= \frac{\xi}{1-\xi}\frac{c_t}{h_t}``. Hence,
+
+```math
+\begin{align*}
+\frac{\xi}{1-\xi}\frac{c_t}{h_t} &= p_t - \beta (1-\delta) p_{t+1} \\
+\implies \frac{c_t}{h_t} &= \frac{1-\xi}{\xi}\bigl(p_t - \beta (1-\delta) p_{t+1} \bigr) \\
+\implies \frac{c_t}{p_t h_t} &= \underbrace{\frac{1-\xi}{\xi}\biggl(1 - \beta (1-\delta) \frac{p_{t+1}}{p_t} \biggr)}_{=: \kappa(p_t, p_{t+1})} \tag{$***$} \\
+\end{align*}
+```
+"""
+
 # ╔═╡ b1b861ce-0659-11f0-094d-67da13f58563
 md"""
 # Housing
@@ -44,12 +108,6 @@ prices = (; p = 1.1, r = 1/par.β - 1 + Δr, w = 1.1)
 
 # ╔═╡ 8f170e55-a231-44ba-981f-b3bca28bcf9c
 u(c, h, (; ξ, γ)) = (c^(1-ξ) * h^ξ)^(1-γ)/(1-γ)
-
-# ╔═╡ 8f7bb3db-74a1-4457-8f67-9604ce5bb799
-
-
-# ╔═╡ f5de9b3b-0a20-40cb-a39b-743dd215c44e
-c_by_ph((; ξ, β, δ), (; p)) = (1-ξ)/ξ * (1 - β * (1-δ))
 
 # ╔═╡ cb7f3832-c1e9-48de-b21e-2390b6d1a2e8
 md"""
@@ -82,26 +140,26 @@ md"""
 #vⱼ₊₁ ωⱼ₋₁
 
 # ╔═╡ c5ca1482-7252-4220-92ec-a67900f036e4
-function κ₀((; δ, ξ, β), (; p); terminal) 
+function κ₀((; δ, ξ, β), (; pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎); terminal) 
 	if terminal
 		β = 0.0
 	end
     
-	(1-ξ)/ξ * (1 - β * (1 - δ)) # c_by_ph
+	(1-ξ)/ξ * (1 - β * (1 - δ) * pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) # c_by_ph
 end
 
 # ╔═╡ fd3cb5a8-8717-4d2f-8e58-4151a25f79dd
 function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = false)
-	(; r, p, w) = prices
+	(; r, w, pₜ₍ⱼ₎) = prices
 	(; δ, y, ξ, β) = par
 	
 	inc = y * w
 	
 	κ = κ₀(par, prices; terminal)
 
-	phⱼ = 1/(κ + (r+δ)/(1+r)) * (ωⱼ + inc - ωⱼ₊₁/(1+r))
-	cⱼ = κ * phⱼ
-	hⱼ = phⱼ/p
+	pₜ₍ⱼ₎hⱼ = 1/(κ + (r+δ)/(1+r)) * (ωⱼ + inc - ωⱼ₊₁/(1+r))
+	cⱼ = κ * pₜ₍ⱼ₎hⱼ
+	hⱼ = pₜ₍ⱼ₎hⱼ/pₜ₍ⱼ₎
 	
 	uⱼ = if (terminal && ωⱼ₊₁ < 0) || cⱼ < 0
 		-Inf
@@ -109,19 +167,28 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 		u(cⱼ, hⱼ, par)
 	end
 	
-	aⱼ₊₁ = (ωⱼ₊₁ - (1-δ) * phⱼ)/(1+r)
+	aⱼ₊₁ = (ωⱼ₊₁ - (1-δ) * pₜ₍ⱼ₎hⱼ)/(1+r)
 	
 	let
-		lhs = cⱼ + phⱼ + aⱼ₊₁
+		lhs = cⱼ + pₜ₍ⱼ₎hⱼ + aⱼ₊₁
 		rhs = ωⱼ + inc
 		#@info @test lhs ≈ rhs
 	end
 
 	if details
-		return (; cⱼ, phⱼ, aⱼ₊₁, hⱼ, uⱼ, ωⱼ₊₁)
+		return (; cⱼ, phⱼ = pₜ₍ⱼ₎hⱼ, aⱼ₊₁, hⱼ, uⱼ, ωⱼ₊₁, pₜ₍ⱼ₎)
 	else
 		return uⱼ
 	end
+end
+
+# ╔═╡ 9c9ceccb-fb28-419b-a9ed-37aaf6406f3c
+function prices_from_price_paths(price_paths, t)
+	(; 
+		price_paths.r, price_paths.w, 
+		pₜ₍ⱼ₎   = price_paths.ps[t = At(t)],
+		pₜ₍ⱼ₊₁₎ = price_paths.ps[t = At(t+1)]
+	)
 end
 
 # ╔═╡ 1dbb9a6c-831e-4519-a862-668e61ea6a4e
@@ -133,9 +200,6 @@ end
 	data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
 	draw(; facet = (; linkyaxes = false))
 end
-
-# ╔═╡ 2c48fbd0-cc5b-4ade-88f5-ed4a1d7805ef
-out
 
 # ╔═╡ 53e1c988-fda6-473f-ba2c-b460483813d1
 function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
@@ -151,6 +215,7 @@ function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 	
 	for ωⱼ ∈ ω_grid
 		ωⱼ₊₁ = ω_grid
+		
 		us = choices.(ωⱼ, ωⱼ₊₁, Ref(par), Ref(prices))
 		
 		(v, ω_i_opt) = findmax(us .+ β .* vⱼ₊₁)
@@ -163,22 +228,35 @@ function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 end
 
 # ╔═╡ f61bf1a6-634f-4a47-8c28-efd42ce87747
-function solve_backward_forward(ω_grid, J, par, prices)
+function solve_backward_forward(ω_grid, J, par, price_paths; born = 0)
 	j_dim = Dim{:j}(0:J-1)
 	ω_dim = Dim{:ω}(ω_grid)
 
+	
+	prices = prices_from_price_paths(price_paths, (J-1) + born)
+	
 	TT = choices(0.0, 0.0, par, prices, details = true) |> typeof
 	N = length(ω_grid)
 	
 	value  = zeros((ω_dim, j_dim))
 	policy = DimArray(
 		Array{TT}(undef, (N, J)), (ω_dim, j_dim))
+
+	#p    = prices.p
+	
+	#pₜ₍ⱼ₎   = p[j = At(J-1)]
+	#pₜ₍ⱼ₊₁₎ = 0.0
+	#pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎
+
 	
 	value[j = At(J-1)]  .= choices.(ω_grid, 0.0, Ref(par), Ref(prices); terminal = true)
 	policy[j = At(J-1)] .= choices.(ω_grid, 0.0, Ref(par), Ref(prices); terminal = true, details = true)
 
 	for j ∈ J-2:-1:0
+		t = j + born
+		
 		vⱼ₊₁ = value[j = At(j+1)]
+		prices = prices_from_price_paths(price_paths, t)
  		(; vⱼ, polⱼ) = iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 
 		value[ j = At(j)] .= vⱼ
@@ -205,6 +283,85 @@ end
 md"""
 # Testing against _Falling Behind_
 """
+
+# ╔═╡ c4935e89-b84e-41e0-b032-6c336830128c
+let
+ par = (σ = 2.0,
+r = 0.121147,
+β = 0.891944,
+ξ = 0.161566,
+δ = 0.103222)
+
+	par.β * (1 + par.r)
+end
+
+# ╔═╡ ee007b1f-e5b5-475e-b672-53483ad42f88
+
+
+# ╔═╡ 67f9ea5a-157d-4d35-95e2-b0a57070a5f5
+let
+	J = 200
+
+	p₀ = 1.123
+	p₁ = (1.001)^J #2 .* p₁1.345
+
+	ω_grid = sort([0.0; range(-1.5, 3.0, length = 500)])
+	t_dim = Dim{:t}(0:J)
+	
+	ps = DimVector(range(p₀, p₁, length = J+1), t_dim, name = :p)
+
+	par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
+	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
+
+	out = solve_backward_forward(ω_grid, J, par, price_paths)
+
+	@chain out begin
+		@subset(:j < 0.8 * J)
+		stack(Not(:j))
+		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end
+	#(; cⱼ, hⱼ, phⱼ, aⱼ₊₁, ωⱼ₊₁) = first(out)
+end
+	
+
+# ╔═╡ 230bdd4d-99fb-4adb-971b-dbef024b3e20
+p_test = [0.5028480280461705, 0.5241238908263111, 0.5229295236881214, 0.5217017148142188, 0.5204099628296323, 0.5190844559661794, 0.5177911453101505, 0.5166033832040168, 0.5155792381994333, 0.5147496348256029, 0.514117292657164, 0.5136630071761439, 0.5133549339145355, 0.5131574170435576, 0.5130374257916149, 0.5129680665281533, 0.5129295872492532, 0.5129087271453475, 0.5128972868297691, 0.5128905760328677, 0.5128861057502261, 0.512882648490296, 0.5128796410208144, 0.5128768425830681, 0.512874157028558, 0.5128715481667272, 0.512869002797782, 0.5128665158769151, 0.5128640850404091, 0.5128617087497279, 0.5128593857139132, 0.512857114724707, 0.5128548946132658, 0.5128527242394967, 0.5128506024893068, 0.5128485282736247, 0.5128465005277771, 0.512844518210923, 0.5128425803055271, 0.5128406858168318, 0.5128388337723554, 0.5128370232213857, 0.5128352532344975, 0.5128335229030779, 0.5128318313388551, 0.5128301776734494, 0.5128285610579219, 0.5128269806623478, 0.5128254356753813, 0.5128239253038469, 0.5128224487723303, 0.51282100532278, 0.5128195942141227, 0.5128182147218784, 0.5128168661377885, 0.5128155477694639, 0.5128142589400108, 0.5128129989877024, 0.5128117672656282, 0.5128105631413655, 0.5128093859966565, 0.5128082352270891, 0.5128071102417884, 0.5128060104631144, 0.5128049353263597, 0.5128038842794712, 0.5128028567827553, 0.5128018523086093, 0.5128008703412458, 0.5127999103764325, 0.5127989719212271, 0.5127980544937343, 0.5127971576228445, 0.5127962808480111, 0.5127954237189918, 0.5127945857956379, 0.5127937666476585, 0.512792965854397, 0.512792183004622, 0.5127914176963164, 0.5127906695364635, 0.5127899381408534, 0.5127892231338809, 0.512788524148357, 0.5127878408253143, 0.5127871728138315, 0.5127865197708417, 0.5127858813609696, 0.5127852572563489, 0.5127846471364574, 0.512784050687956, 0.5127834676045216, 0.5127828975866932, 0.512782340341722, 0.5127817955834106, 0.5127812630319774, 0.5127807424139057, 0.512780233461807, 0.5127797359142817, 0.5127792495157849, 0.5127787740164927, 0.5127783091721871, 0.5127778547441065, 0.5127774104988446, 0.5127769762082233, 0.512776551649171, 0.5127761366036104, 0.512775730858354, 0.5127753342049791, 0.5127749464397375, 0.5127745673634349, 0.512774196781341, 0.5127738345030819, 0.512773480342542, 0.5127731341177729, 0.5127727956508938, 0.5127724647680043, 0.5127721412990883, 0.5127718250779322, 0.5127715159420378, 0.5127712137325312, 0.5127709182940903, 0.5127706294748553, 0.512770347126351, 0.5127700711034155, 0.5127698012641151, 0.5127695374696728, 0.5127692795843962, 0.512769027475605, 0.5127687810135566, 0.5127685400713826, 0.5127683045250161, 0.5127680742531386, 0.512767849137125, 0.5127676290610595, 0.5127674139118498, 0.512767203579637, 0.5127669979589149, 0.5127667969510747, 0.5127666004699587, 0.5127664084530146, 0.5127662208823485, 0.5127660378222231, 0.5127658594819225, 0.5127656863153942, 0.5127655191709162, 0.5127653595047076, 0.5127652096725649, 0.5127650733136256, 0.5127649558432817, 0.5127648650805959, 0.5127648120533261]
+
+# ╔═╡ f2a067a9-b486-45dc-8d37-8b26b83ebfd2
+let
+	T = 300
+	T₀ = length(p_test)
+	
+	born = -1
+	t_dim = Dim{:t}(-1:T)
+	ys = fill(1.19787, t_dim, name = :y)
+	ys[t = At(-1)] = 1.14083
+
+	ps = DimArray([p_test; fill(p_test[end], T - T₀ + 2)], t_dim, name = :p)
+
+	J = 200 #T-born
+
+	ω_grid = sort([0.0; range(-0.011, 0.005, length = 250)])
+	j_dim = Dim{:j}(0:J)
+	
+#	ps = DimVector(range(p₀, p₁, length = J+1), j_dim, name = :p)
+
+	par = (γ = 2.0, β = 0.891944, ξ = 0.161566, δ = 0.103222, y = 1.19787)
+	
+	#par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
+	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
+
+	out = solve_backward_forward(ω_grid, J, par, price_paths; born)
+
+	@info out
+	@chain out begin
+		@subset(:j < 150)
+		stack(Not(:j))
+		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end # =#
+end
 
 # ╔═╡ a4e70adc-7780-4456-96db-4e72feb2d032
 function choices_test(p, (; r, β, δ, ξ, ε, Φ, G, #=group_weights, α, L̄,=# y_scale), y₀, a₋₁, h₋₁)
@@ -299,12 +456,17 @@ criterion(a, b) = abs(a - b) / (1 + max(abs(a), abs(b)))
 # ╔═╡ e27ecff7-bf67-4c99-8970-001b078f48ff
 let
 	J = 100
+	p = 1.123
+	
 	ω_grid = sort([0.0; range(-0.5, 0.5, length = 100)])
+	t_dim = Dim{:t}(0:J)
+	
+	ps = fill(p, t_dim, name = :p)
 	
 	par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
-	prices = (; p = 1.123, r = 1/par.β - 1, w = 1.0)
+	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
 
-	out = solve_backward_forward(ω_grid, J, par, prices)
+	out = solve_backward_forward(ω_grid, J, par, price_paths)
 
 	(; cⱼ, hⱼ, phⱼ, aⱼ₊₁, ωⱼ₊₁) = first(out)
 
@@ -313,10 +475,10 @@ let
 		a₋₁ = 0.0
 		h₋₁ = 0.0
 
-		par_new = (; prices.r, ε = 0.0, Φ = zeros(1,1), G = zeros(1,1), y_scale = 1.0, par...)
+		par_new = (; price_paths.r, ε = 0.0, Φ = zeros(1,1), G = zeros(1,1), y_scale = 1.0, par...)
 	
 
-		out = choices_test(prices.p, par_new, y₀, a₋₁, h₋₁)
+		out = choices_test(p, par_new, y₀, a₋₁, h₋₁)
 
 	end
 
@@ -2151,13 +2313,15 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─134ba669-b2e2-40c3-872b-b79d14d16544
+# ╠═dd01a6ba-ea0b-4f10-8597-c7d5f36cf5fe
+# ╟─ee8b2332-192c-4cd3-b89a-97fd5db07fa4
+# ╟─71fcb5c5-073f-438c-bf17-0d8f666facac
 # ╟─b1b861ce-0659-11f0-094d-67da13f58563
 # ╠═bae86455-59b4-42fc-9f0e-b14ed67b9e5f
 # ╠═9666b117-8273-4b32-a757-cb5a7b0ef107
 # ╠═df8d0140-cd53-4864-b5f6-900661da5113
 # ╠═8f170e55-a231-44ba-981f-b3bca28bcf9c
-# ╠═8f7bb3db-74a1-4457-8f67-9604ce5bb799
-# ╠═f5de9b3b-0a20-40cb-a39b-743dd215c44e
 # ╠═f2457772-3de4-47d2-946a-6f6e15a48fc4
 # ╟─cb7f3832-c1e9-48de-b21e-2390b6d1a2e8
 # ╠═ba62cdca-ac5a-480b-b930-7b121156eba6
@@ -2167,12 +2331,17 @@ version = "3.6.0+0"
 # ╠═fd3cb5a8-8717-4d2f-8e58-4151a25f79dd
 # ╠═8e018136-64f9-4a1f-975b-2d5ea5b08498
 # ╠═829c6847-89a5-4a4a-807e-b65b04dedc0b
+# ╠═9c9ceccb-fb28-419b-a9ed-37aaf6406f3c
 # ╠═f61bf1a6-634f-4a47-8c28-efd42ce87747
 # ╠═1dbb9a6c-831e-4519-a862-668e61ea6a4e
 # ╠═05e5b372-8913-48e9-b8b1-d3358e63896f
-# ╠═2c48fbd0-cc5b-4ade-88f5-ed4a1d7805ef
 # ╠═53e1c988-fda6-473f-ba2c-b460483813d1
 # ╟─4ee76793-be3c-4849-ab1c-cc64d0cdf906
+# ╠═c4935e89-b84e-41e0-b032-6c336830128c
+# ╠═f2a067a9-b486-45dc-8d37-8b26b83ebfd2
+# ╠═ee007b1f-e5b5-475e-b672-53483ad42f88
+# ╠═67f9ea5a-157d-4d35-95e2-b0a57070a5f5
+# ╠═230bdd4d-99fb-4adb-971b-dbef024b3e20
 # ╠═e27ecff7-bf67-4c99-8970-001b078f48ff
 # ╠═a4e70adc-7780-4456-96db-4e72feb2d032
 # ╠═e8249393-d1bb-41b0-a36c-8447bd14bc5e
