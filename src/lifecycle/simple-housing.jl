@@ -228,7 +228,7 @@ function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 end
 
 # ╔═╡ f61bf1a6-634f-4a47-8c28-efd42ce87747
-function solve_backward_forward(ω_grid, J, par, price_paths; born = 0)
+function solve_backward_forward(ω_grid, J, par, price_paths; born = 0, init = nothing)
 	j_dim = Dim{:j}(0:J-1)
 	ω_dim = Dim{:ω}(ω_grid)
 
@@ -263,8 +263,16 @@ function solve_backward_forward(ω_grid, J, par, price_paths; born = 0)
 		policy[j = At(j)] .= polⱼ
 	end
 
+	if !isnothing(init)
+		p₀ = price_paths.ps[t = At(0)]
+		r₀ = prices.r
+		ω_init = p₀ * (1-par.δ) * init.h + (1+r₀) * init.a
+		@info (; p₀, ω_init, init)
+	else
+		ω_init = 0.0
+	end
 	pol_simulated = DimVector(Vector{TT}(undef, J), j_dim)
-	ωⱼ = ω_grid[findfirst(ω_grid .≥ 0.0)]
+	ωⱼ = ω_grid[findfirst(ω_grid .≥ ω_init)]
 	
 	for j ∈ j_dim
 		polⱼ = policy[j = At(j), ω = At(ωⱼ)]
@@ -284,19 +292,8 @@ md"""
 # Testing against _Falling Behind_
 """
 
-# ╔═╡ c4935e89-b84e-41e0-b032-6c336830128c
-let
- par = (σ = 2.0,
-r = 0.121147,
-β = 0.891944,
-ξ = 0.161566,
-δ = 0.103222)
-
-	par.β * (1 + par.r)
-end
-
 # ╔═╡ ee007b1f-e5b5-475e-b672-53483ad42f88
-
+init = (; h = 1.83162, a = -0.736706)
 
 # ╔═╡ 67f9ea5a-157d-4d35-95e2-b0a57070a5f5
 let
@@ -333,7 +330,7 @@ let
 	T = 300
 	T₀ = length(p_test)
 	
-	born = -1
+	born = 0
 	t_dim = Dim{:t}(-1:T)
 	ys = fill(1.19787, t_dim, name = :y)
 	ys[t = At(-1)] = 1.14083
@@ -342,7 +339,6 @@ let
 
 	J = 200 #T-born
 
-	ω_grid = sort([0.0; range(-0.011, 0.005, length = 250)])
 	j_dim = Dim{:j}(0:J)
 	
 #	ps = DimVector(range(p₀, p₁, length = J+1), j_dim, name = :p)
@@ -352,7 +348,14 @@ let
 	#par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
 	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
 
-	out = solve_backward_forward(ω_grid, J, par, price_paths; born)
+	# born in -1
+	init = (; h = 1.83162, a = -0.736706)
+	ω_grid = sort([0.0; range(-0.011, 0.05, length = 750)])
+	# born in 0
+	init = nothing
+	ω_grid = sort([0.0; range(-0.011, 0.005, length = 250)])
+	
+	out = solve_backward_forward(ω_grid, J, par, price_paths; born, init)
 
 	@info out
 	@chain out begin
@@ -362,6 +365,9 @@ let
 		draw(facet = (; linkyaxes = false))
 	end # =#
 end
+
+# ╔═╡ c94afe0e-a8bf-4640-9874-f3cecab16b5f
+p_test[1] * 1.83162
 
 # ╔═╡ a4e70adc-7780-4456-96db-4e72feb2d032
 function choices_test(p, (; r, β, δ, ξ, ε, Φ, G, #=group_weights, α, L̄,=# y_scale), y₀, a₋₁, h₋₁)
@@ -2337,9 +2343,9 @@ version = "3.6.0+0"
 # ╠═05e5b372-8913-48e9-b8b1-d3358e63896f
 # ╠═53e1c988-fda6-473f-ba2c-b460483813d1
 # ╟─4ee76793-be3c-4849-ab1c-cc64d0cdf906
-# ╠═c4935e89-b84e-41e0-b032-6c336830128c
 # ╠═f2a067a9-b486-45dc-8d37-8b26b83ebfd2
 # ╠═ee007b1f-e5b5-475e-b672-53483ad42f88
+# ╠═c94afe0e-a8bf-4640-9874-f3cecab16b5f
 # ╠═67f9ea5a-157d-4d35-95e2-b0a57070a5f5
 # ╠═230bdd4d-99fb-4adb-971b-dbef024b3e20
 # ╠═e27ecff7-bf67-4c99-8970-001b078f48ff
