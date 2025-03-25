@@ -25,6 +25,9 @@ using StatsBase: weights
 # ╔═╡ 0471e65c-5ca8-49a5-ac32-ebddb01b9738
 using Statistics: mean
 
+# ╔═╡ 62ca7314-4892-413c-98aa-dcdf05ab6a7a
+using Interpolations
+
 # ╔═╡ ba4d8cac-7493-4c69-83b5-78f7d45ff305
 using PlutoUI
 
@@ -153,7 +156,7 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 	(; r, w, pₜ₍ⱼ₎) = prices
 	(; δ, y, ξ, β) = par
 	
-	inc = y * w
+	inc = only(unique(y)) * w
 	
 	κ = κ₀(par, prices; terminal)
 
@@ -194,13 +197,6 @@ end
 # ╔═╡ 1dbb9a6c-831e-4519-a862-668e61ea6a4e
 ω_grid = sort([0.0; range(-1.0, 10.0, length = 1000)])
 
-# ╔═╡ 05e5b372-8913-48e9-b8b1-d3358e63896f
-@chain out begin
-	stack([:cⱼ, :hⱼ, :ωⱼ₊₁], :j)
-	data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
-	draw(; facet = (; linkyaxes = false))
-end
-
 # ╔═╡ 53e1c988-fda6-473f-ba2c-b460483813d1
 function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 	
@@ -232,7 +228,6 @@ function solve_backward_forward(ω_grid, J, par, price_paths; born = 0, init = n
 	j_dim = Dim{:j}(0:J-1)
 	ω_dim = Dim{:ω}(ω_grid)
 
-	
 	prices = prices_from_price_paths(price_paths, (J-1) + born)
 	
 	TT = choices(0.0, 0.0, par, prices, details = true) |> typeof
@@ -241,13 +236,6 @@ function solve_backward_forward(ω_grid, J, par, price_paths; born = 0, init = n
 	value  = zeros((ω_dim, j_dim))
 	policy = DimArray(
 		Array{TT}(undef, (N, J)), (ω_dim, j_dim))
-
-	#p    = prices.p
-	
-	#pₜ₍ⱼ₎   = p[j = At(J-1)]
-	#pₜ₍ⱼ₊₁₎ = 0.0
-	#pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎
-
 	
 	value[j = At(J-1)]  .= choices.(ω_grid, 0.0, Ref(par), Ref(prices); terminal = true)
 	policy[j = At(J-1)] .= choices.(ω_grid, 0.0, Ref(par), Ref(prices); terminal = true, details = true)
@@ -294,33 +282,6 @@ md"""
 
 # ╔═╡ ee007b1f-e5b5-475e-b672-53483ad42f88
 init = (; h = 1.83162, a = -0.736706)
-
-# ╔═╡ 67f9ea5a-157d-4d35-95e2-b0a57070a5f5
-let
-	J = 200
-
-	p₀ = 1.123
-	p₁ = (1.001)^J #2 .* p₁1.345
-
-	ω_grid = sort([0.0; range(-1.5, 3.0, length = 500)])
-	t_dim = Dim{:t}(0:J)
-	
-	ps = DimVector(range(p₀, p₁, length = J+1), t_dim, name = :p)
-
-	par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
-	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
-
-	out = solve_backward_forward(ω_grid, J, par, price_paths)
-
-	@chain out begin
-		@subset(:j < 0.8 * J)
-		stack(Not(:j))
-		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
-		draw(facet = (; linkyaxes = false))
-	end
-	#(; cⱼ, hⱼ, phⱼ, aⱼ₊₁, ωⱼ₊₁) = first(out)
-end
-	
 
 # ╔═╡ 230bdd4d-99fb-4adb-971b-dbef024b3e20
 p_test = [0.5028480280461705, 0.5241238908263111, 0.5229295236881214, 0.5217017148142188, 0.5204099628296323, 0.5190844559661794, 0.5177911453101505, 0.5166033832040168, 0.5155792381994333, 0.5147496348256029, 0.514117292657164, 0.5136630071761439, 0.5133549339145355, 0.5131574170435576, 0.5130374257916149, 0.5129680665281533, 0.5129295872492532, 0.5129087271453475, 0.5128972868297691, 0.5128905760328677, 0.5128861057502261, 0.512882648490296, 0.5128796410208144, 0.5128768425830681, 0.512874157028558, 0.5128715481667272, 0.512869002797782, 0.5128665158769151, 0.5128640850404091, 0.5128617087497279, 0.5128593857139132, 0.512857114724707, 0.5128548946132658, 0.5128527242394967, 0.5128506024893068, 0.5128485282736247, 0.5128465005277771, 0.512844518210923, 0.5128425803055271, 0.5128406858168318, 0.5128388337723554, 0.5128370232213857, 0.5128352532344975, 0.5128335229030779, 0.5128318313388551, 0.5128301776734494, 0.5128285610579219, 0.5128269806623478, 0.5128254356753813, 0.5128239253038469, 0.5128224487723303, 0.51282100532278, 0.5128195942141227, 0.5128182147218784, 0.5128168661377885, 0.5128155477694639, 0.5128142589400108, 0.5128129989877024, 0.5128117672656282, 0.5128105631413655, 0.5128093859966565, 0.5128082352270891, 0.5128071102417884, 0.5128060104631144, 0.5128049353263597, 0.5128038842794712, 0.5128028567827553, 0.5128018523086093, 0.5128008703412458, 0.5127999103764325, 0.5127989719212271, 0.5127980544937343, 0.5127971576228445, 0.5127962808480111, 0.5127954237189918, 0.5127945857956379, 0.5127937666476585, 0.512792965854397, 0.512792183004622, 0.5127914176963164, 0.5127906695364635, 0.5127899381408534, 0.5127892231338809, 0.512788524148357, 0.5127878408253143, 0.5127871728138315, 0.5127865197708417, 0.5127858813609696, 0.5127852572563489, 0.5127846471364574, 0.512784050687956, 0.5127834676045216, 0.5127828975866932, 0.512782340341722, 0.5127817955834106, 0.5127812630319774, 0.5127807424139057, 0.512780233461807, 0.5127797359142817, 0.5127792495157849, 0.5127787740164927, 0.5127783091721871, 0.5127778547441065, 0.5127774104988446, 0.5127769762082233, 0.512776551649171, 0.5127761366036104, 0.512775730858354, 0.5127753342049791, 0.5127749464397375, 0.5127745673634349, 0.512774196781341, 0.5127738345030819, 0.512773480342542, 0.5127731341177729, 0.5127727956508938, 0.5127724647680043, 0.5127721412990883, 0.5127718250779322, 0.5127715159420378, 0.5127712137325312, 0.5127709182940903, 0.5127706294748553, 0.512770347126351, 0.5127700711034155, 0.5127698012641151, 0.5127695374696728, 0.5127692795843962, 0.512769027475605, 0.5127687810135566, 0.5127685400713826, 0.5127683045250161, 0.5127680742531386, 0.512767849137125, 0.5127676290610595, 0.5127674139118498, 0.512767203579637, 0.5127669979589149, 0.5127667969510747, 0.5127666004699587, 0.5127664084530146, 0.5127662208823485, 0.5127660378222231, 0.5127658594819225, 0.5127656863153942, 0.5127655191709162, 0.5127653595047076, 0.5127652096725649, 0.5127650733136256, 0.5127649558432817, 0.5127648650805959, 0.5127648120533261]
@@ -503,6 +464,347 @@ let
 	
 end
 
+# ╔═╡ d47576ee-d6e5-4fa3-b3c4-bee9ca49abd8
+md"""
+# EGM
+"""
+
+# ╔═╡ 1e248059-d315-4206-8fd2-a609954b46d7
+prep = let
+	T = 20
+	t_dim = Dim{:t}(-1:T)
+	
+	#T₀ = length(p_test)
+	#ps = DimArray([p_test; fill(p_test[end], T - T₀ + 2)], t_dim, name = :p)
+	p₀ = p₁ = 0.5
+	ps = DimVector(range(p₀, p₁, length = T+2), t_dim, name = :p)
+	
+	born = 0
+	
+	ys = fill(1.19787, t_dim, name = :y)
+	ys[t = At(-1)] = 1.14083
+
+	J = 10 #T-born
+
+	j_dim = Dim{:j}(0:J)
+	
+#	ps = DimVector(range(p₀, p₁, length = J+1), j_dim, name = :p)
+
+	par = (; σ = 2.0, γ = 2.0, β = 0.891944, ξ = 0.161566, δ = 0.103222, y = fill(1.19787, j_dim), m = fill(0.0, j_dim), J)
+
+	#par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
+	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
+
+	grid = sort([0.0; range(-1.0, 1.0, length = 100)])
+	
+	(; par, price_paths, T, j_dim, grid)
+end
+
+# ╔═╡ 194a3206-07f0-44be-939b-b13b7202686d
+md"""
+## Test with VFI
+"""
+
+# ╔═╡ 67f9ea5a-157d-4d35-95e2-b0a57070a5f5
+let
+	(; price_paths, par, j_dim, grid) = prep
+	(; J) = par
+
+	out = solve_backward_forward(grid, J, par, price_paths)
+
+	@info @subset(out, :j < 2)
+	@chain out begin
+	#	@subset(:j < 0.8 * J)
+		stack(Not(:j))
+		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end
+	#(; cⱼ, hⱼ, phⱼ, aⱼ₊₁, ωⱼ₊₁) = first(out)
+end
+
+# ╔═╡ fb51b371-6b05-4da2-af1b-ef2d749e5af7
+function c_J(ωⱼ, (; rₜ, wₜ, yⱼ), (; ξ)) 	
+	(1-ξ) * (ωⱼ + wₜ * yⱼ)
+end
+
+# ╔═╡ 91bb2ed6-deb6-43ff-815e-906be0f11516
+aₜ_from_hₜ₋₁((; pₜ, rₜ), (; δ); ωₜ, hₜ₋₁) = 
+				(; aₜ = (ωₜ - pₜ * (1-δ) * hₜ₋₁) / (1 + rₜ))
+
+# ╔═╡ f7c86441-5ee4-494b-a11a-cdf14a1bea39
+ωₜ₋₁_from_ahc((; pₜ₋₁, wₜ₋₁, yⱼ₋₁, mⱼ₋₁); aₜ, hₜ₋₁, cₜ₋₁) = 
+				(; ωₜ₋₁ = (1-mⱼ₋₁) * aₜ + pₜ₋₁ * hₜ₋₁ + cₜ₋₁ - wₜ₋₁ * yⱼ₋₁)
+
+# ╔═╡ e522d891-bd9d-4ae5-b13d-ff02e545aa3c
+function κⱼ(pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎, rₜ₍ⱼ₊₁₎, mⱼ, (; ξ, δ))
+	(1-ξ)/ξ * (
+		pₜ₍ⱼ₎ - (1-mⱼ) * (1-δ)/(1+rₜ₍ⱼ₊₁₎) * pₜ₍ⱼ₊₁₎
+	)
+end
+
+# ╔═╡ 87aa7ba3-ea06-454a-a7f6-b43f9b47ca26
+function cₜ₋₁_from_cₜ((; pₜ₋₁, pₜ, pₜ₊₁, rₜ₊₁, rₜ, mⱼ, mⱼ₋₁), par; cₜ)
+		(; ξ, σ, β) = par
+
+		cₜ₋₁ = cₜ / (β * (1+rₜ))^(1/σ) / (
+			κⱼ(pₜ₋₁, pₜ, rₜ,  mⱼ₋₁, par) / κⱼ(pₜ, pₜ₊₁, rₜ₊₁, mⱼ, par)
+			)^(ξ * (1-σ) / σ)
+
+		(; cₜ₋₁)
+	end
+
+# ╔═╡ cbe2abf3-6286-4cae-9452-88f66465a072
+hₜ₋₁_from_cₜ₋₁((; pₜ₋₁, pₜ, rₜ, mⱼ₋₁), par; cₜ₋₁) = (; hₜ₋₁ = cₜ₋₁ / κⱼ(pₜ₋₁, pₜ, rₜ, mⱼ₋₁, par))
+
+# ╔═╡ 2daa3181-79b5-4ae7-86fb-1b666be75e49
+hⱼ_from_cⱼ((; pₜ, pₜ₊₁, rₜ₊₁, mⱼ), par; cⱼ) = (; hⱼ = cⱼ / κⱼ(pₜ, pₜ₊₁, rₜ₊₁, mⱼ, par))
+
+# ╔═╡ b8d2fbac-5ef6-4900-a7f1-3e2633882f2a
+function iterate_forward(prices, par; cⱼ, stateⱼ)
+	ωⱼ = stateⱼ
+	(; wₜ, yⱼ, rₜ, rₜ₊₁, mⱼ, pₜ, pₜ₊₁) = prices
+	(; δ) = par
+	
+	(; hⱼ) = hⱼ_from_cⱼ(prices, par; cⱼ)
+
+	if mⱼ == 1
+		(; ξ) = par
+		aⱼ₊₁ = 0
+		cⱼ   = (1-ξ) * (ωⱼ + wₜ * yⱼ)
+		hⱼ   =    ξ  * (ωⱼ + wₜ * yⱼ) / pₜ
+		ωⱼ₊₁ = (1-δ) * pₜ₊₁ * hⱼ
+		ωⱼ₊₁_0 = ωⱼ₊₁
+	else
+		aⱼ₊₁ = (ωⱼ + yⱼ * wₜ - cⱼ - pₜ * hⱼ) / (1-mⱼ)
+
+		ωⱼ₊₁_0 = pₜ₊₁ * (1-δ) * hⱼ + (1+rₜ₊₁) * aⱼ₊₁
+	end
+	
+	# ω = p * h * (1-δ) + (1+r) a
+	# h = 
+	# handling the constraint
+	if ωⱼ₊₁_0 < 0
+		#@info "ωⱼ₊₁ < 0"
+		ωⱼ₊₁ = 0
+		# ⟹₁ pₜ₊₁ * hⱼ * (1-δ)/(1+rₜ₊₁) = -aⱼ₊₁
+		# ⟹₂ pₜ * hⱼ + cⱼ == yⱼ * wₜ + ωⱼ
+		#⟹ pₜ * (cⱼ * κⱼ) + cⱼ = cⱼ(pₜ * κⱼ + 1 ) == yⱼ * wₜ + ωⱼ
+		#⟹ cⱼ = yⱼ * wₜ + ωⱼ / (pₜ * κⱼ + 1)
+		κ = κⱼ(pₜ, pₜ₊₁, rₜ, mⱼ, par)
+		cⱼ = (yⱼ * wₜ + ωⱼ) / (pₜ * κ + 1)
+		hⱼ = cⱼ * κ
+		aⱼ₊₁ = - pₜ₊₁ * hⱼ * (1-δ)/(1+rₜ₊₁)
+	else
+		ωⱼ₊₁ = ωⱼ₊₁_0
+	end
+
+	other = (; ωⱼ₊₁, ωⱼ₊₁_0, cⱼ, hⱼ, aⱼ₊₁)
+	
+	(; cⱼ, stateⱼ₊₁ = ωⱼ₊₁, other)
+end
+
+# ╔═╡ 71720b73-99cb-496e-9b7e-af913e4feb9b
+function iterate_backward_(stateⱼ, cⱼ, prices, par)
+	cₜ = cⱼ
+	ωₜ = stateⱼ
+	(; cₜ₋₁) = cₜ₋₁_from_cₜ(  prices, par; cₜ)
+	(; hₜ₋₁) = hₜ₋₁_from_cₜ₋₁(prices, par; cₜ₋₁) 
+	(; aₜ)   = aₜ_from_hₜ₋₁(  prices, par; ωₜ, hₜ₋₁)
+	(; ωₜ₋₁) = ωₜ₋₁_from_ahc( prices;      aₜ, hₜ₋₁, cₜ₋₁)
+		
+	(; cⱼ₋₁=cₜ₋₁, hⱼ₋₁=hₜ₋₁, stateⱼ₋₁=ωₜ₋₁)
+end
+
+# ╔═╡ 8611066a-4ef4-47b5-8247-2f3268bf1d54
+function tuple_of_prices((; ps, r, w), (; y); t, j)
+	m = 0.0
+	p = ps
+
+	if t ≥ 1
+		pₜ₋₁, pₜ, pₜ₊₁ = p[t = At(t-1:t+1)]
+		rₜ₋₁, rₜ, rₜ₊₁ = r, r, r #[t = At(t-1:t+1)]
+		wₜ₋₁, wₜ       = w, w #[t = At(t-1:t)]
+		nt1 = (; pₜ₋₁, pₜ, pₜ₊₁, rₜ₋₁, rₜ, rₜ₊₁, wₜ₋₁, wₜ)
+	else
+		pₜ, pₜ₊₁ = p[t = At(t:t+1)]
+		rₜ, rₜ₊₁ = r, r #[t = At(t:t+1)]
+		wₜ       = w #[t = At(t)]
+		nt1 = (; pₜ, pₜ₊₁, rₜ, rₜ₊₁, wₜ)
+	end
+	
+	if j ≥ 1
+		yⱼ₋₁, yⱼ       = y[j = At(j-1:j)]
+		mⱼ₋₁, mⱼ       = m, m #[j = At(j-1:j)]
+
+		nt2 = (; yⱼ₋₁, yⱼ, mⱼ₋₁, mⱼ)
+	else
+		yⱼ       = y[j = At(j)]
+		mⱼ       = m #[j = At(j)]
+		nt2 = (; yⱼ, mⱼ)
+	end
+
+	return (; nt1..., nt2...)
+end
+
+# ╔═╡ ca0fdef0-3469-4f67-9383-420b9bda296f
+let
+	(; price_paths, par, j_dim) = prep
+
+	(; J, ξ) = par
+	born = 1
+	j = J
+	t = born + j
+	
+	prices = tuple_of_prices(price_paths, par; t, j)
+
+	ωⱼ = 5.0 # ω_J
+	(; yⱼ, wₜ, pₜ) = prices # y_J
+
+	cⱼ = c_J(ωⱼ, prices, par)
+	@assert cⱼ ≈ (1-ξ) * (ωⱼ + yⱼ * wₜ)
+	 
+	
+	c = zeros(j_dim, name = :c)
+	c[j = At(J-1)] = cⱼ
+	h = zeros(j_dim, name = :h)
+
+	for j ∈ J:-1:1
+		t = born + j
+		prices = tuple_of_prices(price_paths, par; t, j)
+		main = iterate_backward_(ωⱼ, cⱼ, prices, par)
+		
+		(; cⱼ₋₁, hⱼ₋₁, stateⱼ₋₁) = main
+		@info (; t, j, cⱼ₋₁, hⱼ₋₁, stateⱼ₋₁, pₜ = prices.pₜ)
+
+		c[j = At(j-1)] = cⱼ₋₁
+		h[j = At(j-1)] = hⱼ₋₁
+	
+		ωⱼ = stateⱼ₋₁
+		cⱼ = cⱼ₋₁
+	end
+
+	lines(h[j = At(0:J-2)])
+	#=
+	for j ∈ J-10:J
+		t = born + j
+		prices = tuple_of_prices(M, price_paths, par; t, j)
+		stateⱼ = ωⱼ
+		main = iterate_forward(M, prices, par; cⱼ, stateⱼ)
+
+		#(; other
+		#other = (; ωⱼ₊₁, ωⱼ₊₁_0, cⱼ, hⱼ, aⱼ₊₁)
+	
+		(; cⱼ, stateⱼ₊₁, other) = main
+
+		ωⱼ = stateⱼ₊₁
+
+		@info (; j, cⱼ, ωⱼ₊₁ = stateⱼ₊₁)
+		#c
+	end #	=#
+end
+	
+
+# ╔═╡ 498eb9c4-f499-44df-901d-1078a5fa1902
+"Takes `price_paths`"
+function solve_backward_forward_egm(par, grid; price_paths, init_state, j_init = 0, t_born = 0)
+	statename = :ω
+
+	(; J, y, m) = par
+
+	state_dim = Dim{statename}(grid) # a or net worth
+	j_dim = Dim{:j}(0:J)
+	j_sim_dim = Dim{:j}(j_init:J)
+	
+	c = zeros(state_dim, j_dim, name = :c)
+	
+	## SOLVE BACKWARDS
+	t_J = t_born + J
+	prices_J = tuple_of_prices(price_paths, par; t=t_J, j=J)
+	c[j = At(J)] .= c_J.(grid, Ref(prices_J), Ref(par))
+	
+	
+	for j ∈ J:-1:j_init+1
+		t = t_born + j
+		prices = tuple_of_prices(price_paths, par; t, j)
+		
+		(; cⱼ₋₁, stateⱼ₋₁) = DataFrame(
+			iterate_backward_.(grid, c[j = At(j)], Ref(prices), Ref(par))
+		)
+			
+		cⱼ₋₁_itp = LinearInterpolation(stateⱼ₋₁, cⱼ₋₁, extrapolation_bc = Line())
+	
+		c[j = At(j-1)] .= cⱼ₋₁_itp.(grid)
+	end
+	
+	
+	## SOLVE FORWARD
+	nextstatename = Symbol(string(statename) * "_next") # e.g. a_next
+	
+	path_state      = zeros(j_dim, name = statename) # e.g. a
+	path_next_state = zeros(j_dim, name = nextstatename) # e.g. a_next
+	path_choice      = zeros(j_dim, name = :c)
+		
+	path_state[j = At(j_init)] = init_state
+
+	
+	TT = typeof((; ωⱼ₊₁=1.0, ωⱼ₊₁_0=1.0, cⱼ=1.0, hⱼ=1.0, aⱼ₊₁=1.0))
+	other_paths = DimVector(
+					Vector{TT}(undef, J+1),
+					j_dim, name = :other
+				)
+	
+	(; r, w) = price_paths
+	
+	for j ∈ j_init:J
+		t = t_born + j
+		prices = tuple_of_prices(price_paths, par; t, j)
+			
+		stateⱼ = path_state[j = At(j)]
+			
+		cⱼ_itp = LinearInterpolation(grid, c[j = At(j)], extrapolation_bc = Line())
+			
+		cⱼ = cⱼ_itp(stateⱼ)
+
+		(; cⱼ, stateⱼ₊₁, other) = iterate_forward(prices, par; cⱼ, stateⱼ)
+		
+		path_choice[j = At(j)] = cⱼ
+		other_paths[ j = At(j)] = other
+		path_next_state[j = At(j)] = stateⱼ₊₁
+		
+		if j < J
+			path_state[j = At(j+1)] = stateⱼ₊₁
+		end	
+	end
+
+	sim = DimStack(path_state, path_choice, path_next_state, other_paths)
+	sim_df = DataFrame(sim)
+
+	 select!(sim_df, :other => AsTable, Not(:other))
+
+	(; sim_df, sim, state_path=path_state, other_path=other_paths, c)
+
+end
+
+# ╔═╡ 0c134c1b-5fde-45a2-b43e-6edf6127599b
+let
+	(; price_paths, par, j_dim, grid) = prep
+	#grid = sort([0.0; range(-1.0, 1.0, length = 100)])
+	init_state = 0.0 #(; ω = 0.0)
+	out = solve_backward_forward_egm(par, grid; price_paths, init_state)
+
+	(; sim_df, c) = out
+ 	
+	
+	
+	@chain sim_df begin
+		@aside @info @subset(_, :j < 2)
+		stack([:cⱼ, :hⱼ, :aⱼ₊₁, :ω])
+		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end
+	# =#
+end
+
 # ╔═╡ 3ed4f678-f428-4732-b2d3-db68c22669d8
 md"""
 # Appendix
@@ -520,6 +822,7 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
@@ -533,6 +836,7 @@ Chain = "~0.6.0"
 DataFrameMacros = "~0.4.1"
 DataFrames = "~1.7.0"
 DimensionalData = "~0.29.12"
+Interpolations = "~0.15.1"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.61"
 Statistics = "~1.11.1"
@@ -545,7 +849,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.4"
 manifest_format = "2.0"
-project_hash = "20784a756e5d1f00c5f7ce6859fa8360cc6a5ff0"
+project_hash = "a054e3bfb10392cf95fd805c54052a8f4bc55c06"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -2340,13 +2644,11 @@ version = "3.6.0+0"
 # ╠═9c9ceccb-fb28-419b-a9ed-37aaf6406f3c
 # ╠═f61bf1a6-634f-4a47-8c28-efd42ce87747
 # ╠═1dbb9a6c-831e-4519-a862-668e61ea6a4e
-# ╠═05e5b372-8913-48e9-b8b1-d3358e63896f
 # ╠═53e1c988-fda6-473f-ba2c-b460483813d1
 # ╟─4ee76793-be3c-4849-ab1c-cc64d0cdf906
 # ╠═f2a067a9-b486-45dc-8d37-8b26b83ebfd2
 # ╠═ee007b1f-e5b5-475e-b672-53483ad42f88
 # ╠═c94afe0e-a8bf-4640-9874-f3cecab16b5f
-# ╠═67f9ea5a-157d-4d35-95e2-b0a57070a5f5
 # ╠═230bdd4d-99fb-4adb-971b-dbef024b3e20
 # ╠═e27ecff7-bf67-4c99-8970-001b078f48ff
 # ╠═a4e70adc-7780-4456-96db-4e72feb2d032
@@ -2354,6 +2656,24 @@ version = "3.6.0+0"
 # ╠═683216f2-51d7-4650-9263-8bc234539460
 # ╠═0471e65c-5ca8-49a5-ac32-ebddb01b9738
 # ╠═0af642fe-5083-4db8-8384-f0b572fa88a3
+# ╟─d47576ee-d6e5-4fa3-b3c4-bee9ca49abd8
+# ╠═1e248059-d315-4206-8fd2-a609954b46d7
+# ╠═ca0fdef0-3469-4f67-9383-420b9bda296f
+# ╠═0c134c1b-5fde-45a2-b43e-6edf6127599b
+# ╟─194a3206-07f0-44be-939b-b13b7202686d
+# ╠═67f9ea5a-157d-4d35-95e2-b0a57070a5f5
+# ╠═62ca7314-4892-413c-98aa-dcdf05ab6a7a
+# ╠═498eb9c4-f499-44df-901d-1078a5fa1902
+# ╠═fb51b371-6b05-4da2-af1b-ef2d749e5af7
+# ╠═91bb2ed6-deb6-43ff-815e-906be0f11516
+# ╠═f7c86441-5ee4-494b-a11a-cdf14a1bea39
+# ╠═e522d891-bd9d-4ae5-b13d-ff02e545aa3c
+# ╠═b8d2fbac-5ef6-4900-a7f1-3e2633882f2a
+# ╠═87aa7ba3-ea06-454a-a7f6-b43f9b47ca26
+# ╠═cbe2abf3-6286-4cae-9452-88f66465a072
+# ╠═2daa3181-79b5-4ae7-86fb-1b666be75e49
+# ╠═71720b73-99cb-496e-9b7e-af913e4feb9b
+# ╠═8611066a-4ef4-47b5-8247-2f3268bf1d54
 # ╟─3ed4f678-f428-4732-b2d3-db68c22669d8
 # ╠═ba4d8cac-7493-4c69-83b5-78f7d45ff305
 # ╠═a6264cf7-e6dc-410b-856b-241be2c858c9
