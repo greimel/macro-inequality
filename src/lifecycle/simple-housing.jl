@@ -121,21 +121,10 @@ md"""
 ## Value function iteration
 """
 
-# ╔═╡ 2fa9c3b9-1759-4c75-a264-40995942716c
-
-	#=
-	# solve backward
-	for j ∈ J-2:-1:0
-		t = j + born
-		
-		vⱼ₊₁ = value[j = At(j+1)]
-		prices = prices_from_price_paths(price_paths, t)
- 		(; vⱼ, polⱼ) = iterate_backward(vⱼ₊₁, ω_grid, par, prices)
-
-		value[ j = At(j)] .= vⱼ
-		policy[j = At(j)] .= polⱼ
-	end
-=#
+# ╔═╡ 6f3e64fa-3280-4b12-997d-b7355e11b689
+md"""
+### Check choices in last period
+"""
 
 # ╔═╡ 99dcf6b6-104b-4ccc-afc1-72355dc0e21e
 md"""
@@ -264,7 +253,8 @@ end
 let
 	(; out_last, ω_grid, par, prices) = egm₀
 
-	κ(pₜ, pₜ₊₁, (; β, δ, ξ)) = (1-ξ)/ξ * (pₜ - pₜ₊₁ * β * (1-δ))
+	r = prices.r
+	κ(pₜ, pₜ₊₁, (; β, δ, ξ)) = (1-ξ)/ξ * (pₜ - pₜ₊₁ * (1-δ)/(1+r))
 	
 	# cₜ₊₁/cₜ = (κ(pₜ, pₜ₊₁, par) / κ(pₜ₊₁, pₜ₊₂, par))^(ξ * (1-σ)/σ)
 	# c′/c = (κ(p, p′, par) / κ(p′, p′′, par))^(ξ * (1-σ)/σ)
@@ -277,7 +267,7 @@ let
 	end
 
 	c′ = DimVector(out_last.c, name = :c_last)
-	p, p′, p′′ = prices.pₜ₍ⱼ₎, prices.pₜ₍ⱼ₊₁₎, 0.0
+	p, p′, p′′ = prices.pₜ₍ⱼ₎, prices.pₜ₍ⱼ₊₁₎, prices.pₜ₍ⱼ₊₁₎
 	
 	c =	DimVector(get_c.(c′, p, p′, p′′, Ref(par)), name = :c_penultimate)
 
@@ -344,7 +334,7 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 
 	if terminal
 		aⱼ₊₁ = ωⱼ₊₁ + inc - cⱼ - pₜ₍ⱼ₎hⱼ
-		@info "ω_J+1 = $(pₜ₍ⱼ₎hⱼ * (1-δ) + (1+r) * aⱼ₊₁)"
+		#@info "ω_J+1 = $(pₜ₍ⱼ₎hⱼ * (1-δ) + (1+r) * aⱼ₊₁)"
 	end
 	
 	uⱼ = if (terminal && ωⱼ₊₁ < 0) || cⱼ < 0
@@ -372,36 +362,25 @@ end
 let
 	(; out_last, ω_grid, par, prices) = vfi₀
 	ω_grid = DimVector(ω_grid, Dim{:ω}(ω_grid))
-	#df = DataFrame(
+
+	# Version 1: `choices`
 	out = choices.(ω_grid, 0.0, Ref(par), Ref(prices); terminal = true, details = true)
+	df1 = select(DataFrame(DimTable(out)), :layer1 => AsTable, Not(:layer1))
+	df1 = rename(df1, :hⱼ => :h, :cⱼ => :c)
 
-	df = select(DataFrame(DimTable(out)), :layer1 => AsTable, Not(:layer1))
-
-	df_alt = DataFrame(out_last)
+	# Version 2: `out_last`
+	df2 = DataFrame(out_last)
 	
-	#data() * mapping(:ω, :value, color = :variable) * visual(Lines) |> draw
-
 	df_both = vcat(
-		stack(
-			rename(df, :hⱼ => :h, :cⱼ => :c), 
-			[:h, :c, :κ], :ω),
-		stack(df_alt, [:h, :c, :κ], :ω),
+		stack(df1, [:h, :c, :κ], :ω),
+		stack(df2, [:h, :c, :κ], :ω),
 		source = :version => ["v1", "v2"]
 	)
 	
-#	lines(df.ω, df.hⱼ, label = :v1)
-
-	
 	data(df_both) * mapping(
 		:ω, :value, color =:version, linestyle = :version, layout = :variable
-	) * visual(Lines) |> draw
-
-	#lines!(df_alt.ω, df_alt.h, label = :v2)
-
-#	current_figure()
-	
+	) * visual(Lines) |> draw	
 end
-	
 
 # ╔═╡ 9c9ceccb-fb28-419b-a9ed-37aaf6406f3c
 function prices_from_price_paths(price_paths, t)
@@ -440,6 +419,27 @@ function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 
 	(; vⱼ, polⱼ)
 end
+
+# ╔═╡ 2fa9c3b9-1759-4c75-a264-40995942716c
+let
+	(; out_last, ω_grid, par, prices) = vfi₀
+	ω_grid = DimVector(ω_grid, Dim{:ω}(ω_grid))
+
+	vⱼ₊₁ = out_last.v
+
+	prices
+	prices_penult = (; prices.r, prices.w, prices.pₜ₍ⱼ₎)
+	
+	(; vⱼ, polⱼ) = iterate_backward(vⱼ₊₁, ω_grid, par, prices)
+
+	df = select(DataFrame(DimTable(polⱼ)), :value => AsTable, Not(:value))
+
+	lines(out_last.c)
+	lines!(collect(df.ω), df.cⱼ)
+
+	current_figure()
+end
+
 
 # ╔═╡ f61bf1a6-634f-4a47-8c28-efd42ce87747
 function solve_backward_forward(ω_grid, J, par, price_paths; born = 0, init = nothing)
@@ -2921,8 +2921,9 @@ version = "3.6.0+0"
 # ╠═8fd0bef0-40af-4b15-8d46-11caf051067f
 # ╟─b0270296-aba9-4c53-87bb-550550944997
 # ╠═5c197725-0cff-4fbd-9e29-cca5cc48f28c
-# ╠═3f0ad740-49d9-47f6-9e7c-336e45a43f34
 # ╠═2fa9c3b9-1759-4c75-a264-40995942716c
+# ╟─6f3e64fa-3280-4b12-997d-b7355e11b689
+# ╠═3f0ad740-49d9-47f6-9e7c-336e45a43f34
 # ╟─99dcf6b6-104b-4ccc-afc1-72355dc0e21e
 # ╠═e10d7dfc-ae95-42cb-8ddf-8e98eb4eae53
 # ╠═bf3aa5f3-c333-41dc-8fd0-d6cbc926bd6b
