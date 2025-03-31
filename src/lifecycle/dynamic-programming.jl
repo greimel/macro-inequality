@@ -1,6 +1,15 @@
 ### A Pluto.jl notebook ###
 # v0.20.4
 
+#> [frontmatter]
+#> chapter = 2
+#> section = 4
+#> order = 4
+#> title = "Assignment 3: Dynamic programming"
+#> layout = "layout.jlhtml"
+#> tags = ["lifecycle"]
+#> description = ""
+
 using Markdown
 using InteractiveUtils
 
