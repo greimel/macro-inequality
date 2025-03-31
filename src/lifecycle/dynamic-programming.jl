@@ -103,7 +103,7 @@ function solve_J_period_household((; γ, β, δ, J), (; r, w), (; y, a₀))
 
 	# compute optimal consumption in the initial period
 	c₀ = 𝒴 / sum(
-		((β*(1+r))^(1/γ) / (1+r))^j # fix
+		1.0 # FIX!
 		for j ∈ 0:J-1)
 
 	# Create `DimVector`s to save consumption and saving
@@ -120,8 +120,8 @@ function solve_J_period_household((; γ, β, δ, J), (; r, w), (; y, a₀))
 		aⱼ   = a_next[j = At(j-1)]
 
 		# Compute optimal choices in period j
-		cⱼ   = c₀ * (β * (1+r))^(j/γ) # fix!
-		aⱼ₊₁ = inc + (1+r) * aⱼ - cⱼ  # fix!
+		cⱼ   = 1.0 # FIX!
+		aⱼ₊₁ = 0.0 # FIX!
 
 		# Save optimal choices to containers
 		a_next[j = At(j)] = aⱼ₊₁
@@ -363,7 +363,7 @@ function solve_backwards!(container, a_grid, par, prices, income)
 	inc = y * w
 	# For levels of current wealth aⱼ (a) and intended savings aⱼ₊₁ (a_next) how much can the household consume
 	# Hint: Use the budget constraint for age j
-	c(a, a_next) = (inc + (1+r) * a) - a_next # FIX!
+	c(a, a_next) = 0.0 # FIX!
 
 	for j ∈ (J-2):-1:0
 		for a ∈ a_grid
@@ -371,7 +371,7 @@ function solve_backwards!(container, a_grid, par, prices, income)
 			
 			# try all possible choices for next period
 			cs = c.(a, a_grid)
-			R = u.(cs, Ref(par)) + β .* value[j = At(j+1)] # FIX!
+			R = u.(cs, Ref(par)) .* value[j = At(j+1)] # FIX!
 			# find the best one
 			(v, a_i_opt) = findmax(R)
 			a_next_opt = a_grid[a_i_opt]
