@@ -153,7 +153,7 @@ penult₀ = let
 	p  = 0.8 * p″  # penultimate period
 
 	r = 1/par.β - 1
-	prices_last   = (; rₜ₍ⱼ₊₁₎ = r + 0.05, pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, w = 1.1234)
+	prices_last   = (; rₜ₍ⱼ₊₁₎ = r + 0.01, pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, w = 1.1234)
 	prices_penult = (; rₜ₍ⱼ₊₁₎ = r - 0.05, pₜ₍ⱼ₎ = p,  pₜ₍ⱼ₊₁₎ = p′, w = 1.1234)
 
 	(; par, prices_last, prices_penult, ω̲, ω̅, what_is_zero)
@@ -525,11 +525,29 @@ end
 
 # ╔═╡ 2fa9c3b9-1759-4c75-a264-40995942716c
 vfi_penult = let
-	(; out_last, ω_grid, par, prices_penult) = vfi₀
+	(; out_last, ω_grid, par, prices_penult, prices_last) = vfi₀
 	ω_dim = Dim{:ω}(ω_grid)
 	ω_grid = DimVector(ω_grid, ω_dim)
 
-	vⱼ₊₁ = out_last.v
+	#vⱼ₊₁ = out_last.v
+
+	(; prices_last, prices_penult) = let
+		p, p′, p″ = prices_penult.pₜ₍ⱼ₎, prices_penult.pₜ₍ⱼ₊₁₎, prices_last.pₜ₍ⱼ₊₁₎
+		r′ = prices_penult.rₜ₍ⱼ₊₁₎
+		r″ = prices_last.rₜ₍ⱼ₊₁₎
+
+		#(; rₜ₍ⱼ₊₁₎, w, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎)
+		
+		prices_last = (; 
+			pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, rₜ₍ⱼ₊₁₎ = r″, mⱼ = 0.0, mⱼ₋₁ = 0.0, prices_last.w, yⱼ = 1.0)
+	
+		prices_penult = (; 
+			pₜ₍ⱼ₎ = p, pₜ₍ⱼ₊₁₎ = p′#=, rₜ₍ⱼ₎ = r′=#, rₜ₍ⱼ₊₁₎ = r′, mⱼ = 0.0, mⱼ₋₁ = 0.0, prices_penult.w, yⱼ₋₁ = 1.0)
+
+		(; prices_last, prices_penult)
+	end
+	
+	vⱼ₊₁ = choices.(ω_grid, 0.0, Ref(par), Ref(prices_last); terminal = true)
 
 	# last period
 	#p′ = prices.pₜ₍ⱼ₊₁₎ # last period
@@ -543,7 +561,7 @@ vfi_penult = let
 	c_last   = DimVector(out_last.c, name = :c_last)
 	c_penult = DimVector(df.cⱼ, ω_dim, name = :c_penult)
 
-	DimStack(c_last, c_penult)
+	DimStack(c_last, c_penult) # =#
 end
 
 # ╔═╡ f61bf1a6-634f-4a47-8c28-efd42ce87747
@@ -905,7 +923,7 @@ end
 """
 
 # ╔═╡ fb51b371-6b05-4da2-af1b-ef2d749e5af7
-function c_last(ωⱼ, (; rₜ, wₜ, yⱼ, rₜ₊₁, pₜ₊₁, pₜ), (; δ, ξ)) 
+function c_last(ωⱼ, (; wₜ, yⱼ#=, rₜ, rₜ₊₁, pₜ₊₁, pₜ=#), (; δ, ξ)) 
 	# ω_J == 0
 	exp_J = (ωⱼ + wₜ * yⱼ) #/ (1 - (1-δ)/(1+rₜ₊₁) * pₜ₊₁/pₜ)
 	(1-ξ) * exp_J
@@ -1012,16 +1030,27 @@ egm_penult2 = let
 	y = 1.0
 	inc = y * w
 
-	c′ = DimVector(out_last.c, name = :c_last)
+	(; prices_last, prices_penult) = let
+		p, p′, p″ = prices_penult.pₜ₍ⱼ₎, prices_penult.pₜ₍ⱼ₊₁₎, prices_last.pₜ₍ⱼ₊₁₎
+		r′ = prices_penult.rₜ₍ⱼ₊₁₎
+		r″ = prices_last.rₜ₍ⱼ₊₁₎
 	
-	p, p′, p″ = prices_penult.pₜ₍ⱼ₎, prices_penult.pₜ₍ⱼ₊₁₎, prices_last.pₜ₍ⱼ₊₁₎
-	r′ = prices_penult.rₜ₍ⱼ₊₁₎
-	r″ = prices_last.rₜ₍ⱼ₊₁₎
+		prices_last = (; 
+			pₜ₊₁ = p″, rₜ₊₁ = r″, mⱼ = 0.0, mⱼ₋₁ = 0.0, wₜ = prices_last.w, yⱼ = 1.0)
+	
+		prices_penult = (; 
+			pₜ₋₁ = p, pₜ = p′, pₜ₊₁ = p″, rₜ = r′, rₜ₊₁ = r″, mⱼ = 0.0, mⱼ₋₁ = 0.0, wₜ₋₁ = w, yⱼ₋₁ = 1.0)
 
-	prices = (; 
-		pₜ₋₁ = p, pₜ = p′, pₜ₊₁ = p″, rₜ = r′, rₜ₊₁ = r″, mⱼ = 0.0, mⱼ₋₁ = 0.0, wₜ₋₁ = w, yⱼ₋₁ = 1.0)
+		(; prices_last, prices_penult)
+	end
 	
-	out = iterate_backward_.(ω_grid, c′, Ref(prices), Ref(par))
+	# USES `c_last`
+	c′ = DimVector(
+		c_last.(ω_grid, Ref(prices_last), Ref(par)),
+		Dim{:ω}(ω_grid), name = :c_last)
+
+	# USES `iterate_backward`
+	out = iterate_backward_.(ω_grid, c′, Ref(prices_penult), Ref(par))
 
 	df = select(DataFrame(DimTable(out)), Not(:layer1), :layer1 => AsTable)
 
