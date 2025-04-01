@@ -132,6 +132,11 @@ md"""
 # The last period
 """
 
+# ╔═╡ 6e02d06e-5ea0-4bcc-86a9-29182356cb3c
+md"""
+# VFI vs EGM: Testing one iteration
+"""
+
 # ╔═╡ 73f50ec7-6763-47d2-9560-167699c49161
 md"""
 # The penultimate period
@@ -483,7 +488,7 @@ end
 # ╔═╡ 9c9ceccb-fb28-419b-a9ed-37aaf6406f3c
 function prices_from_price_paths(price_paths, t)
 	(; 
-		price_paths.r, price_paths.w, 
+		rₜ₍ⱼ₊₁₎ = price_paths.r, price_paths.w, 
 		pₜ₍ⱼ₎   = price_paths.ps[t = At(t)],
 		pₜ₍ⱼ₊₁₎ = price_paths.ps[t = At(t+1)]
 	)
@@ -539,25 +544,6 @@ vfi_penult = let
 	c_penult = DimVector(df.cⱼ, ω_dim, name = :c_penult)
 
 	DimStack(c_last, c_penult)
-end
-
-# ╔═╡ fa69ae76-0b5b-42fd-9186-22cd0191153a
-let
-	df_vfi = DataFrame(vfi_penult)
-	df_egm = DataFrame(egm_penult)
-
-	df = vcat(df_vfi, df_egm, source = :method => ["vfi", "egm"])
-
-	@chain df begin
-		stack([:c_last, :c_penult])
-		@subset(-0.1 < :ω < 0.1)
-		data(_) * mapping(:ω, :value, group = :variable, 
-			color = :method => sorter("vfi", "egm"),
-			linestyle = :method => sorter("vfi", "egm")
-		) * visual(Lines)
-		draw
-	end
-	
 end
 
 # ╔═╡ f61bf1a6-634f-4a47-8c28-efd42ce87747
@@ -1014,6 +1000,55 @@ function iterate_backward_(stateⱼ, cⱼ, prices, par)
 	(; ωₜ₋₁) = ωₜ₋₁_from_ahc( prices;      aₜ, hₜ₋₁, cₜ₋₁)
 		
 	(; cⱼ₋₁=cₜ₋₁, hⱼ₋₁=hₜ₋₁, stateⱼ₋₁=ωₜ₋₁)
+end
+
+# ╔═╡ 99dd4792-3b16-456c-8671-bab6001c4663
+egm_penult2 = let
+	(; out_last, ω_grid, par, prices_penult, prices_last) = egm₀
+
+	par = (; par..., σ = par.γ)
+	#r = prices.r
+	(; w) = prices_penult
+	y = 1.0
+	inc = y * w
+
+	c′ = DimVector(out_last.c, name = :c_last)
+	
+	p, p′, p″ = prices_penult.pₜ₍ⱼ₎, prices_penult.pₜ₍ⱼ₊₁₎, prices_last.pₜ₍ⱼ₊₁₎
+	r′ = prices_penult.rₜ₍ⱼ₊₁₎
+	r″ = prices_last.rₜ₍ⱼ₊₁₎
+
+	prices = (; 
+		pₜ₋₁ = p, pₜ = p′, pₜ₊₁ = p″, rₜ = r′, rₜ₊₁ = r″, mⱼ = 0.0, mⱼ₋₁ = 0.0, wₜ₋₁ = w, yⱼ₋₁ = 1.0)
+	
+	out = iterate_backward_.(ω_grid, c′, Ref(prices), Ref(par))
+
+	df = select(DataFrame(DimTable(out)), Not(:layer1), :layer1 => AsTable)
+
+	c = DimVector(
+		linear_interpolation(df.stateⱼ₋₁, df.cⱼ₋₁, extrapolation_bc = Line())(ω_grid),
+		Dim{:ω}(ω_grid), name = :c_penult)
+
+	DimStack(c, c′)
+end
+
+# ╔═╡ fa69ae76-0b5b-42fd-9186-22cd0191153a
+let
+	df_vfi = DataFrame(vfi_penult)
+	df_egm = DataFrame(egm_penult2)
+
+	df = vcat(df_vfi, df_egm, source = :method => ["vfi", "egm"])
+
+	@chain df begin
+		stack([:c_last, :c_penult])
+		@subset(-0.1 < :ω < 0.1)
+		data(_) * mapping(:ω, :value, group = :variable, 
+			color = :method => sorter("vfi", "egm"),
+			linestyle = :method => sorter("vfi", "egm")
+		) * visual(Lines)
+		draw
+	end
+	
 end
 
 # ╔═╡ 8611066a-4ef4-47b5-8247-2f3268bf1d54
@@ -3039,6 +3074,7 @@ version = "3.6.0+0"
 # ╟─62fef877-a42e-4a86-af78-dcf4e54b779a
 # ╠═31e0a1a9-2216-4a70-9f81-2f16267fcb5c
 # ╠═0405682d-9757-48c2-81d9-03abe696af4b
+# ╟─6e02d06e-5ea0-4bcc-86a9-29182356cb3c
 # ╟─73f50ec7-6763-47d2-9560-167699c49161
 # ╠═8fd0bef0-40af-4b15-8d46-11caf051067f
 # ╟─b0270296-aba9-4c53-87bb-550550944997
@@ -3051,6 +3087,7 @@ version = "3.6.0+0"
 # ╟─d5831143-df0d-43aa-9fc0-1a312feaa3dc
 # ╠═e10d7dfc-ae95-42cb-8ddf-8e98eb4eae53
 # ╠═bf3aa5f3-c333-41dc-8fd0-d6cbc926bd6b
+# ╠═99dd4792-3b16-456c-8671-bab6001c4663
 # ╠═4e012287-9260-49a8-a0a8-f2b3abb6c189
 # ╟─b1b861ce-0659-11f0-094d-67da13f58563
 # ╠═bae86455-59b4-42fc-9f0e-b14ed67b9e5f
