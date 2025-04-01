@@ -67,34 +67,63 @@ md"""
 The Lagrangian is 
 
 ```math
-\sum_{t=0}^\infty \beta^t \Biggl(u(c_t, s(h_t, \tilde h_t)) - \lambda_t \Bigl(c_t + p_t h_t + a_t - y_t - (1+r_t) a_{t-1} - (1-\delta)p_t h_{t-1}\Bigr) \Biggr)
+\sum_{t=0}^\infty \Phi_j \beta^j \Biggl(u(c_j, h_j) - \lambda_j \Bigl(c_j + p_{t(j)} h_j + a_{j+1} - y_j - (1+r_{t(j)}) a_{j} - (1-\delta)p_{t(j)} h_{j-1}\Bigr) \Biggr)
 ```
 
-* ``(a_t)``: ``\textcolor{lightgray}{\beta^t} \lambda_t = \textcolor{purple}{\beta}^\textcolor{lightgray}{t+1} \lambda_{t+1} \textcolor{purple}{(1+r)} = \lambda_t = \lambda``
-* ``(c_t)``: ``u_{c_t} = \lambda_t = \lambda``
-* ``(h_t)``: ``\textcolor{lightgray}{\beta^t} (u_{s_t} \textcolor{lightgray}{s_{h_t}} - \lambda_\textcolor{lightgray}{t} p_t) + \beta^\textcolor{lightgray}{t+1} \textcolor{lightgray}{(-1)}\lambda_\textcolor{lightgray}{t+1} \textcolor{lightgray}{(-1)} (1-\delta) p_{t+1} = 0 ``
+* ``(a_{j+1})``: ``\textcolor{lightgray}{\beta^j} \Phi_j \lambda_j = \textcolor{purple}{\beta}^\textcolor{lightgray}{t+1} \textcolor{purple}{\Phi_{j+1} \lambda_{j+1}} (1+r_{t+1})``
+* ``(c_j)``: ``u_{c_j} = \lambda_j``
+* ``(h_j)``: ``\textcolor{lightgray}{\beta^j} \Phi_j (u_{h_j} - \lambda_j p_{t(j)}) + \textcolor{purple}{\beta}^\textcolor{lightgray}{t+1} \textcolor{purple}{\Phi_{j+1}}\textcolor{lightgray}{(-1)}\textcolor{purple}{\lambda_{j+1}}\textcolor{lightgray}{(-1)} (1-\delta) p_{t(j+1)} = 0 ``
 
+"""
+
+# ╔═╡ 2ce2146a-4158-4280-86d3-7d73937262e0
+md"""
+Plugging ``(a_{j+1})`` into ``(h_j)`` gives
+
+```math
+\begin{align}
+0 &= \textcolor{lightgray}{\Phi_j} (u_{h_j} - \lambda_j p_{t(j)}) + \frac{\textcolor{lightgray}{\Phi_j} \lambda_j}{1+r_{t(j+1)}} (1-\delta) p_{t(j+1)} \\
+\implies u_{h_j} &= \lambda_j p_{t(j)}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr) \\
+\implies \frac{u_{h_j}}{u_{c_j}} &= p_{t(j)}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr) \\
+\end{align}
+```
 """
 
 # ╔═╡ 71fcb5c5-073f-438c-bf17-0d8f666facac
 md"""
-#### 1. Rewriting the third FOC (CD-CRRA – using ``\beta (1+r) = 1``)
-
-```math
-\begin{align}
-u_{h_t} - \lambda p_t &= - \lambda \beta (1-\delta) p_{t+1} \\
-\frac{u_{h_t}}{u_{c_t}} &= p_t -\beta (1-\delta) p_{t+1} \\
-\end{align}
-```
-
-Above, we computed ``\frac{u_{h_t}}{u_{c_t}}= \frac{\xi}{1-\xi}\frac{c_t}{h_t}``. Hence,
+Above, we computed ``\frac{u_{h_j}}{u_{c_j}}= \frac{\xi}{1-\xi}\frac{c_j}{h_j}``. Hence,
 
 ```math
 \begin{align*}
-\frac{\xi}{1-\xi}\frac{c_t}{h_t} &= p_t - \beta (1-\delta) p_{t+1} \\
-\implies \frac{c_t}{h_t} &= \frac{1-\xi}{\xi}\bigl(p_t - \beta (1-\delta) p_{t+1} \bigr) \\
-\implies \frac{c_t}{p_t h_t} &= \underbrace{\frac{1-\xi}{\xi}\biggl(1 - \beta (1-\delta) \frac{p_{t+1}}{p_t} \biggr)}_{=: \kappa(p_t, p_{t+1})} \tag{$***$} \\
+\frac{\xi}{1-\xi}\frac{c_j}{h_j} &= p_{t(j)}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr) \\
+\implies \frac{c_j}{h_j} &= \underbrace{p_{t(j)} \frac{1-\xi}{\xi}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr)}_{=: \tilde{\kappa}_j(p_{t(j)}, p_{t(j+1)}, r_{t(j+1)} )} \\
+\implies \frac{c_j}{p_{t(j)} h_j} &= \underbrace{\frac{1-\xi}{\xi} \biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr)}_{=: \kappa_j(p_{t(j)}, p_{t(j+1)}, r_{t(j+1)} )} \tag{$***$} \\
 \end{align*}
+```
+"""
+
+# ╔═╡ e49fee0a-148b-4a91-92f8-b9536f2a395d
+md"""
+```math
+\begin{align}
+u_{c_j} &= \frac{\textcolor{lightgray}{(1 - \xi)}}{c_j} (c_j^{1-\xi} \textcolor{skyblue}{(c_j/\tilde{\kappa}_j)}^{\xi})^{1-\sigma}\\
+&=  \frac{\textcolor{lightgray}{(1 - \xi)}}{c_j} (c_j \textcolor{skyblue}{\tilde{\kappa}_j^{-\xi}})^{1-\sigma}\\
+&= \textcolor{lightgray}{(1 - \xi)} {\tilde{\kappa}_j^{-\xi(1-\sigma)}} c_j^{-\sigma}\\
+\end{align}
+```
+
+Recall ``(a_{j+1})``.
+
+```math
+\begin{align}
+ \Phi_j \lambda_j &= \textcolor{purple}{\beta} \textcolor{purple}{\Phi_{j+1} \lambda_{j+1}} (1+r_{t(j+1)}) \\
+\implies
+\frac{\lambda_j}{\lambda_{j+1}} &= \frac{\Phi_{j+1}}{\Phi_j} \beta (1+r_{t(j+1)}) \\
+\implies
+\biggl(\frac{{\tilde{\kappa}_j}}{{\tilde{\kappa}_{j+1}}}\biggr)^{{-\xi(1-\sigma)}} \biggl(\frac{c_j}{ c_{j+1}}\biggr)^{-\sigma} &=  \frac{\Phi_{j+1}}{\Phi_j} \beta (1+r_{t(j+1)}) \\
+\implies
+ c_j &=  c_{j+1} \biggl(\frac{\Phi_{j+1}}{\Phi_j} \beta (1+r_{t(j+1)})\biggr)^{-1/\sigma} / \biggl(\frac{{\tilde{\kappa}_j}}{{\tilde{\kappa}_{j+1}}}\biggr)^{{\xi(1-\sigma)/\sigma}}\\
+\end{align}
 ```
 """
 
@@ -111,15 +140,16 @@ md"""
 # ╔═╡ 8fd0bef0-40af-4b15-8d46-11caf051067f
 penult₀ = let
 	what_is_zero = :ω
-	par = (; γ = 2.0, ξ = 0.1, δ = 0.1, β = 0.95, y = 1.0)
+	par = (; γ = 2.0, ξ = 0.1, δ = 0.1, β = 0.9, y = 1.0)
 	ω̲, ω̅ = -0.1, 0.1
 
 	p″ = 1.567      # after last period
-	p′ = 0.95 * p″  # last period
-	p  = 0.87 * p″  # penultimate period
-	
-	prices_last   = (; r = 0.05, pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, w = 1.1234)
-	prices_penult = (; r = 0.05, pₜ₍ⱼ₎ = p,  pₜ₍ⱼ₊₁₎ = p′, w = 1.1234)
+	p′ = 0.9 * p″  # last period
+	p  = 0.8 * p″  # penultimate period
+
+	r = 1/par.β - 1
+	prices_last   = (; rₜ₍ⱼ₊₁₎ = r + 0.05, pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, w = 1.1234)
+	prices_penult = (; rₜ₍ⱼ₊₁₎ = r - 0.05, pₜ₍ⱼ₎ = p,  pₜ₍ⱼ₊₁₎ = p′, w = 1.1234)
 
 	(; par, prices_last, prices_penult, ω̲, ω̅, what_is_zero)
 end
@@ -158,7 +188,7 @@ Plug in the budget constraint
 \begin{align}
 y + \omega &= c + ph + a'  \\
 y + \omega &= c + ph + \frac{1}{1+r'}\omega' - \frac{1-\delta}{1+r'}p'h \\
-\omega &= c + ph\Bigl(1 - \frac{1-\delta}{1+r}\frac{p'}{p}\Bigl) + \frac{1}{1+r}\omega' - y
+\omega &= c + ph\Bigl(1 - \frac{1-\delta}{1+r'}\frac{p'}{p}\Bigl) + \frac{1}{1+r'}\omega' - y
 \end{align}
 ```
 """
@@ -181,10 +211,11 @@ prices = (; p = 1.1, r = 1/par.β - 1 + Δr, w = 1.1)
 u(c, h, (; ξ, γ)) = (c^(1-ξ) * h^ξ)^(1-γ)/(1-γ)
 
 # ╔═╡ 0405682d-9757-48c2-81d9-03abe696af4b
-function terminal_value(ω_grid, par, prices; what_is_zero = :ω)
+function terminal_value(ω_grid, par, last_prices; what_is_zero = :ω)
 	(; δ) = par
-	(; r, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎) = prices
-	inc = par.y * prices.w
+	(; rₜ₍ⱼ₊₁₎, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎, w) = last_prices
+	
+	inc = par.y * w
 	
 	ω_dim = Dim{:ω}(ω_grid)
 	
@@ -199,7 +230,7 @@ function terminal_value(ω_grid, par, prices; what_is_zero = :ω)
 	
 	for ωⱼ ∈ ω_grid
 	
-		aⱼ₊₁(h) = what_is_zero == :a ? 0.0 : - pₜ₍ⱼ₊₁₎ * (1 - δ)/(1 + r) * h
+		aⱼ₊₁(h) = what_is_zero == :a ? 0.0 : - pₜ₍ⱼ₊₁₎ * (1 - δ)/(1 + rₜ₍ⱼ₊₁₎) * h
 		c(h) = inc + ωⱼ - aⱼ₊₁(h) - pₜ₍ⱼ₎ * h
 
 		h̄ = (inc + ωⱼ)/(pₜ₍ⱼ₎)
@@ -208,7 +239,7 @@ function terminal_value(ω_grid, par, prices; what_is_zero = :ω)
 		cⱼ = c.(hⱼ)
 			
 		aⱼ₊₁ = @. inc + ωⱼ - cⱼ - pₜ₍ⱼ₎ * hⱼ
-		ωⱼ₊₁ = @. pₜ₍ⱼ₊₁₎ * (1 - δ) * hⱼ + (1+r) * aⱼ₊₁
+		ωⱼ₊₁ = @. pₜ₍ⱼ₊₁₎ * (1 - δ) * hⱼ + (1+rₜ₍ⱼ₊₁₎) * aⱼ₊₁
 
 		close_to_zero(x) = abs(x) < 1e-12
 		if what_is_zero == :ω
@@ -243,7 +274,7 @@ let
 
 	ω_grid = range(-0.04, -0.02, length = 100)
 		
-	prices = (; r = 0.05, pₜ₍ⱼ₎ = 1.0, pₜ₍ⱼ₊₁₎ = 1.0, w = 1.0)
+	prices = (; rₜ₍ⱼ₊₁₎ = 0.07, pₜ₍ⱼ₎ = 1.0, pₜ₍ⱼ₊₁₎ = 1.0, w = 1.0)
 
 	out = terminal_value(ω_grid, par, prices; what_is_zero)
 
@@ -259,7 +290,7 @@ end
 # ╔═╡ 5c197725-0cff-4fbd-9e29-cca5cc48f28c
 vfi₀ = let
 	(; par, prices_last, ω̲, ω̅, what_is_zero) = penult₀
-	ω_grid = range(ω̲, ω̅, length = 100)
+	ω_grid = range(ω̲, ω̅, length = 500)
 	out_last = terminal_value(ω_grid, par, prices_last; what_is_zero)
 
 	(; out_last, par, prices_last, penult₀.prices_penult, ω_grid)
@@ -286,47 +317,53 @@ egm_penult = let
 	(; out_last, ω_grid, par, prices_penult, prices_last) = egm₀
 
 	#r = prices.r
-	(; r, w) = prices_penult
+	(; w) = prices_penult
 	y = 1.0
 	inc = y * w
-	
-	κ(pₜ, pₜ₊₁, (; β, δ, ξ)) = (1-ξ)/ξ * (pₜ - pₜ₊₁ * (1-δ)/(1+r))
+
+	# c = κₚ ⋅ h = κ ⋅ p ⋅ h
+	κ( p, p′, r′, (; β, δ, ξ)) = (1-ξ)/ξ * (1 - (1-δ)/(1+r′) * p′/p)
+	κₚ(p, p′, r′, par) = p * κ(p, p′, r′, par)
 	
 	# cₜ₊₁/cₜ = (κ(pₜ, pₜ₊₁, par) / κ(pₜ₊₁, pₜ₊₂, par))^(ξ * (1-σ)/σ)
 	# c′/c = (κ(p, p′, par) / κ(p′, p′′, par))^(ξ * (1-σ)/σ)
 
-	function get_c(c′, p, p′, p′′, par)
-		(; ξ, γ) = par
+	function get_c(c′, (; p, p′, p″, r′, r″), par)
+		(; ξ, γ, β) = par
 		σ = γ
 		
-		c′/ (κ(p, p′, par) / κ(p′, p′′, par))^(ξ * (1-σ)/σ)
+		c′ * (β*(1+r′))^(-1/σ) / (κₚ(p, p′, r′, par) / κₚ(p′, p″, r″, par))^(ξ * (1-σ)/σ)
 	end
 
-	function get_h(c, p, p′, par)
-		c / κ(p, p′, par)
+	function get_h(c, (; p, p′, r′), par)
+		c / κₚ(p, p′, r′, par)
 	end
 
-	function get_ω(c, h, ω′, p, p′, par)
+	function get_ω(c, h, ω′, (; p, p′, r′), par)
 		(; δ) = par
-		r′ = r
+		
 		#inc = 1.0
-		c + p * h * (1 - (1-δ)/(1+r′) * p′/p) + 1/(1+r′) * ω′ - inc
+		c + p * h * (1 - (1-δ)/(1+r′) * p′/p) + ω′/(1+r′) - inc
 	end
 	
 	c′ = DimVector(out_last.c, name = :c_last)
-	p, p′, p′′ = prices_penult.pₜ₍ⱼ₎, prices_penult.pₜ₍ⱼ₊₁₎, prices_last.pₜ₍ⱼ₊₁₎
+	p, p′, p″ = prices_penult.pₜ₍ⱼ₎, prices_penult.pₜ₍ⱼ₊₁₎, prices_last.pₜ₍ⱼ₊₁₎
+	r′ = prices_penult.rₜ₍ⱼ₊₁₎
+	r″ = prices_last.rₜ₍ⱼ₊₁₎
 
+	prices = (; p, p′, p″, r′, r″)
+	
 	# c′(c)
-	c_ω′ =	DimVector(get_c.(c′, p, p′, p′′, Ref(par)), name = :c_penultimate)
-	h_ω′ = DimVector(get_h.(c_ω′, p, p′, Ref(par)), name = :h_penultimate)
+	c_ω′ =	DimVector(get_c.(c′, Ref(prices), Ref(par)), name = :c_penultimate)
+	h_ω′ = DimVector(get_h.(c_ω′, Ref(prices), Ref(par)), name = :h_penultimate)
 	ω′ = ω_grid
-	ω = DimVector(get_ω.(c_ω′, h_ω′, ω′, p, p′, Ref(par)), name = :ω_penultimate)
+	ω = DimVector(get_ω.(c_ω′, h_ω′, ω′, Ref(prices), Ref(par)), name = :ω_penultimate)
 
 	
 	lines(collect(ω′), collect(c′), label = "last")
 	lines!(collect(ω), collect(c_ω′), label = "penult")
 
-	c_itp = linear_interpolation(ω, c_ω′)
+	c_itp = linear_interpolation(ω, c_ω′, extrapolation_bc = Line())
 
 	c_penult = DimVector(c_itp.(ω_grid), Dim{:ω}(ω_grid), name = :c_penult)
 
@@ -369,24 +406,24 @@ md"""
 #vⱼ₊₁ ωⱼ₋₁
 
 # ╔═╡ c5ca1482-7252-4220-92ec-a67900f036e4
-function κ₀((; δ, ξ), (; pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎, r); terminal) 
+function κ₀((; δ, ξ), (; pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎, rₜ₍ⱼ₊₁₎); terminal) 
 	#if terminal
 	#	β = 0.0
 	#end
     
-	(1-ξ)/ξ * (1 - (1 - δ)/(1+r) * pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) # c_by_ph
+	(1-ξ)/ξ * (1 - (1 - δ)/(1+rₜ₍ⱼ₊₁₎) * pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) # c_by_ph
 end
 
 # ╔═╡ fd3cb5a8-8717-4d2f-8e58-4151a25f79dd
 function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = false)
-	(; r, w, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎) = prices
+	(; rₜ₍ⱼ₊₁₎, w, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎) = prices
 	(; δ, y, ξ, β) = par
 	
 	inc = only(unique(y)) * w
 	
 	κ = κ₀(par, prices; terminal)
 
-	pₜ₍ⱼ₎hⱼ = 1/(κ + 1 - (1-δ)/(1+r)*pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) * (ωⱼ + inc - ωⱼ₊₁/(1+r))
+	pₜ₍ⱼ₎hⱼ = 1/(κ + 1 - (1-δ)/(1+rₜ₍ⱼ₊₁₎)*pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) * (ωⱼ + inc - ωⱼ₊₁/(1+rₜ₍ⱼ₊₁₎))
 	cⱼ = κ * pₜ₍ⱼ₎hⱼ
 	hⱼ = pₜ₍ⱼ₎hⱼ/pₜ₍ⱼ₎
 
@@ -401,7 +438,7 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 		u(cⱼ, hⱼ, par)
 	end
 	
-	aⱼ₊₁ = (ωⱼ₊₁ - (1-δ) * pₜ₍ⱼ₊₁₎ * hⱼ)/(1+r)
+	aⱼ₊₁ = (ωⱼ₊₁ - (1-δ) * pₜ₍ⱼ₊₁₎ * hⱼ)/(1+rₜ₍ⱼ₊₁₎)
 	
 	let
 		lhs = cⱼ + pₜ₍ⱼ₎hⱼ + aⱼ₊₁
@@ -513,6 +550,7 @@ let
 
 	@chain df begin
 		stack([:c_last, :c_penult])
+		@subset(-0.1 < :ω < 0.1)
 		data(_) * mapping(:ω, :value, group = :variable, 
 			color = :method => sorter("vfi", "egm"),
 			linestyle = :method => sorter("vfi", "egm")
@@ -582,7 +620,7 @@ md"""
 """
 
 # ╔═╡ ee007b1f-e5b5-475e-b672-53483ad42f88
-init = (; h = 1.83162, a = -0.736706)
+
 
 # ╔═╡ 230bdd4d-99fb-4adb-971b-dbef024b3e20
 p_test = [0.5028480280461705, 0.5241238908263111, 0.5229295236881214, 0.5217017148142188, 0.5204099628296323, 0.5190844559661794, 0.5177911453101505, 0.5166033832040168, 0.5155792381994333, 0.5147496348256029, 0.514117292657164, 0.5136630071761439, 0.5133549339145355, 0.5131574170435576, 0.5130374257916149, 0.5129680665281533, 0.5129295872492532, 0.5129087271453475, 0.5128972868297691, 0.5128905760328677, 0.5128861057502261, 0.512882648490296, 0.5128796410208144, 0.5128768425830681, 0.512874157028558, 0.5128715481667272, 0.512869002797782, 0.5128665158769151, 0.5128640850404091, 0.5128617087497279, 0.5128593857139132, 0.512857114724707, 0.5128548946132658, 0.5128527242394967, 0.5128506024893068, 0.5128485282736247, 0.5128465005277771, 0.512844518210923, 0.5128425803055271, 0.5128406858168318, 0.5128388337723554, 0.5128370232213857, 0.5128352532344975, 0.5128335229030779, 0.5128318313388551, 0.5128301776734494, 0.5128285610579219, 0.5128269806623478, 0.5128254356753813, 0.5128239253038469, 0.5128224487723303, 0.51282100532278, 0.5128195942141227, 0.5128182147218784, 0.5128168661377885, 0.5128155477694639, 0.5128142589400108, 0.5128129989877024, 0.5128117672656282, 0.5128105631413655, 0.5128093859966565, 0.5128082352270891, 0.5128071102417884, 0.5128060104631144, 0.5128049353263597, 0.5128038842794712, 0.5128028567827553, 0.5128018523086093, 0.5128008703412458, 0.5127999103764325, 0.5127989719212271, 0.5127980544937343, 0.5127971576228445, 0.5127962808480111, 0.5127954237189918, 0.5127945857956379, 0.5127937666476585, 0.512792965854397, 0.512792183004622, 0.5127914176963164, 0.5127906695364635, 0.5127899381408534, 0.5127892231338809, 0.512788524148357, 0.5127878408253143, 0.5127871728138315, 0.5127865197708417, 0.5127858813609696, 0.5127852572563489, 0.5127846471364574, 0.512784050687956, 0.5127834676045216, 0.5127828975866932, 0.512782340341722, 0.5127817955834106, 0.5127812630319774, 0.5127807424139057, 0.512780233461807, 0.5127797359142817, 0.5127792495157849, 0.5127787740164927, 0.5127783091721871, 0.5127778547441065, 0.5127774104988446, 0.5127769762082233, 0.512776551649171, 0.5127761366036104, 0.512775730858354, 0.5127753342049791, 0.5127749464397375, 0.5127745673634349, 0.512774196781341, 0.5127738345030819, 0.512773480342542, 0.5127731341177729, 0.5127727956508938, 0.5127724647680043, 0.5127721412990883, 0.5127718250779322, 0.5127715159420378, 0.5127712137325312, 0.5127709182940903, 0.5127706294748553, 0.512770347126351, 0.5127700711034155, 0.5127698012641151, 0.5127695374696728, 0.5127692795843962, 0.512769027475605, 0.5127687810135566, 0.5127685400713826, 0.5127683045250161, 0.5127680742531386, 0.512767849137125, 0.5127676290610595, 0.5127674139118498, 0.512767203579637, 0.5127669979589149, 0.5127667969510747, 0.5127666004699587, 0.5127664084530146, 0.5127662208823485, 0.5127660378222231, 0.5127658594819225, 0.5127656863153942, 0.5127655191709162, 0.5127653595047076, 0.5127652096725649, 0.5127650733136256, 0.5127649558432817, 0.5127648650805959, 0.5127648120533261]
@@ -2994,8 +3032,10 @@ version = "3.6.0+0"
 # ╠═e23c5d86-fec3-40a9-b9aa-3b9dad3b0b9a
 # ╟─134ba669-b2e2-40c3-872b-b79d14d16544
 # ╟─dd01a6ba-ea0b-4f10-8597-c7d5f36cf5fe
-# ╟─ee8b2332-192c-4cd3-b89a-97fd5db07fa4
+# ╠═ee8b2332-192c-4cd3-b89a-97fd5db07fa4
+# ╟─2ce2146a-4158-4280-86d3-7d73937262e0
 # ╟─71fcb5c5-073f-438c-bf17-0d8f666facac
+# ╟─e49fee0a-148b-4a91-92f8-b9536f2a395d
 # ╟─62fef877-a42e-4a86-af78-dcf4e54b779a
 # ╠═31e0a1a9-2216-4a70-9f81-2f16267fcb5c
 # ╠═0405682d-9757-48c2-81d9-03abe696af4b
