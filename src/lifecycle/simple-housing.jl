@@ -114,9 +114,14 @@ penult₀ = let
 	par = (; γ = 2.0, ξ = 0.1, δ = 0.1, β = 0.95, y = 1.0)
 	ω̲, ω̅ = -0.1, 0.1
 
-	prices = (; r = 0.05, pₜ₍ⱼ₎ = 1.0, pₜ₍ⱼ₊₁₎ = 1.0, w = 1.0)
+	p″ = 1.567      # after last period
+	p′ = 0.95 * p″  # last period
+	p  = 0.87 * p″  # penultimate period
+	
+	prices_last   = (; r = 0.05, pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, w = 1.1234)
+	prices_penult = (; r = 0.05, pₜ₍ⱼ₎ = p,  pₜ₍ⱼ₊₁₎ = p′, w = 1.1234)
 
-	(; par, prices, ω̲, ω̅, what_is_zero)
+	(; par, prices_last, prices_penult, ω̲, ω̅, what_is_zero)
 end
 
 # ╔═╡ b0270296-aba9-4c53-87bb-550550944997
@@ -253,20 +258,20 @@ end
 
 # ╔═╡ 5c197725-0cff-4fbd-9e29-cca5cc48f28c
 vfi₀ = let
-	(; par, prices, ω̲, ω̅, what_is_zero) = penult₀
+	(; par, prices_last, ω̲, ω̅, what_is_zero) = penult₀
 	ω_grid = range(ω̲, ω̅, length = 100)
-	out_last = terminal_value(ω_grid, par, prices; what_is_zero)
+	out_last = terminal_value(ω_grid, par, prices_last; what_is_zero)
 
-	(; out_last, par, prices, ω_grid)
+	(; out_last, par, prices_last, penult₀.prices_penult, ω_grid)
 end
 
 # ╔═╡ e10d7dfc-ae95-42cb-8ddf-8e98eb4eae53
 egm₀ = let
-	(; par, prices, ω̲, ω̅, what_is_zero) = penult₀
+	(; par, prices_last, ω̲, ω̅, what_is_zero) = penult₀
 	ω_grid = range(ω̲, ω̅, length = 100)
-	out_last = terminal_value(ω_grid, par, prices; what_is_zero)
+	out_last = terminal_value(ω_grid, par, prices_last; what_is_zero)
 
-	(; out_last, par, prices, ω_grid)
+	(; out_last, par, prices_last, penult₀.prices_penult, ω_grid)
 end
 
 # ╔═╡ bf3aa5f3-c333-41dc-8fd0-d6cbc926bd6b
@@ -277,10 +282,14 @@ let
 end
 
 # ╔═╡ 4e012287-9260-49a8-a0a8-f2b3abb6c189
-let
-	(; out_last, ω_grid, par, prices) = egm₀
+egm_penult = let
+	(; out_last, ω_grid, par, prices_penult, prices_last) = egm₀
 
-	r = prices.r
+	#r = prices.r
+	(; r, w) = prices_penult
+	y = 1.0
+	inc = y * w
+	
 	κ(pₜ, pₜ₊₁, (; β, δ, ξ)) = (1-ξ)/ξ * (pₜ - pₜ₊₁ * (1-δ)/(1+r))
 	
 	# cₜ₊₁/cₜ = (κ(pₜ, pₜ₊₁, par) / κ(pₜ₊₁, pₜ₊₂, par))^(ξ * (1-σ)/σ)
@@ -300,12 +309,12 @@ let
 	function get_ω(c, h, ω′, p, p′, par)
 		(; δ) = par
 		r′ = r
-		inc = 1.0
+		#inc = 1.0
 		c + p * h * (1 - (1-δ)/(1+r′) * p′/p) + 1/(1+r′) * ω′ - inc
 	end
 	
 	c′ = DimVector(out_last.c, name = :c_last)
-	p, p′, p′′ = prices.pₜ₍ⱼ₎, prices.pₜ₍ⱼ₊₁₎, prices.pₜ₍ⱼ₊₁₎
+	p, p′, p′′ = prices_penult.pₜ₍ⱼ₎, prices_penult.pₜ₍ⱼ₊₁₎, prices_last.pₜ₍ⱼ₊₁₎
 
 	# c′(c)
 	c_ω′ =	DimVector(get_c.(c′, p, p′, p′′, Ref(par)), name = :c_penultimate)
@@ -313,40 +322,40 @@ let
 	ω′ = ω_grid
 	ω = DimVector(get_ω.(c_ω′, h_ω′, ω′, p, p′, Ref(par)), name = :ω_penultimate)
 
-	lines(collect(ω′), collect(c′))
-	lines!(collect(ω), collect(c_ω′))
+	
+	lines(collect(ω′), collect(c′), label = "last")
+	lines!(collect(ω), collect(c_ω′), label = "penult")
 
-	current_figure()
-	#c_ω = DimVector(Vector(c_ω′), Dim{:ω}(ω))
-	
-	#@chain DimStack(c_ω′, c′, h_ω′, ω) begin
-	#	DataFrame
-	#	
-	#	stack(Not(:ω))
-	#	data(_) * mapping(:ω => L"$ω'$ (!)", :value, color = :variable) * visual(Lines)
-	#	draw
-	#end
-	
+	c_itp = linear_interpolation(ω, c_ω′)
+
+	c_penult = DimVector(c_itp.(ω_grid), Dim{:ω}(ω_grid), name = :c_penult)
+
+	DimStack(c′, c_penult)
 end
 
 # ╔═╡ cb7f3832-c1e9-48de-b21e-2390b6d1a2e8
 md"""
-* definition of cash-at-hand ``\omega_{j+1} := p h_j (1-\delta) + (1+r) a_{j+1}``
+* definition of cash-at-hand ``\omega_{j+1} := p_{j+1} h_j (1-\delta) + (1+r) a_{j+1}``
 * budget constraint ``c_j + p h_j + a_{j+1} = w\cdot y + \omega_j``
 
 ```math
 \begin{align}
 c_j + ph_j + a_{j+1} &= w \cdot y + \omega_j \\
-\omega_{j+1} &:= p h_j (1-\delta) + (1+r) a_{j+1} \\
-a_{j+1} &= \frac{\omega_{j+1} - p h_j (1-\delta)}{1+r} \\
-c_j + ph_j + \frac{\omega_{j+1} - p h_j (1-\delta)}{1+r} &= w \cdot y + \omega_j \\
-c_j + ph_j - p h_j \frac{1-\delta}{1+r} &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1} \\
-c_j + ph_j \frac{r-\delta}{1+r} &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1}
+\omega_{j+1} &:= p_{j+1} h_j (1-\delta) + (1+r) a_{j+1} \\
+a_{j+1} &= \frac{\omega_{j+1} - p_{j+1} h_j (1-\delta)}{1+r} \\
+c_j + p_j h_j + \frac{\omega_{j+1} - p_{j+1} h_j (1-\delta)}{1+r} &= w \cdot y + \omega_j \\
+c_j + p_j h_j - p_{j+1} h_j \frac{1-\delta}{1+r} &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1} \\
+c_j + p_j h_j \Bigl(1 - \frac{1-\delta}{1+r}\frac{p_{j+1}}{p_j}\Bigr) &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1}
 \end{align}
 ```
 
-* Going from ``\omega_j`` to ``\omega_{j+1}``
-*
+Note that ``c = \kappa p h``. Thus
+
+```math
+\begin{align}
+p_j h_j \Bigl(\kappa + 1 - \frac{1-\delta}{1+r}\frac{p_{j+1}}{p_j}\Bigr) &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1}
+\end{align}
+```
 
 
 """
@@ -370,19 +379,19 @@ end
 
 # ╔═╡ fd3cb5a8-8717-4d2f-8e58-4151a25f79dd
 function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = false)
-	(; r, w, pₜ₍ⱼ₎) = prices
+	(; r, w, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎) = prices
 	(; δ, y, ξ, β) = par
 	
 	inc = only(unique(y)) * w
 	
 	κ = κ₀(par, prices; terminal)
 
-	pₜ₍ⱼ₎hⱼ = 1/(κ + (r+δ)/(1+r)) * (ωⱼ + inc - ωⱼ₊₁/(1+r))
+	pₜ₍ⱼ₎hⱼ = 1/(κ + 1 - (1-δ)/(1+r)*pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) * (ωⱼ + inc - ωⱼ₊₁/(1+r))
 	cⱼ = κ * pₜ₍ⱼ₎hⱼ
 	hⱼ = pₜ₍ⱼ₎hⱼ/pₜ₍ⱼ₎
 
 	if terminal
-		aⱼ₊₁ = ωⱼ₊₁ + inc - cⱼ - pₜ₍ⱼ₎hⱼ
+		aⱼ₊₁ = ωⱼ₊₁ + inc - cⱼ - pₜ₍ⱼ₊₁₎ * hⱼ
 		#@info "ω_J+1 = $(pₜ₍ⱼ₎hⱼ * (1-δ) + (1+r) * aⱼ₊₁)"
 	end
 	
@@ -392,7 +401,7 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 		u(cⱼ, hⱼ, par)
 	end
 	
-	aⱼ₊₁ = (ωⱼ₊₁ - (1-δ) * pₜ₍ⱼ₎hⱼ)/(1+r)
+	aⱼ₊₁ = (ωⱼ₊₁ - (1-δ) * pₜ₍ⱼ₊₁₎ * hⱼ)/(1+r)
 	
 	let
 		lhs = cⱼ + pₜ₍ⱼ₎hⱼ + aⱼ₊₁
@@ -408,6 +417,8 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 end
 
 # ╔═╡ 3f0ad740-49d9-47f6-9e7c-336e45a43f34
+# ╠═╡ disabled = true
+#=╠═╡
 let
 	(; out_last, ω_grid, par, prices) = vfi₀
 	ω_grid = DimVector(ω_grid, Dim{:ω}(ω_grid))
@@ -430,6 +441,7 @@ let
 		:ω, :value, color =:version, linestyle = :version, layout = :variable
 	) * visual(Lines) |> draw	
 end
+  ╠═╡ =#
 
 # ╔═╡ 9c9ceccb-fb28-419b-a9ed-37aaf6406f3c
 function prices_from_price_paths(price_paths, t)
@@ -470,25 +482,45 @@ function iterate_backward(vⱼ₊₁, ω_grid, par, prices)
 end
 
 # ╔═╡ 2fa9c3b9-1759-4c75-a264-40995942716c
-let
-	(; out_last, ω_grid, par, prices) = vfi₀
-	ω_grid = DimVector(ω_grid, Dim{:ω}(ω_grid))
+vfi_penult = let
+	(; out_last, ω_grid, par, prices_penult) = vfi₀
+	ω_dim = Dim{:ω}(ω_grid)
+	ω_grid = DimVector(ω_grid, ω_dim)
 
 	vⱼ₊₁ = out_last.v
 
-	prices
-	prices_penult = (; prices.r, prices.w, prices.pₜ₍ⱼ₎)
+	# last period
+	#p′ = prices.pₜ₍ⱼ₊₁₎ # last period
+	#p  = prices.pₜ₍ⱼ₎   # penultimate period
+	#prices_penult = (; prices.r, prices.w, pₜ₍ⱼ₎ = p, pₜ₍ⱼ₊₁₎ = p′)
 	
-	(; vⱼ, polⱼ) = iterate_backward(vⱼ₊₁, ω_grid, par, prices)
+	(; vⱼ, polⱼ) = iterate_backward(vⱼ₊₁, ω_grid, par, prices_penult)
 
 	df = select(DataFrame(DimTable(polⱼ)), :value => AsTable, Not(:value))
 
-	lines(out_last.c)
-	lines!(collect(df.ω), df.cⱼ)
+	c_last   = DimVector(out_last.c, name = :c_last)
+	c_penult = DimVector(df.cⱼ, ω_dim, name = :c_penult)
 
-	current_figure()
+	DimStack(c_last, c_penult)
 end
 
+# ╔═╡ fa69ae76-0b5b-42fd-9186-22cd0191153a
+let
+	df_vfi = DataFrame(vfi_penult)
+	df_egm = DataFrame(egm_penult)
+
+	df = vcat(df_vfi, df_egm, source = :method => ["vfi", "egm"])
+
+	@chain df begin
+		stack([:c_last, :c_penult])
+		data(_) * mapping(:ω, :value, group = :variable, 
+			color = :method => sorter("vfi", "egm"),
+			linestyle = :method => sorter("vfi", "egm")
+		) * visual(Lines)
+		draw
+	end
+	
+end
 
 # ╔═╡ f61bf1a6-634f-4a47-8c28-efd42ce87747
 function solve_backward_forward(ω_grid, J, par, price_paths; born = 0, init = nothing)
@@ -2972,10 +3004,11 @@ version = "3.6.0+0"
 # ╟─b0270296-aba9-4c53-87bb-550550944997
 # ╠═5c197725-0cff-4fbd-9e29-cca5cc48f28c
 # ╠═2fa9c3b9-1759-4c75-a264-40995942716c
+# ╠═fa69ae76-0b5b-42fd-9186-22cd0191153a
 # ╟─6f3e64fa-3280-4b12-997d-b7355e11b689
 # ╠═3f0ad740-49d9-47f6-9e7c-336e45a43f34
 # ╟─99dcf6b6-104b-4ccc-afc1-72355dc0e21e
-# ╠═d5831143-df0d-43aa-9fc0-1a312feaa3dc
+# ╟─d5831143-df0d-43aa-9fc0-1a312feaa3dc
 # ╠═e10d7dfc-ae95-42cb-8ddf-8e98eb4eae53
 # ╠═bf3aa5f3-c333-41dc-8fd0-d6cbc926bd6b
 # ╠═4e012287-9260-49a8-a0a8-f2b3abb6c189
