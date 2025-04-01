@@ -31,13 +31,16 @@ using Interpolations
 # ╔═╡ ba4d8cac-7493-4c69-83b5-78f7d45ff305
 using PlutoUI
 
+# ╔═╡ e23c5d86-fec3-40a9-b9aa-3b9dad3b0b9a
+
+
 # ╔═╡ 134ba669-b2e2-40c3-872b-b79d14d16544
 md"""
 ## Model
 
 ```math
 \begin{align*}
-&\max \sum_{j=0}^{J-1} \beta^t \textcolor{orange}{\frac{\Phi_j}{\Phi_{j-1}} (?)}u(c_j, s(h_j, \tilde h_j)) \\
+&\max \sum_{j=0}^{J-1} \beta^j \textcolor{orange}{\Phi_j}u(c_j, s(h_j, \tilde h_j)) \\
 &\begin{aligned}\text{subject to }
 &x_j = h_j - (1-\delta)h_{t-1} \\
 &c_j + p_{t(j)} x_j + a_{j+1} = y_j + (1+r_{t(j)}) a_{j} \\
@@ -129,6 +132,30 @@ md"""
 # ╔═╡ 99dcf6b6-104b-4ccc-afc1-72355dc0e21e
 md"""
 ## EGM
+"""
+
+# ╔═╡ d5831143-df0d-43aa-9fc0-1a312feaa3dc
+md"""
+### Iterating backwards
+
+* ``c', \omega'``
+* ``c' \to c`` (Euler equation)
+* BC: ``c + ph + a' = y + \omega``
+
+```math
+\begin{align}
+\omega' &= (1-\delta) p' h + (1+r') a' \\
+\iff a' &= \frac{1}{1+r'}\omega' - \frac{1-\delta}{1+r'}p'h
+\end{align}
+```
+Plug in the budget constraint
+```math
+\begin{align}
+y + \omega &= c + ph + a'  \\
+y + \omega &= c + ph + \frac{1}{1+r'}\omega' - \frac{1-\delta}{1+r'}p'h \\
+\omega &= c + ph\Bigl(1 - \frac{1-\delta}{1+r}\frac{p'}{p}\Bigl) + \frac{1}{1+r}\omega' - y
+\end{align}
+```
 """
 
 # ╔═╡ b1b861ce-0659-11f0-094d-67da13f58563
@@ -266,17 +293,39 @@ let
 		c′/ (κ(p, p′, par) / κ(p′, p′′, par))^(ξ * (1-σ)/σ)
 	end
 
+	function get_h(c, p, p′, par)
+		c / κ(p, p′, par)
+	end
+
+	function get_ω(c, h, ω′, p, p′, par)
+		(; δ) = par
+		r′ = r
+		inc = 1.0
+		c + p * h * (1 - (1-δ)/(1+r′) * p′/p) + 1/(1+r′) * ω′ - inc
+	end
+	
 	c′ = DimVector(out_last.c, name = :c_last)
 	p, p′, p′′ = prices.pₜ₍ⱼ₎, prices.pₜ₍ⱼ₊₁₎, prices.pₜ₍ⱼ₊₁₎
-	
-	c =	DimVector(get_c.(c′, p, p′, p′′, Ref(par)), name = :c_penultimate)
 
-	@chain DimStack(c, c′) begin
-		DataFrame
-		stack(Not(:ω))
-		data(_) * mapping(:ω, :value, color = :variable) * visual(Lines)
-		draw
-	end
+	# c′(c)
+	c_ω′ =	DimVector(get_c.(c′, p, p′, p′′, Ref(par)), name = :c_penultimate)
+	h_ω′ = DimVector(get_h.(c_ω′, p, p′, Ref(par)), name = :h_penultimate)
+	ω′ = ω_grid
+	ω = DimVector(get_ω.(c_ω′, h_ω′, ω′, p, p′, Ref(par)), name = :ω_penultimate)
+
+	lines(collect(ω′), collect(c′))
+	lines!(collect(ω), collect(c_ω′))
+
+	current_figure()
+	#c_ω = DimVector(Vector(c_ω′), Dim{:ω}(ω))
+	
+	#@chain DimStack(c_ω′, c′, h_ω′, ω) begin
+	#	DataFrame
+	#	
+	#	stack(Not(:ω))
+	#	data(_) * mapping(:ω => L"$ω'$ (!)", :value, color = :variable) * visual(Lines)
+	#	draw
+	#end
 	
 end
 
@@ -2910,8 +2959,9 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═e23c5d86-fec3-40a9-b9aa-3b9dad3b0b9a
 # ╟─134ba669-b2e2-40c3-872b-b79d14d16544
-# ╠═dd01a6ba-ea0b-4f10-8597-c7d5f36cf5fe
+# ╟─dd01a6ba-ea0b-4f10-8597-c7d5f36cf5fe
 # ╟─ee8b2332-192c-4cd3-b89a-97fd5db07fa4
 # ╟─71fcb5c5-073f-438c-bf17-0d8f666facac
 # ╟─62fef877-a42e-4a86-af78-dcf4e54b779a
@@ -2925,6 +2975,7 @@ version = "3.6.0+0"
 # ╟─6f3e64fa-3280-4b12-997d-b7355e11b689
 # ╠═3f0ad740-49d9-47f6-9e7c-336e45a43f34
 # ╟─99dcf6b6-104b-4ccc-afc1-72355dc0e21e
+# ╠═d5831143-df0d-43aa-9fc0-1a312feaa3dc
 # ╠═e10d7dfc-ae95-42cb-8ddf-8e98eb4eae53
 # ╠═bf3aa5f3-c333-41dc-8fd0-d6cbc926bd6b
 # ╠═4e012287-9260-49a8-a0a8-f2b3abb6c189
