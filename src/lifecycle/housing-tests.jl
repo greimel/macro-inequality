@@ -103,6 +103,9 @@ md"""
 # Solving backwards: VFI
 """
 
+# ╔═╡ 34e7e4d7-ca84-4f4f-9cd2-06bb7c6fbe7c
+const AoG = AlgebraOfGraphics
+
 # ╔═╡ e95653a7-7a49-4fc0-87c6-44c663d42641
 md"""
 # Functions for VFI
@@ -155,13 +158,6 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 	end
 end
 
-# ╔═╡ 42ecc37e-0bda-457c-b423-0e2c389039c0
-function κⱼ(pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎, rₜ₍ⱼ₊₁₎, mⱼ, (; ξ, δ))
-	(1-ξ)/ξ * (
-		pₜ₍ⱼ₎ - (1-mⱼ) * (1-δ)/(1+rₜ₍ⱼ₊₁₎) * pₜ₍ⱼ₊₁₎
-	)
-end
-
 # ╔═╡ cfae01f5-4f25-44b0-83c0-cc42d9fe85ba
 function iterate_backward_vfi(vⱼ₊₁, ω_grid, par, prices)
 	
@@ -188,6 +184,12 @@ function iterate_backward_vfi(vⱼ₊₁, ω_grid, par, prices)
 	(; vⱼ, polⱼ)
 end
 
+# ╔═╡ 42ecc37e-0bda-457c-b423-0e2c389039c0
+function κⱼ(pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎, rₜ₍ⱼ₊₁₎, mⱼ, (; ξ, δ))
+	pₜ₍ⱼ₎ * (1-ξ)/ξ * (
+		1 - (1-mⱼ) * (1-δ)/(1+rₜ₍ⱼ₊₁₎) * pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) # c_by_h
+end
+
 # ╔═╡ 4defd1e6-fe6a-4bbe-b315-5086d56aa53d
 function prices_from_price_paths(price_paths, t)
 	(; 
@@ -198,7 +200,7 @@ function prices_from_price_paths(price_paths, t)
 end
 
 # ╔═╡ 0ad9d6d0-1d3e-4fa7-974b-db92b6d89f85
-function solve_backward_vfi(par, ω_grid; price_paths, t_born = 0, init = nothing)
+function solve_backward_vfi(par, ω_grid; price_paths, t_born = 0)
 	(; J) = par
 	j_dim = Dim{:j}(0:J-1)
 	ω_dim = Dim{:ω}(ω_grid)
@@ -214,9 +216,6 @@ function solve_backward_vfi(par, ω_grid; price_paths, t_born = 0, init = nothin
 	
 	value[j = At(J-1)]  .= choices.(ω_grid, 0.0, Ref(par), Ref(prices_last); terminal = true)
 	policy[j = At(J-1)] .= choices.(ω_grid, 0.0, Ref(par), Ref(prices_last); terminal = true, details = true)
-
-	@info prices_last
-	@info policy[j = At(J-1)]
 	
 	# solve backward
 	for j ∈ J-2:-1:0
@@ -237,8 +236,57 @@ end
 vfi_bw = let
 	(; par, grid_dense, price_paths) = prep
 	
-	solve_backward_vfi(par, grid_dense; price_paths, t_born = 0, init = nothing)
+	solve_backward_vfi(par, grid_dense; price_paths, t_born = 0)
 end
+
+# ╔═╡ e4034434-a461-4fa0-91eb-e379e83ed80a
+function solve_backward_forward_vfi(par, ω_grid; price_paths, t_born = 0, init = nothing)
+	(; J) = par
+	j_dim = Dim{:j}(0:J-1)
+
+	TT = let
+		prices = prices_from_price_paths(price_paths, (J-1) + t_born)
+		choices(0.0, 0.0, par, prices, details = true) |> typeof
+	end
+
+	# solving backwards
+	policy = solve_backward_vfi(par, ω_grid; price_paths, t_born)
+
+	# initial endowments
+	if !isnothing(init)
+		p₀ = price_paths.ps[t = At(0)]
+		r₀ = prices.r
+		ω_init = p₀ * (1-par.δ) * init.h + (1+r₀) * init.a
+		@info (; p₀, ω_init, init)
+	else
+		ω_init = 0.0
+	end
+	pol_simulated = DimVector(Vector{TT}(undef, J), j_dim)
+	ωⱼ = ω_grid[findfirst(ω_grid .≥ ω_init)]
+
+	# solve forward
+	for j ∈ 0:J-1
+		polⱼ = policy[j = At(j), ω = At(ωⱼ)]
+		pol_simulated[j = At(j)] = polⱼ
+
+		ωⱼ = polⱼ.ωⱼ₊₁
+	end
+
+	pol_simulated
+
+	sim_df = select(DataFrame(DimTable(pol_simulated)), :value => AsTable, Not(:value))
+	(; sim_df, policy)
+end
+
+# ╔═╡ c4dd6691-a18d-4e7e-932a-5c396b598411
+vfi_bw_fw = let
+	(; par, grid_dense, price_paths) = prep
+	
+	solve_backward_forward_vfi(par, grid_dense; price_paths, t_born = 0)
+end
+
+# ╔═╡ 4e557f06-e166-41aa-a199-39e70340268e
+vfi_bw_fw.sim_df
 
 # ╔═╡ ba1faf5d-89c3-4df2-82d6-6574549085b7
 md"""
@@ -300,7 +348,17 @@ function cₜ₋₁_from_cₜ((; pₜ₋₁, pₜ, pₜ₊₁, rₜ₊₁, rₜ,
 hₜ₋₁_from_cₜ₋₁((; pₜ₋₁, pₜ, rₜ, mⱼ₋₁), par; cₜ₋₁) = (; hₜ₋₁ = cₜ₋₁ / κⱼ(pₜ₋₁, pₜ, rₜ, mⱼ₋₁, par))
 
 # ╔═╡ 634688bb-3040-4ab7-b307-24c4f9ceccd4
-hⱼ_from_cⱼ((; pₜ, pₜ₊₁, rₜ₊₁, mⱼ), par; cⱼ) = (; hⱼ = cⱼ / κⱼ(pₜ, pₜ₊₁, rₜ₊₁, mⱼ, par))
+function hⱼ_from_cⱼ((; pₜ, pₜ₊₁, rₜ₊₁, mⱼ), par; cⱼ)
+	c  = cⱼ
+	p  = pₜ
+	p′ = pₜ₊₁
+	r′ = rₜ₊₁
+	m  = mⱼ
+	# κ = c_by_h
+	h = c / κⱼ(p, p′, r′, m, par)
+
+	(; hⱼ = h)
+end
 
 # ╔═╡ b76e85b8-fcb9-4812-b26b-5f6f601858da
 aₜ_from_hₜ₋₁((; pₜ, rₜ), (; δ); ωₜ, hₜ₋₁) = 
@@ -319,7 +377,7 @@ function iterate_backward_egm(stateⱼ, cⱼ, prices, par)
 	(; aₜ)   = aₜ_from_hₜ₋₁(  prices, par; ωₜ, hₜ₋₁)
 	(; ωₜ₋₁) = ωₜ₋₁_from_ahc( prices;      aₜ, hₜ₋₁, cₜ₋₁)
 		
-	(; cⱼ₋₁=cₜ₋₁, hⱼ₋₁=hₜ₋₁, stateⱼ₋₁=ωₜ₋₁)
+	(; cⱼ₋₁ = cₜ₋₁, hⱼ₋₁ = hₜ₋₁, stateⱼ₋₁ = ωₜ₋₁)
 end
 
 # ╔═╡ 0a1420b2-6cde-4939-87bc-03d4547e3467
@@ -457,6 +515,192 @@ let
 		draw(facet = (; linkyaxes = false))
 	end
 
+end
+
+# ╔═╡ adae51e3-4a58-4fb5-9227-1561090ecad3
+function iterate_forward(prices, par; cⱼ, stateⱼ)
+	ωⱼ = stateⱼ
+	(; wₜ, yⱼ, rₜ, rₜ₊₁, mⱼ, pₜ, pₜ₊₁) = prices
+	(; δ) = par
+	
+	(; hⱼ) = hⱼ_from_cⱼ(prices, par; cⱼ)
+
+	#=
+	if mⱼ == 1.0
+		(; ξ) = par
+		ωⱼ₊₁ = 0.0
+		# expenditures in last period if assuming ωⱼ₊₁ = 0.0
+		exp_J = (ωⱼ + wₜ * yⱼ) #/ (1 - (1-δ)/(1+rₜ₊₁) * pₜ₊₁/pₜ)
+		cⱼ   = (1-ξ) * exp_J 
+		hⱼ   =    ξ  * exp_J  / pₜ
+		aⱼ₊₁ = -(1-δ)/(1+rₜ₊₁) * pₜ₊₁ * hⱼ
+		#ωⱼ₊₁ = (1-δ) * pₜ₊₁ * hⱼ
+		ωⱼ₊₁_0 = ωⱼ₊₁
+	else =#
+		aⱼ₊₁ = (ωⱼ + yⱼ * wₜ - cⱼ - pₜ * hⱼ) / (1-mⱼ)
+
+		ωⱼ₊₁_0 = pₜ₊₁ * (1-δ) * hⱼ + (1+rₜ₊₁) * aⱼ₊₁
+	#end
+	
+	
+	# ω = p * h * (1-δ) + (1+r) a
+	# h = 
+	# handling the constraint
+	#=if ωⱼ₊₁_0 < 0
+		#@info "ωⱼ₊₁ < 0"
+		ωⱼ₊₁ = 0
+		# ⟹₁ pₜ₊₁ * hⱼ * (1-δ)/(1+rₜ₊₁) = -aⱼ₊₁
+		# ⟹₂ pₜ * hⱼ + cⱼ == yⱼ * wₜ + ωⱼ
+		#⟹ pₜ * (cⱼ * κⱼ) + cⱼ = cⱼ(pₜ * κⱼ + 1 ) == yⱼ * wₜ + ωⱼ
+		#⟹ cⱼ = yⱼ * wₜ + ωⱼ / (pₜ * κⱼ + 1)
+		κ = κⱼ(pₜ, pₜ₊₁, rₜ, mⱼ, par)
+		cⱼ = (yⱼ * wₜ + ωⱼ) / (pₜ * κ + 1)
+		hⱼ = cⱼ * κ
+		aⱼ₊₁ = - pₜ₊₁ * hⱼ * (1-δ)/(1+rₜ₊₁)
+	else =#
+		ωⱼ₊₁ = ωⱼ₊₁_0
+	#end
+
+	other = (; ωⱼ₊₁, ωⱼ₊₁_0, cⱼ, hⱼ, aⱼ₊₁, pₜ)
+	
+	(; cⱼ, stateⱼ₊₁ = ωⱼ₊₁, other)
+end
+
+# ╔═╡ 5433512e-f44c-4355-9943-d9fa7a81064d
+"Takes `price_paths`"
+function solve_backward_forward_egm(par, grid; price_paths, init_state, j_init = 0, t_born = 0)
+	statename = :ω
+
+	(; J, y, m) = par
+
+	state_dim = Dim{statename}(grid) # a or net worth
+	j_dim = Dim{:j}(0:J-1)
+	j_sim_dim = Dim{:j}(j_init:J-1)
+	
+	(; c) = solve_backward_egm(par, grid; price_paths, j_init, t_born)
+	
+	## SOLVE FORWARD
+	nextstatename = Symbol(string(statename) * "_next") # e.g. a_next
+	
+	path_state      = zeros(j_dim, name = statename) # e.g. a
+	path_next_state = zeros(j_dim, name = nextstatename) # e.g. a_next
+	path_choice      = zeros(j_dim, name = :c)
+		
+	path_state[j = At(j_init)] = init_state
+
+	
+	TT = typeof((; ωⱼ₊₁=1.0, ωⱼ₊₁_0=1.0, cⱼ=1.0, hⱼ=1.0, aⱼ₊₁=1.0, pₜ=1.0))
+	other_paths = DimVector(
+					Vector{TT}(undef, J),
+					j_dim, name = :other
+				)
+	
+	(; r, w) = price_paths
+	
+	for j ∈ j_init:(J-1)
+		t = t_born + j
+		prices = tuple_of_prices(price_paths, par; t, j)
+			
+		stateⱼ = path_state[j = At(j)]
+			
+		cⱼ_itp = LinearInterpolation(grid, c[j = At(j)], extrapolation_bc = Line())
+			
+		cⱼ = cⱼ_itp(stateⱼ)
+
+		(; cⱼ, stateⱼ₊₁, other) = iterate_forward(prices, par; cⱼ, stateⱼ)
+		
+		path_choice[j = At(j)] = cⱼ
+		other_paths[ j = At(j)] = other
+		path_next_state[j = At(j)] = stateⱼ₊₁
+		
+		if j < J-1
+			path_state[j = At(j+1)] = stateⱼ₊₁
+		end	
+	end
+
+	sim = DimStack(path_state, path_choice, path_next_state, other_paths)
+	sim_df = DataFrame(sim)
+
+	 select!(sim_df, :other => AsTable, Not(:other))
+
+	(; sim_df, sim, state_path=path_state, other_path=other_paths, c)
+
+end
+
+# ╔═╡ 1141f57e-748f-4d8b-ae1c-ef728042f72d
+egm_bw_fw = let
+	(; par, grid_sparse, price_paths) = prep
+	
+	solve_backward_forward_egm(par, grid_sparse; price_paths, t_born = 0, init_state = 0.0)
+end
+
+# ╔═╡ 11cdf987-6062-4899-b527-76b52ef44231
+let
+	df = vcat(
+		@select(egm_bw_fw.sim_df, :cⱼ, :hⱼ, :ωⱼ₊₁, :j, :aⱼ₊₁, :pₜ),
+		@select(vfi_bw_fw.sim_df, :cⱼ, :hⱼ, :ωⱼ₊₁, :j, :aⱼ₊₁, :pₜ=:pₜ₍ⱼ₎),
+		source = :method => ["egm", "vfi"]			
+	)
+
+	vars = 
+	@chain df begin
+		stack([:cⱼ, :hⱼ])
+		data(_) * mapping(
+			:j, :value,
+			layout = :variable,
+			color = :method, linestyle = :method
+		) * visual(Lines)
+		draw
+	end
+end
+
+# ╔═╡ 41cb38d9-c298-4172-bb3d-759fac34efec
+md"""
+# Testing against _Falling Behind_
+"""
+
+# ╔═╡ b0b0d483-09d0-426f-94d1-0322d82fa8b6
+p_test = [0.5028480280461705, 0.5241238908263111, 0.5229295236881214, 0.5217017148142188, 0.5204099628296323, 0.5190844559661794, 0.5177911453101505, 0.5166033832040168, 0.5155792381994333, 0.5147496348256029, 0.514117292657164, 0.5136630071761439, 0.5133549339145355, 0.5131574170435576, 0.5130374257916149, 0.5129680665281533, 0.5129295872492532, 0.5129087271453475, 0.5128972868297691, 0.5128905760328677, 0.5128861057502261, 0.512882648490296, 0.5128796410208144, 0.5128768425830681, 0.512874157028558, 0.5128715481667272, 0.512869002797782, 0.5128665158769151, 0.5128640850404091, 0.5128617087497279, 0.5128593857139132, 0.512857114724707, 0.5128548946132658, 0.5128527242394967, 0.5128506024893068, 0.5128485282736247, 0.5128465005277771, 0.512844518210923, 0.5128425803055271, 0.5128406858168318, 0.5128388337723554, 0.5128370232213857, 0.5128352532344975, 0.5128335229030779, 0.5128318313388551, 0.5128301776734494, 0.5128285610579219, 0.5128269806623478, 0.5128254356753813, 0.5128239253038469, 0.5128224487723303, 0.51282100532278, 0.5128195942141227, 0.5128182147218784, 0.5128168661377885, 0.5128155477694639, 0.5128142589400108, 0.5128129989877024, 0.5128117672656282, 0.5128105631413655, 0.5128093859966565, 0.5128082352270891, 0.5128071102417884, 0.5128060104631144, 0.5128049353263597, 0.5128038842794712, 0.5128028567827553, 0.5128018523086093, 0.5128008703412458, 0.5127999103764325, 0.5127989719212271, 0.5127980544937343, 0.5127971576228445, 0.5127962808480111, 0.5127954237189918, 0.5127945857956379, 0.5127937666476585, 0.512792965854397, 0.512792183004622, 0.5127914176963164, 0.5127906695364635, 0.5127899381408534, 0.5127892231338809, 0.512788524148357, 0.5127878408253143, 0.5127871728138315, 0.5127865197708417, 0.5127858813609696, 0.5127852572563489, 0.5127846471364574, 0.512784050687956, 0.5127834676045216, 0.5127828975866932, 0.512782340341722, 0.5127817955834106, 0.5127812630319774, 0.5127807424139057, 0.512780233461807, 0.5127797359142817, 0.5127792495157849, 0.5127787740164927, 0.5127783091721871, 0.5127778547441065, 0.5127774104988446, 0.5127769762082233, 0.512776551649171, 0.5127761366036104, 0.512775730858354, 0.5127753342049791, 0.5127749464397375, 0.5127745673634349, 0.512774196781341, 0.5127738345030819, 0.512773480342542, 0.5127731341177729, 0.5127727956508938, 0.5127724647680043, 0.5127721412990883, 0.5127718250779322, 0.5127715159420378, 0.5127712137325312, 0.5127709182940903, 0.5127706294748553, 0.512770347126351, 0.5127700711034155, 0.5127698012641151, 0.5127695374696728, 0.5127692795843962, 0.512769027475605, 0.5127687810135566, 0.5127685400713826, 0.5127683045250161, 0.5127680742531386, 0.512767849137125, 0.5127676290610595, 0.5127674139118498, 0.512767203579637, 0.5127669979589149, 0.5127667969510747, 0.5127666004699587, 0.5127664084530146, 0.5127662208823485, 0.5127660378222231, 0.5127658594819225, 0.5127656863153942, 0.5127655191709162, 0.5127653595047076, 0.5127652096725649, 0.5127650733136256, 0.5127649558432817, 0.5127648650805959, 0.5127648120533261]
+
+# ╔═╡ b0b3b7da-e525-4527-bce3-ec8da2d6a5ee
+let
+	T = 300
+	T₀ = length(p_test)
+	
+	t_born = 0
+	t_dim = Dim{:t}(-1:T)
+	ys = fill(1.19787, t_dim, name = :y)
+	ys[t = At(-1)] = 1.14083
+
+	ps = DimArray([p_test; fill(p_test[end], T - T₀ + 2)], t_dim, name = :p)
+
+	J = 200 #T-born
+
+	j_dim = Dim{:j}(0:J)
+	
+#	ps = DimVector(range(p₀, p₁, length = J+1), j_dim, name = :p)
+
+	par = (γ = 2.0, β = 0.891944, ξ = 0.161566, δ = 0.103222, y = 1.19787, J)
+	
+	#par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
+	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
+
+	# born in -1
+	init = (; h = 1.83162, a = -0.736706)
+	ω_grid = sort([0.0; range(-0.011, 0.05, length = 750)])
+	# born in 0
+	init = nothing
+	ω_grid = sort([0.0; range(-0.011, 0.005, length = 250)])
+	
+	(; df) = solve_backward_forward_vfi(par, ω_grid; price_paths, t_born, init)
+
+	@info df
+	@chain df begin
+		@subset(:j < 150)
+		stack(Not(:j))
+		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end # =#
 end
 
 # ╔═╡ 78220bbd-69f3-4fac-ab12-594e96b15a7f
@@ -2278,15 +2522,22 @@ version = "3.6.0+0"
 # ╠═c58da2cd-99b0-4345-b1d7-9991bd5971cc
 # ╟─e1cb031e-6094-47c9-9bea-1153f3072d81
 # ╠═b475cf2a-aeee-4a55-8de2-00acace3895a
+# ╠═c4dd6691-a18d-4e7e-932a-5c396b598411
+# ╠═1141f57e-748f-4d8b-ae1c-ef728042f72d
+# ╠═4e557f06-e166-41aa-a199-39e70340268e
+# ╠═11cdf987-6062-4899-b527-76b52ef44231
+# ╠═34e7e4d7-ca84-4f4f-9cd2-06bb7c6fbe7c
 # ╟─e95653a7-7a49-4fc0-87c6-44c663d42641
+# ╠═e4034434-a461-4fa0-91eb-e379e83ed80a
+# ╠═0ad9d6d0-1d3e-4fa7-974b-db92b6d89f85
+# ╠═cfae01f5-4f25-44b0-83c0-cc42d9fe85ba
 # ╠═146100ce-beed-42e1-9a4d-db235dd4bfc7
 # ╠═59084b15-6626-4083-a70c-7ada99e8d1bc
 # ╠═222497b5-2d98-4e5b-81e6-f7c67e1ed1b7
 # ╠═42ecc37e-0bda-457c-b423-0e2c389039c0
-# ╠═cfae01f5-4f25-44b0-83c0-cc42d9fe85ba
-# ╠═0ad9d6d0-1d3e-4fa7-974b-db92b6d89f85
 # ╠═4defd1e6-fe6a-4bbe-b315-5086d56aa53d
 # ╟─ba1faf5d-89c3-4df2-82d6-6574549085b7
+# ╠═5433512e-f44c-4355-9943-d9fa7a81064d
 # ╠═115b28b0-a01a-4ea2-acd5-77d8842192b0
 # ╠═e37b1060-1da3-41bd-aa1f-41f2a66bc414
 # ╠═0d6f4ae9-1482-4342-b182-08a85d236f72
@@ -2296,6 +2547,10 @@ version = "3.6.0+0"
 # ╠═b76e85b8-fcb9-4812-b26b-5f6f601858da
 # ╠═ef28211a-5b3e-4b37-a5e8-3a9b692b0144
 # ╠═fc469794-6ba2-43ca-9bbc-008015cd7b4b
+# ╠═adae51e3-4a58-4fb5-9227-1561090ecad3
+# ╟─41cb38d9-c298-4172-bb3d-759fac34efec
+# ╠═b0b3b7da-e525-4527-bce3-ec8da2d6a5ee
+# ╠═b0b0d483-09d0-426f-94d1-0322d82fa8b6
 # ╟─78220bbd-69f3-4fac-ab12-594e96b15a7f
 # ╠═fb4bf9e6-4d6a-4a82-a9dc-b0a4774cc351
 # ╠═94bdeb44-dcf5-48d3-bc7e-8395c0765438
