@@ -37,6 +37,7 @@ prep = let
 
 	
 	ps = DimVector([ps₀; fill(p₁, T + 2 - T₀)], t_dim, name = :p)
+	ws = fill(1.0, t_dim)
 	
 	born = 0
 
@@ -50,7 +51,7 @@ prep = let
 	
 	par = (; σ = 2.0, γ = 2.0, β = 0.891944, ξ = 0.161566, δ = 0.103222, y = fill(1.0, j_dim), m = fill(0.0, j_dim), J)
 
-	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
+	price_paths = (; ps, r = 1/par.β - 1, ws)
 
 	ωₘᵢₙ = -0.01
 	ωₘₐₓ =  0.1
@@ -75,11 +76,12 @@ penult₀ = let
 	#p′ = 0.9 * p″  # last period
 	#p  = 0.8 * p″  # penultimate period
 	p = p′ = p″ = prep.price_paths.ps |> unique |> only
+	w = prep.price_paths.ws |> unique |> only
 	r = prep.price_paths.r
 
 	#r = 1/par.β - 1
-	prices_last   = (; rₜ₍ⱼ₊₁₎ = r, pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, w = prep.price_paths.w)
-	prices_penult = (; rₜ₍ⱼ₊₁₎ = r, pₜ₍ⱼ₎ = p,  pₜ₍ⱼ₊₁₎ = p′, w = prep.price_paths.w)
+	prices_last   = (; rₜ₍ⱼ₊₁₎ = r, pₜ₍ⱼ₎ = p′, pₜ₍ⱼ₊₁₎ = p″, w)
+	prices_penult = (; rₜ₍ⱼ₊₁₎ = r, pₜ₍ⱼ₎ = p,  pₜ₍ⱼ₊₁₎ = p′, w)
 
 	(; par, prices_last, prices_penult, prep.grid_sparse, prep.grid_dense, what_is_zero)
 end
@@ -121,19 +123,19 @@ end
 
 # ╔═╡ 146100ce-beed-42e1-9a4d-db235dd4bfc7
 function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = false)
-	(; rₜ₍ⱼ₊₁₎, w, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎) = prices
+	(; rₜ₍ⱼ₊₁₎, wₜ₍ⱼ₎, wₜ₍ⱼ₊₁₎, pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎) = prices
 	(; δ, y, ξ, β) = par
 	
-	inc = only(unique(y)) * w
+	incⱼ = only(unique(y)) * wₜ₍ⱼ₎
 	
 	κ = κ₀(par, prices)
 
-	pₜ₍ⱼ₎hⱼ = 1/(κ + 1 - (1-δ)/(1+rₜ₍ⱼ₊₁₎)*pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) * (ωⱼ + inc - ωⱼ₊₁/(1+rₜ₍ⱼ₊₁₎))
+	pₜ₍ⱼ₎hⱼ = 1/(κ + 1 - (1-δ)/(1+rₜ₍ⱼ₊₁₎)*pₜ₍ⱼ₊₁₎/pₜ₍ⱼ₎) * (ωⱼ + incⱼ - ωⱼ₊₁/(1+rₜ₍ⱼ₊₁₎))
 	cⱼ = κ * pₜ₍ⱼ₎hⱼ
 	hⱼ = pₜ₍ⱼ₎hⱼ/pₜ₍ⱼ₎
 
 	if terminal
-		aⱼ₊₁ = ωⱼ₊₁ + inc - cⱼ - pₜ₍ⱼ₊₁₎ * hⱼ
+		aⱼ₊₁ = ωⱼ₊₁ + incⱼ - cⱼ - pₜ₍ⱼ₊₁₎ * hⱼ
 		#@info "ω_J+1 = $(pₜ₍ⱼ₎hⱼ * (1-δ) + (1+r) * aⱼ₊₁)"
 	end
 	
@@ -147,7 +149,7 @@ function choices(ωⱼ, ωⱼ₊₁, par, prices; terminal = false, details = fa
 	
 	let
 		lhs = cⱼ + pₜ₍ⱼ₎hⱼ + aⱼ₊₁
-		rhs = ωⱼ + inc
+		rhs = ωⱼ + incⱼ
 		#@info @test lhs ≈ rhs
 	end
 
@@ -193,7 +195,9 @@ end
 # ╔═╡ 4defd1e6-fe6a-4bbe-b315-5086d56aa53d
 function prices_from_price_paths(price_paths, t)
 	(; 
-		rₜ₍ⱼ₊₁₎ = price_paths.r, price_paths.w, 
+		rₜ₍ⱼ₊₁₎ = price_paths.r,
+		wₜ₍ⱼ₎   = price_paths.ws[t = At(t)],
+		wₜ₍ⱼ₊₁₎ = price_paths.ws[t = At(t+1)],
 		pₜ₍ⱼ₎   = price_paths.ps[t = At(t)],
 		pₜ₍ⱼ₊₁₎ = price_paths.ps[t = At(t+1)]
 	)
@@ -255,7 +259,7 @@ function solve_backward_forward_vfi(par, ω_grid; price_paths, t_born = 0, init 
 	# initial endowments
 	if !isnothing(init)
 		p₀ = price_paths.ps[t = At(0)]
-		r₀ = prices.r
+		r₀ = price_paths.r
 		ω_init = p₀ * (1-par.δ) * init.h + (1+r₀) * init.a
 		@info (; p₀, ω_init, init)
 	else
@@ -294,21 +298,22 @@ md"""
 """
 
 # ╔═╡ e37b1060-1da3-41bd-aa1f-41f2a66bc414
-function tuple_of_prices((; ps, r, w), (; y, J); t, j)
+function tuple_of_prices((; ps, r, ws), (; y, J); t, j)
 	mⱼ = 0.0 #j == J ? 1.0 : 0.0
 	mⱼ₋₁ = 0.0
 	
 	p = ps
+	w = ws
 
 	if t ≥ 1
 		pₜ₋₁, pₜ, pₜ₊₁ = p[t = At(t-1:t+1)]
 		rₜ₋₁, rₜ, rₜ₊₁ = r, r, r #[t = At(t-1:t+1)]
-		wₜ₋₁, wₜ       = w, w #[t = At(t-1:t)]
+		wₜ₋₁, wₜ       = w[t = At(t-1:t)]
 		nt1 = (; pₜ₋₁, pₜ, pₜ₊₁, rₜ₋₁, rₜ, rₜ₊₁, wₜ₋₁, wₜ)
 	else
 		pₜ, pₜ₊₁ = p[t = At(t:t+1)]
 		rₜ, rₜ₊₁ = r, r #[t = At(t:t+1)]
-		wₜ       = w #[t = At(t)]
+		wₜ       = w[t = At(t)]
 		nt1 = (; pₜ, pₜ₊₁, rₜ, rₜ₊₁, wₜ)
 	end
 	
@@ -568,7 +573,7 @@ end
 
 # ╔═╡ 5433512e-f44c-4355-9943-d9fa7a81064d
 "Takes `price_paths`"
-function solve_backward_forward_egm(par, grid; price_paths, init_state, j_init = 0, t_born = 0)
+function solve_backward_forward_egm(par, grid; price_paths, init, j_init = 0, t_born = 0)
 	statename = :ω
 
 	(; J, y, m) = par
@@ -585,18 +590,25 @@ function solve_backward_forward_egm(par, grid; price_paths, init_state, j_init =
 	path_state      = zeros(j_dim, name = statename) # e.g. a
 	path_next_state = zeros(j_dim, name = nextstatename) # e.g. a_next
 	path_choice      = zeros(j_dim, name = :c)
-		
-	path_state[j = At(j_init)] = init_state
 
+	# initial endowments
+	if !isnothing(init)
+		p₀ = price_paths.ps[t = At(0)]
+		r₀ = price_paths.r
+		init_state = p₀ * (1-par.δ) * init.h + (1+r₀) * init.a
+		#@info (; p₀, init_state, init)
+	else
+		init_state = 0.0
+	end
+	
+	path_state[j = At(j_init)] = init_state
 	
 	TT = typeof((; ωⱼ₊₁=1.0, ωⱼ₊₁_0=1.0, cⱼ=1.0, hⱼ=1.0, aⱼ₊₁=1.0, pₜ=1.0))
 	other_paths = DimVector(
 					Vector{TT}(undef, J),
 					j_dim, name = :other
 				)
-	
-	(; r, w) = price_paths
-	
+		
 	for j ∈ j_init:(J-1)
 		t = t_born + j
 		prices = tuple_of_prices(price_paths, par; t, j)
@@ -606,7 +618,7 @@ function solve_backward_forward_egm(par, grid; price_paths, init_state, j_init =
 		cⱼ_itp = LinearInterpolation(grid, c[j = At(j)], extrapolation_bc = Line())
 			
 		cⱼ = cⱼ_itp(stateⱼ)
-		@info prices
+		#@info prices
 		(; cⱼ, stateⱼ₊₁, other) = iterate_forward(prices, par; cⱼ, stateⱼ)
 		
 		path_choice[j = At(j)] = cⱼ
@@ -631,7 +643,7 @@ end
 egm_bw_fw = let
 	(; par, grid_sparse, price_paths) = prep
 	
-	solve_backward_forward_egm(par, grid_sparse; price_paths, t_born = 0, init_state = 0.0)
+	solve_backward_forward_egm(par, grid_sparse; price_paths, t_born = 0, init=nothing)
 end
 
 # ╔═╡ 11cdf987-6062-4899-b527-76b52ef44231
@@ -669,34 +681,36 @@ let
 	
 	t_born = 0
 	t_dim = Dim{:t}(-1:T)
-	ys = fill(1.19787, t_dim, name = :y)
-	ys[t = At(-1)] = 1.14083
+	ws = fill(1.19787, t_dim, name = :w)
+	ws[t = At(-1)] = 1.14083
 
 	ps = DimArray([p_test; fill(p_test[end], T - T₀ + 2)], t_dim, name = :p)
 
 	J = 200 #T-born
 
 	j_dim = Dim{:j}(0:J)
-	
+
+	ys = fill(1.0, j_dim, name = :y)
+	@info ys
 #	ps = DimVector(range(p₀, p₁, length = J+1), j_dim, name = :p)
 
 	par = (γ = 2.0, σ = 2.0, β = 0.891944, ξ = 0.161566, δ = 0.103222, y = ys, J, m = 0.0)
 	
 	#par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
-	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
+	price_paths = (; ps, r = 1/par.β - 1, ws)
 
 	# born in -1
 	init = (; h = 1.83162, a = -0.736706)
 	ω_grid = sort([0.0; range(-0.011, 0.05, length = 750)])
 	# born in 0
-	init = 0.0
-	ω_grid = sort([0.0; range(-0.011, 0.005, length = 250)])
+	#init = nothing #0.0
+	#ω_grid = sort([0.0; range(-0.05, 0.005, length = 250)])
 	
-	(; sim_df) = solve_backward_forward_egm(par, ω_grid; price_paths, t_born, init_state = init)
+	(; sim_df) = solve_backward_forward_egm(par, ω_grid; price_paths, t_born, init)
 
 	#@info df
 	@chain sim_df begin
-		@subset(:j < 150)
+		#@subset(:j < 150)
 		stack(Not(:j))
 		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
 		draw(facet = (; linkyaxes = false))
