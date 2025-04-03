@@ -313,12 +313,12 @@ function tuple_of_prices((; ps, r, w), (; y, J); t, j)
 	end
 	
 	if j ≥ 1
-		yⱼ₋₁, yⱼ       = y[j = At(j-1:j)]
+		yⱼ₋₁, yⱼ       = y[j = At(j-1:j)]  # XXXX t !!!
 		#mⱼ₋₁, mⱼ       = m, m #[j = At(j-1:j)]
 
 		nt2 = (; yⱼ₋₁, yⱼ, mⱼ₋₁, mⱼ)
 	else
-		yⱼ       = y[j = At(j)]
+		yⱼ       = y[j = At(j)] # XXXX t !!!
 		#mⱼ       = m #[j = At(j)]
 		nt2 = (; yⱼ, mⱼ)
 	end
@@ -455,10 +455,9 @@ function solve_backward_egm(par, grid; price_paths, j_init = 0, t_born = 0)
 		t = t_born + j
 		prices = tuple_of_prices(price_paths, par; t, j)
 
-		@info grid, c[j = At(j)], prices
 		c′ = c[j = At(j)]
 		out = iterate_backward_egm.(grid, c′, Ref(prices), Ref(par))
-		@info out
+		
 		(; cⱼ₋₁, stateⱼ₋₁) = DataFrame(out)
 			
 		cⱼ₋₁_itp = linear_interpolation(stateⱼ₋₁, cⱼ₋₁, extrapolation_bc = Line())
@@ -537,6 +536,7 @@ function iterate_forward(prices, par; cⱼ, stateⱼ)
 		#ωⱼ₊₁ = (1-δ) * pₜ₊₁ * hⱼ
 		ωⱼ₊₁_0 = ωⱼ₊₁
 	else =#
+		#@info (; ωⱼ, yⱼ, wₜ, cⱼ, pₜ, hⱼ)
 		aⱼ₊₁ = (ωⱼ + yⱼ * wₜ - cⱼ - pₜ * hⱼ) / (1-mⱼ)
 
 		ωⱼ₊₁_0 = pₜ₊₁ * (1-δ) * hⱼ + (1+rₜ₊₁) * aⱼ₊₁
@@ -606,7 +606,7 @@ function solve_backward_forward_egm(par, grid; price_paths, init_state, j_init =
 		cⱼ_itp = LinearInterpolation(grid, c[j = At(j)], extrapolation_bc = Line())
 			
 		cⱼ = cⱼ_itp(stateⱼ)
-
+		@info prices
 		(; cⱼ, stateⱼ₊₁, other) = iterate_forward(prices, par; cⱼ, stateⱼ)
 		
 		path_choice[j = At(j)] = cⱼ
@@ -680,7 +680,7 @@ let
 	
 #	ps = DimVector(range(p₀, p₁, length = J+1), j_dim, name = :p)
 
-	par = (γ = 2.0, β = 0.891944, ξ = 0.161566, δ = 0.103222, y = 1.19787, J)
+	par = (γ = 2.0, σ = 2.0, β = 0.891944, ξ = 0.161566, δ = 0.103222, y = ys, J, m = 0.0)
 	
 	#par = (; ξ = 0.578, δ = 0.123, γ = 1.789, β = 0.95, y = 1.0)
 	price_paths = (; ps, r = 1/par.β - 1, w = 1.0)
@@ -689,13 +689,13 @@ let
 	init = (; h = 1.83162, a = -0.736706)
 	ω_grid = sort([0.0; range(-0.011, 0.05, length = 750)])
 	# born in 0
-	init = nothing
+	init = 0.0
 	ω_grid = sort([0.0; range(-0.011, 0.005, length = 250)])
 	
-	(; df) = solve_backward_forward_vfi(par, ω_grid; price_paths, t_born, init)
+	(; sim_df) = solve_backward_forward_egm(par, ω_grid; price_paths, t_born, init_state = init)
 
-	@info df
-	@chain df begin
+	#@info df
+	@chain sim_df begin
 		@subset(:j < 150)
 		stack(Not(:j))
 		data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
