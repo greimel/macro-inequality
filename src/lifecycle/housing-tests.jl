@@ -25,6 +25,179 @@ using DataFrameMacros, DataFrames, Chain
 # ╔═╡ 3077228f-e7ca-4602-9f6d-1b35cef8dfb5
 using PlutoUI
 
+# ╔═╡ e8fff87c-995a-4894-8f97-6c3ced05f0d4
+md"""
+# The model and its solution
+"""
+
+# ╔═╡ 45de1a14-28c6-4001-a585-d499d7637084
+md"""
+## Model
+
+```math
+\begin{align*}
+&\max \sum_{j=0}^{J-1} \beta^j \textcolor{orange}{\Phi_j}u(c_j, s(h_j, \tilde h_j)) \\
+&\begin{aligned}\text{subject to }
+&x_j = h_j - (1-\delta)h_{t-1} \\
+&c_j + p_{t(j)} x_j + a_{j+1} = y_j + (1+r_{t(j)}) a_{j} \\
+&s(h_j, \tilde h_j) = h_j \\
+&a_{0}, h_{-1} \text{ given}
+\end{aligned}
+\end{align*}
+```
+"""
+
+# ╔═╡ 27d9fb7d-baaa-4412-b8a3-2da5f8088eaf
+md"""
+### Life-time budget constraint
+
+```math
+\begin{align*}
+	\sum_{j=0}^{J-1} \Bigl(\frac{1}{1+r}\Bigr)^j (c_j + x_j) = \sum_{j=0}^{J-1} \Bigl(\frac{1}{1+r}\Bigr)^j (y_j) + (1+r) a_0 + 
+\end{align*}
+```
+"""
+
+# ╔═╡ 72167300-99d6-4b73-9a84-2f652a2ee3c1
+md"""
+The Lagrangian is 
+
+```math
+\sum_{t=0}^\infty \Phi_j \beta^j \Biggl(u(c_j, h_j) - \lambda_j \Bigl(c_j + p_{t(j)} h_j + a_{j+1} - y_j - (1+r_{t(j)}) a_{j} - (1-\delta)p_{t(j)} h_{j-1}\Bigr) \Biggr)
+```
+
+* ``(a_{j+1})``: ``\textcolor{lightgray}{\beta^j} \Phi_j \lambda_j = \textcolor{purple}{\beta}^\textcolor{lightgray}{t+1} \textcolor{purple}{\Phi_{j+1} \lambda_{j+1}} (1+r_{t+1})``
+* ``(c_j)``: ``u_{c_j} = \lambda_j``
+* ``(h_j)``: ``\textcolor{lightgray}{\beta^j} \Phi_j (u_{h_j} - \lambda_j p_{t(j)}) + \textcolor{purple}{\beta}^\textcolor{lightgray}{t+1} \textcolor{purple}{\Phi_{j+1}}\textcolor{lightgray}{(-1)}\textcolor{purple}{\lambda_{j+1}}\textcolor{lightgray}{(-1)} (1-\delta) p_{t(j+1)} = 0 ``
+
+"""
+
+# ╔═╡ dfd18a2d-8872-4bd3-9036-36d80da9c9e2
+md"""
+Plugging ``(a_{j+1})`` into ``(h_j)`` gives
+
+```math
+\begin{align}
+0 &= \textcolor{lightgray}{\Phi_j} (u_{h_j} - \lambda_j p_{t(j)}) + \frac{\textcolor{lightgray}{\Phi_j} \lambda_j}{1+r_{t(j+1)}} (1-\delta) p_{t(j+1)} \\
+\implies u_{h_j} &= \lambda_j p_{t(j)}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr) \\
+\implies \frac{u_{h_j}}{u_{c_j}} &= p_{t(j)}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr) \\
+\end{align}
+```
+"""
+
+# ╔═╡ e626a16f-96cf-4092-9177-a5f4f1350bbf
+md"""
+Above, we computed ``\frac{u_{h_j}}{u_{c_j}}= \frac{\xi}{1-\xi}\frac{c_j}{h_j}``. Hence,
+
+```math
+\begin{align*}
+\frac{\xi}{1-\xi}\frac{c_j}{h_j} &= p_{t(j)}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr) \\
+\implies \frac{c_j}{h_j} &= \underbrace{p_{t(j)} \frac{1-\xi}{\xi}\biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr)}_{=: \tilde{\kappa}_j(p_{t(j)}, p_{t(j+1)}, r_{t(j+1)} )} \\
+\implies \frac{c_j}{p_{t(j)} h_j} &= \underbrace{\frac{1-\xi}{\xi} \biggl(1 - \frac{1-\delta}{1+r_{t(j+1)}} \frac{p_{t(j+1)}}{p_{t(j)}}\biggr)}_{=: \kappa_j(p_{t(j)}, p_{t(j+1)}, r_{t(j+1)} )} \tag{$***$} \\
+\end{align*}
+```
+"""
+
+# ╔═╡ 86747bd6-85b3-4c8e-90e3-90f6a5cf3603
+md"""
+We can now plug this optimal relationship ``h_j = \tilde\kappa_j c_j`` into ``(u_{c_j})``
+
+```math
+\begin{align}
+u_{c_j} &= \frac{\textcolor{lightgray}{(1 - \xi)}}{c_j} (c_j^{1-\xi} \textcolor{skyblue}{(c_j/\tilde{\kappa}_j)}^{\xi})^{1-\sigma}\\
+&=  \frac{\textcolor{lightgray}{(1 - \xi)}}{c_j} (c_j \textcolor{skyblue}{\tilde{\kappa}_j^{-\xi}})^{1-\sigma}\\
+&= \textcolor{lightgray}{(1 - \xi)} {\tilde{\kappa}_j^{-\xi(1-\sigma)}} c_j^{-\sigma}\\
+\end{align}
+```
+"""
+
+# ╔═╡ 09231f39-cb66-4dff-bbc3-5413998642f9
+md"""
+Recall ``(a_{j+1})``.
+
+```math
+\begin{align}
+ \Phi_j \lambda_j &= \textcolor{purple}{\beta} \textcolor{purple}{\Phi_{j+1} \lambda_{j+1}} (1+r_{t(j+1)}) \\
+\implies
+\frac{\lambda_j}{\lambda_{j+1}} &= \frac{\Phi_{j+1}}{\Phi_j} \beta (1+r_{t(j+1)}) \\
+\implies
+\biggl(\frac{{\tilde{\kappa}_j}}{{\tilde{\kappa}_{j+1}}}\biggr)^{{-\xi(1-\sigma)}} \biggl(\frac{c_j}{ c_{j+1}}\biggr)^{-\sigma} &=  \frac{\Phi_{j+1}}{\Phi_j} \beta (1+r_{t(j+1)}) \\
+\implies
+ c_j &=  c_{j+1} \biggl(\frac{\Phi_{j+1}}{\Phi_j} \beta (1+r_{t(j+1)})\biggr)^{-1/\sigma} / \biggl(\frac{{\tilde{\kappa}_j}}{{\tilde{\kappa}_{j+1}}}\biggr)^{{\xi(1-\sigma)/\sigma}}\\
+\end{align}
+```
+"""
+
+# ╔═╡ 125114b4-10c5-4ce4-975e-f88094190c3c
+md"""
+Note that ``\frac{\Phi_{j+1}}{\Phi_j}`` is the probability of surviving until age ``j+1`` conditional on having survived until age ``j``. Thus it is the survival probability at age ``j``.
+
+```math
+\frac{\Phi_{j+1}}{\Phi_j} = (1-m_j)
+```
+"""
+
+# ╔═╡ 0cc673cf-c895-4c58-ac65-02c82f338816
+md"""
+## Formulas for EGM
+"""
+
+# ╔═╡ 73722b9e-360e-4c70-9890-a2d1ffd23aae
+md"""
+### Iterating backwards
+
+* ``c', \omega'``
+* ``c' \to c`` (Euler equation)
+* BC: ``c + ph + a' = y + \omega``
+
+```math
+\begin{align}
+\omega' &= (1-\delta) p' h + (1+r') a' \\
+\iff a' &= \frac{1}{1+r'}\omega' - \frac{1-\delta}{1+r'}p'h
+\end{align}
+```
+Plug in the budget constraint
+```math
+\begin{align}
+y + \omega &= c + ph + a'  \\
+y + \omega &= c + ph + \frac{1}{1+r'}\omega' - \frac{1-\delta}{1+r'}p'h \\
+\omega &= c + ph\Bigl(1 - \frac{1-\delta}{1+r'}\frac{p'}{p}\Bigl) + \frac{1}{1+r'}\omega' - y
+\end{align}
+```
+"""
+
+# ╔═╡ 388d38d6-46ec-4efd-ba09-1c36c471b374
+md"""
+#### below ??
+"""
+
+# ╔═╡ d31b28f5-d171-4613-8608-4c0cecd267da
+md"""
+* definition of cash-at-hand ``\omega_{j+1} := p_{j+1} h_j (1-\delta) + (1+r) a_{j+1}``
+* budget constraint ``c_j + p h_j + a_{j+1} = w\cdot y + \omega_j``
+
+```math
+\begin{align}
+c_j + ph_j + a_{j+1} &= w \cdot y + \omega_j \\
+\omega_{j+1} &:= p_{j+1} h_j (1-\delta) + (1+r) a_{j+1} \\
+a_{j+1} &= \frac{\omega_{j+1} - p_{j+1} h_j (1-\delta)}{1+r} \\
+c_j + p_j h_j + \frac{\omega_{j+1} - p_{j+1} h_j (1-\delta)}{1+r} &= w \cdot y + \omega_j \\
+c_j + p_j h_j - p_{j+1} h_j \frac{1-\delta}{1+r} &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1} \\
+c_j + p_j h_j \Bigl(1 - \frac{1-\delta}{1+r}\frac{p_{j+1}}{p_j}\Bigr) &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1}
+\end{align}
+```
+
+Note that ``c = \kappa p h``. Thus
+
+```math
+\begin{align}
+p_j h_j \Bigl(\kappa + 1 - \frac{1-\delta}{1+r}\frac{p_{j+1}}{p_j}\Bigr) &= w \cdot y + \omega_j - \frac{1}{1+r} \omega_{j+1}
+\end{align}
+```
+
+
+"""
+
 # ╔═╡ ec8f87b6-0e3b-448a-a6fb-2f426ba28913
 
 
@@ -2829,6 +3002,19 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─e8fff87c-995a-4894-8f97-6c3ced05f0d4
+# ╟─45de1a14-28c6-4001-a585-d499d7637084
+# ╟─27d9fb7d-baaa-4412-b8a3-2da5f8088eaf
+# ╟─72167300-99d6-4b73-9a84-2f652a2ee3c1
+# ╟─dfd18a2d-8872-4bd3-9036-36d80da9c9e2
+# ╟─e626a16f-96cf-4092-9177-a5f4f1350bbf
+# ╟─86747bd6-85b3-4c8e-90e3-90f6a5cf3603
+# ╟─09231f39-cb66-4dff-bbc3-5413998642f9
+# ╟─125114b4-10c5-4ce4-975e-f88094190c3c
+# ╟─0cc673cf-c895-4c58-ac65-02c82f338816
+# ╟─73722b9e-360e-4c70-9890-a2d1ffd23aae
+# ╟─388d38d6-46ec-4efd-ba09-1c36c471b374
+# ╟─d31b28f5-d171-4613-8608-4c0cecd267da
 # ╠═ee690b88-5766-4926-8e49-7bc14cc82247
 # ╠═ec8f87b6-0e3b-448a-a6fb-2f426ba28913
 # ╠═eac7bcec-0fca-11f0-3614-b38712e60ece
