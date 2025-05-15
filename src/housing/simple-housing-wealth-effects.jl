@@ -2,12 +2,12 @@
 # v0.20.8
 
 #> [frontmatter]
-#> chapter = 4
-#> section = 2
-#> order = 2
-#> title = "Assignment 2A: Housing Wealth Effects"
+#> chapter = 2
+#> section = 4
+#> order = 4
+#> title = "Assignment 4: Housing Wealth Effects"
 #> layout = "layout.jlhtml"
-#> tags = ["assignments"]
+#> tags = ["lifecycle"]
 #> description = ""
 
 using Markdown
