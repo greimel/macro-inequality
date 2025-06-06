@@ -3,8 +3,8 @@
 
 #> [frontmatter]
 #> chapter = 2
-#> section = 4
-#> order = 4
+#> section = 5
+#> order = 5
 #> title = "Assignment 4: Housing Wealth Effects"
 #> layout = "layout.jlhtml"
 #> tags = ["lifecycle"]
@@ -62,14 +62,14 @@ end
 
 # ╔═╡ 49914c8d-b321-4042-8b8e-acd74bab1021
 md"""
-`simple-housing-wealth-effects.jl` | **Version 1.2** | *last updated: May 28 2024*
+`simple-housing-wealth-effects.jl` | **Version 1.3** | *last updated: May 16 2025*
 """
 
 # ╔═╡ 8b0be852-af27-4347-8981-04c4cb7cfd3e
 md"""
 # Simple Housing Wealth Effects
 
-_Based on the article **Understanding Housing Wealth Effects: Debt, Homeownership and the Lifecycle** (Greimel & Zadow, 2020)._
+_Based on the working paper [**Understanding Housing Wealth Effects: Debt, Homeownership and the Lifecycle**](https://www.greimel.eu/assets/housing-wealth-effects-paper.pdf) (Greimel & Zadow, 2020)._
 """
 
 # ╔═╡ c2af58e4-3e90-4013-814e-84224aa8575a
@@ -193,14 +193,14 @@ let
 	if compare1
 		df = vcat(policies_slider, policies0, source = :parameters => ["sliders", "default"])
 	else
-		df = @transform!(policies_slider, :parameters = "sliders")
+		df = @transform(policies_slider, :parameters = "sliders")
 	end
 
 	@chain df begin
 		@transform(:age = :j + 25)
 		stack(Not([:age, :j, :parameters]))
 		data(_) * mapping(:age, :value, color = :variable, layout = :parameters) * visual(ScatterLines, markersize = 5)
-		draw
+		draw(figure = (; size = (500, 250)))
 	end	
 end
 
@@ -247,7 +247,7 @@ let
 		@transform(:age = :j + 25)
 		stack(Not([:age, :j]))
 		data(_) * mapping(:age, :value, color = :variable) * visual(ScatterLines, markersize = 5)
-		draw(; figure=(; figure_padding=3, size = (300, 300)))
+		draw(; figure=(; figure_padding=3, size = (350, 250)))
 	end	
 	
 end
@@ -326,9 +326,9 @@ Your answer goes here ...
 md"""
 #### Part 1.2 _Internal Calibration_
 
-The remaining parameters ``\beta`` and ``\xi`` are _calibrated internally_. These parameters are chosen **to match _moments_ from the data**. 
+The remaining parameter ``\xi`` is _calibrated internally_. This parameters is chosen **to match a _moment_ from the data**.
 
-👉 Pick two statistics (_"moments"_) that can be computed in the model and in the _Survey of Consumer Finances_. (Redefine the ```model_statistics``` and ```data_statistics``` accordingly.) It's best to use scale-free moments, e.g. a value relative to income. Here's a suggestion. You can stick with it, but be encouraged to play around.
+👉 Pick a statistic (_"moments"_) that can be computed in the model and in the _Survey of Consumer Finances_. (Redefine the ```model_statistics``` and ```data_statistics``` accordingly.) It's best to use scale-free moments, e.g. a value relative to income. Here's a suggestion. You can stick with it, but be encouraged to play around.
 """
 
 # ╔═╡ 77de36ca-8556-409d-b249-12639c79f832
@@ -340,7 +340,7 @@ model_raw = @chain policies_slider begin
 end
 
 # ╔═╡ 74d54e68-8568-49e8-879c-68cba67aa71f
-model_statistics = (; ph2y = model_raw.ph / model_raw.y, d2ph = model_raw.d / model_raw.ph)
+model_statistics = (; ph2y = model_raw.ph / model_raw.y)
 
 # ╔═╡ cc894ce1-b63a-4af9-b4f8-6d73e3d33080
 model_statistics
@@ -379,6 +379,9 @@ Given that age is an important determinant of housing wealth effects we want to 
 md"""
 👉 **Aggregate response** (3 points) | Compute the aggregate consumption response to a 10% reduction in house prices for varying age structures. You can use `cres_df` and `age_weights`.
 """
+
+# ╔═╡ 8765d909-6986-4055-9e9d-e1a7e1d5b48a
+cres_df
 
 # ╔═╡ 2389faea-94ea-4308-9ce2-f2248c337db6
 # your
@@ -470,7 +473,7 @@ data_raw = @chain get_scf(2019) begin
 end
 
 # ╔═╡ 780e8d5a-e523-4c25-bd28-75a37985e3f5
-data_statistics = (; ph2y = data_raw.HOUSES / data_raw.INCOME, d2ph = data_raw.NH_MORT / data_raw.HOUSES)
+data_statistics = (; ph2y = data_raw.HOUSES / data_raw.INCOME)
 
 # ╔═╡ 0ba27a96-1c07-4ea6-949a-34a60009b79f
 data_statistics
@@ -556,6 +559,23 @@ age_weights = @chain age_df begin
 	@transform(:raw_share = :share, :share = :share / wgts80)
 end
 
+# ╔═╡ d7afbca6-ddc1-4f3e-be58-f0a31a4de8d9
+# ╠═╡ disabled = true
+#=╠═╡
+agg_res = @chain age_weights begin
+#	@subset(:year == 1980)
+	leftjoin(cres_df, on = :age)
+	@groupby(:year)
+	@combine(:agg = sum(:c_res, weights(:share)))
+end
+  ╠═╡ =#
+
+# ╔═╡ 3d200a84-353b-49ac-926e-dc39502a545d
+# ╠═╡ disabled = true
+#=╠═╡
+scatterlines(agg_res.year, 100 * agg_res.agg, axis = (xlabel="age distribution", ylabel="%", title="The Aggregate Response Given Demographic Change"))
+  ╠═╡ =#
+
 # ╔═╡ cb582f5c-51ff-48b5-9dbc-fd3f679b3f63
 md"""
 ## Infrastructure
@@ -607,7 +627,7 @@ md"""
 
 #### Part 1.1: _External Calibration_
 
-👉 The parameters ``\delta = 0.05`` and ``J = 40`` are _calibrated externally_. (That is, they are chosen to match external information.) Discuss what data can be used to justify these parameters. (No data work necessary.) *(< $limit1_1 words)*
+👉 The parameters ``\delta = 0.05``, ``J = 40`` and ``1/\beta = (1+r) = 1.05`` are _calibrated externally_. That is, they are chosen to match external information. Discuss what data could be used to justify these parameters. (No data work necessary.) *(< $limit1_1 words)*
 """
 
 # ╔═╡ edfc8c05-cf5d-4092-80c6-1eb0985c7640
@@ -629,7 +649,7 @@ end
 
 # ╔═╡ a0e2e113-01d5-432e-bebc-6c7ec694a85a
 md"""
-👉 Discuss your strategy and findings. (What _moments_ did you pick and why? How do the chosen moments identify the parameters? What values did you find? ) *(max. $(limit1_3) words).*
+👉 Discuss your strategy and findings. (What _moment_ did you pick and why? How do the chosen moments identify the parameters? What values did you find? ) *(max. $(limit1_3) words).*
 """
 
 # ╔═╡ d3f8729a-f656-45ee-9606-8b28410ff265
@@ -2484,18 +2504,18 @@ version = "3.6.0+0"
 # ╠═2c81c88d-9b0a-44f7-a61b-2682ee3b980e
 # ╠═1f488ec2-0f6b-4a7c-8891-944b86189608
 # ╟─58e5d4c2-84d9-4fc2-8eec-8cc6d92b39f6
+# ╟─d404371b-9382-4aca-b7d1-5a4fed0d9849
 # ╟─19a2bc1f-41c4-4548-b2fe-e72280b9a842
 # ╠═cc894ce1-b63a-4af9-b4f8-6d73e3d33080
 # ╠═0ba27a96-1c07-4ea6-949a-34a60009b79f
 # ╠═39c98ca6-0dde-47f5-9829-aeba9f2263c1
 # ╠═448fd3c7-3092-40a2-a037-4303222c6424
 # ╠═4317bfa1-ed6e-4e00-995b-f64f09413882
-# ╟─d404371b-9382-4aca-b7d1-5a4fed0d9849
 # ╟─ad4bbbcd-8856-4533-9b1e-103f36707ebc
 # ╟─ca06bc4b-85ca-4f16-96ff-5956c3ad72cd
 # ╟─dc1680b3-7754-4923-ad93-895a26f676b6
 # ╟─5a18c115-254d-4eeb-993f-42f2772f91f0
-# ╠═6af88c45-7e54-4b32-b943-48064b2b4736
+# ╟─6af88c45-7e54-4b32-b943-48064b2b4736
 # ╟─f437f295-4ccf-4d57-b358-51df02e1deae
 # ╟─7266f832-71a0-40bb-92cc-462fd95e546b
 # ╟─a468386a-d300-4665-92b1-5ef7636fdfc0
@@ -2524,10 +2544,13 @@ version = "3.6.0+0"
 # ╟─f23da3a5-d494-4a51-b31f-0237681c0bed
 # ╟─0c41a7bc-aecd-4980-bb88-62fafb469750
 # ╠═18040182-9592-4fdc-a206-a167d152d475
+# ╠═8765d909-6986-4055-9e9d-e1a7e1d5b48a
 # ╠═2389faea-94ea-4308-9ce2-f2248c337db6
 # ╠═55456f24-650a-474b-abd4-77e0d017521e
 # ╠═1891872d-40f0-47df-80b5-cf9dd36f6bfd
 # ╠═92837431-1eec-4318-9db9-04ce9e244dbc
+# ╠═d7afbca6-ddc1-4f3e-be58-f0a31a4de8d9
+# ╠═3d200a84-353b-49ac-926e-dc39502a545d
 # ╟─0bb919c0-a71a-4acd-9bf1-d5af4096112e
 # ╠═109bb399-d9ae-4ba4-a393-66cf5ce89365
 # ╟─d3f8729a-f656-45ee-9606-8b28410ff265

@@ -2,7 +2,8 @@ Dict(
     :main => [
         "welcome" => collections["welcome"].pages,
         "Julia basics" => collections["julia-basics"].pages,
-        "Finite lifetime | No income risk" => collections["lifecycle"].pages,
+        "Safe incomes" => collections["lifecycle"].pages,
+        "Risky incomes" => collections["risky"].pages,
          "Data" => collections["data"].pages,
         #"Preliminaries" => collections["preliminaries"].pages,
         #"Housing" => collections["housing"].pages,
