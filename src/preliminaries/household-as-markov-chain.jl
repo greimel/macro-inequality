@@ -24,6 +24,12 @@ macro bind(def, element)
     #! format: on
 end
 
+# ╔═╡ 3013bac4-fc8a-4569-954e-ba4e36f8fd3a
+using PlutoLinks: ingredients
+
+# ╔═╡ eebabacd-5ac1-4334-87d0-3dce155626b5
+using Downloads: download
+
 # ╔═╡ 515aaa65-6840-4948-a651-c0bc40eacac8
 using SparseArrays
 
@@ -158,11 +164,8 @@ y_chain = MarkovChain([0.75 0.25; 0.25 0.75], [1.25, 0.75])
 # ╔═╡ 1f26bba7-d7ea-4b22-bd8e-74895b8d6771
 r = 0.02
 
-# ╔═╡ 3a9fc98e-4917-4fe6-8d0b-1d88a80c3a67
-q(r) = 1/(1+r)
-
 # ╔═╡ 8a14dd50-946a-4c97-bfb5-f3e096ce6e0d
-prices = (q = q(r), w = 1.0, Δr = r/2)
+prices = (; r, w = 1.0, Δr = r/2)
 
 # ╔═╡ 91ff2453-4a5e-4b86-8004-31d7f01cbc69
 md"""
@@ -210,31 +213,14 @@ md"""
 ## Helpers for solving the model
 """
 
-# ╔═╡ 2c1aab25-7983-4cda-9961-00aff9bca75c
-function Household(; σ = 1.0, β = 0.96,	
-                      u = σ == 1 ? log : x -> (x^(1 - σ) - 1) / (1 - σ))
-	(; β, u)
-end
+# ╔═╡ bb8f662b-65ef-4c24-bc8f-2c74f69c60c0
+HH_DDP = ingredients(download("https://greimel.github.io/macro-inequality/Summer25/generated_assets/household-ddp_f4000704.jl"))
+
+# ╔═╡ d700a52f-e1c1-4743-acfe-81a03f974ff2
+(; Household, statespace, setup_DDP, solve_details) = HH_DDP
 
 # ╔═╡ 341b84aa-ee2b-4d4a-8751-c637eb17c973
 hh = Household(σ = 2.0, β = 0.96)
-
-# ╔═╡ 1710a41a-15ce-4e41-be8c-019450e64d17
-function statespace(;
-			a_vals = range(1e-10, 20.0, length = 200),
-			y_chain
-		)
-	states = 
-		[(; a, y) for a ∈ a_vals, y ∈ y_chain.state_values] |> vec
-	states_indices = 
-		[(; a_i, y_i) for a_i ∈ 1:length(a_vals), y_i ∈ 1:length(y_chain.state_values)] |> vec
-    policies = 
-	    [(; a_next) for a_next ∈ a_vals] |> vec
-	policies_indices = 
-	    [(; a_next_i) for a_next_i ∈ 1:length(a_vals)] |> vec
-
-	(; states, states_indices, policies, policies_indices, y_chain)
-end
 
 # ╔═╡ 6a083d99-8d23-4fba-b5e4-342a9f1158e6
 ss = statespace(; a_vals = range(-1., 5., length = 200), y_chain);
@@ -245,75 +231,8 @@ N_ddp = length(ss.states)
 # ╔═╡ 08c4f9e8-6e1b-4824-aa85-30886c248a7e
 π₀_ddp = fill(1/N_ddp, N_ddp)
 
-# ╔═╡ d46f1d2a-db65-474b-b6df-55f57751e09c
-function setup_Q!(Q, states_indices, policies_indices, y_chain)
-    for (i_next_state, next) ∈ enumerate(states_indices)
-        for (i_policy, (; a_next_i)) ∈ enumerate(policies_indices)
-            for (i_state, (; y_i)) ∈ enumerate(states_indices)
-                if next.a_i == a_next_i
-                    Q[i_state, i_policy, i_next_state] = y_chain.p[y_i, next.y_i]
-                end
-            end
-        end
-    end
-    return Q
-end
-
-# ╔═╡ da62de88-32ac-4213-a389-c89e7d912beb
-function setup_Q(states_indices, policies_indices, y_chain)
-	Q = zeros(length(states_indices), length(policies_indices), length(states_indices))
-	setup_Q!(Q, states_indices, policies_indices, y_chain)
-	Q
-end
-
-# ╔═╡ e1a88b95-aeff-476c-b6c0-e5faf0074533
-function consumption((; y, a), (; a_next), (; q, w, Δr))
-	if a_next < 0 && Δr > 0
-		r = (1/q - 1) + (a_next < 0) * Δr
-		q = 1/(1+r)
-	end
-	c = w * y + a - q * a_next
-end
-
-# ╔═╡ 0bed6bbc-49a2-45b6-bb76-3d76a4893cd4
-function reward(state, policy, prices, u)
-	c = consumption(state, policy, prices)
-    if c > 0
-		u(c)
-	else
-		-100_000 + 100 * c
-	end
-end
-
-# ╔═╡ a8d044c0-daca-411d-9ef9-dc23e99a28a5
-function setup_R!(R, states, policies, prices, u)
-    for (a_i, policy) ∈ enumerate(policies)
-        for (s_i, state) ∈ enumerate(states)
-            R[s_i, a_i] = reward(state, policy, prices, u)
-        end
-    end
-    return R
-end
-
-# ╔═╡ 9de2a750-42e1-4d10-9dc9-4ae05d665a71
-function setup_R(states, policies, prices, u)
-	R = zeros(length(states), length(policies))
-	setup_R!(R, states, policies, prices, u)
-end
-
-# ╔═╡ 5e0043d2-a6ba-41b7-a051-c048eada441b
-function setup_DDP(household, statespace, prices, y_chain)
-	(; β, u) = household
-	(; states, policies, states_indices, policies_indices) = statespace
-    
-	R = setup_R(states, policies, prices, u)
-	Q = setup_Q(states_indices, policies_indices, y_chain)
-
-	DiscreteDP(R, Q, β)
-end
-
 # ╔═╡ 4c4c362d-c4e9-41d9-a22b-2dcc69510afc
-ddp = setup_DDP(hh, ss, prices, y_chain);
+ddp = setup_DDP(hh, ss, prices);
 
 # ╔═╡ f0296f9d-948d-4b51-accf-4de26639251f
 results = QuantEcon.solve(ddp, PFI)
@@ -326,29 +245,6 @@ mc_ddp.p |> sparse
 
 # ╔═╡ 9f68abc3-fdc4-484b-bba4-16b2b3f72a87
 path0 = simulate(mc_ddp, 100)
-
-# ╔═╡ ecf023f5-559b-4fb9-a147-403d19b5e0d2
-function solve_details0(ddp, states, policies; solver = PFI)
-	results = QuantEcon.solve(ddp, solver)
-
-	df = [DataFrame(states) DataFrame(policies[results.sigma])]
-	df.state = states
-	df.policy = policies[results.sigma]
-	df.π = stationary_distributions(results.mc)[:, 1][1]
-
-	df
-end
-
-# ╔═╡ 0c2379ba-1b8c-4ebb-8408-746d28942580
-function solve_details(ddp, states, policies; solver = PFI)
-	df = solve_details0(ddp, states, policies; solver)
-
-	@chain df begin
-		@transform(:consumption = consumption(:state, :policy, prices))
-		@transform(:saving = :a_next - :a)
-		select!(Not([:state, :policy]))
-	end
-end
 
 # ╔═╡ 313e6081-9b7b-45e4-b8e6-aabbcf30fa46
 md"""
@@ -517,7 +413,9 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+PlutoLinks = "0ff47ea0-7a50-410d-8455-4348d5de0420"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 QuantEcon = "fcd29c91-0bd7-5a09-975d-7ac3f643a60c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
@@ -531,6 +429,7 @@ DataFrameMacros = "~0.4.1"
 DataFrames = "~1.7.0"
 DimensionalData = "~0.29.16"
 LaTeXStrings = "~1.4.0"
+PlutoLinks = "~0.1.6"
 PlutoUI = "~0.7.62"
 QuantEcon = "~0.16.6"
 StatsBase = "~0.34.5"
@@ -542,7 +441,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "a15275f8ff5b5f0e80d4d78779cf8b0cea6261da"
+project_hash = "f49e6e244c380ba3f0ce3ba28054be778ea6e942"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -774,6 +673,12 @@ weakdeps = ["SparseArrays"]
 
     [deps.ChainRulesCore.extensions]
     ChainRulesCoreSparseArraysExt = "SparseArrays"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "062c5e1a5bf6ada13db96a4ae4749a4c2234f521"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.9"
 
 [[deps.ColorBrewer]]
 deps = ["Colors", "JSON"]
@@ -1485,6 +1390,12 @@ git-tree-sha1 = "eac1206917768cb54957c65a615460d87b455fc1"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "3.1.1+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "6ac9e4acc417a5b534ace12690bc6973c25b862f"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.10.3"
+
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
 git-tree-sha1 = "7d703202e65efa1369de1279c162b915e245eed1"
@@ -1631,6 +1542,12 @@ version = "0.3.29"
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 version = "1.11.0"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "4ef1c538614e3ec30cb6383b9eb0326a5c3a9763"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "3.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "c64d943587f7187e751162b3b84445bbbd79f691"
@@ -1903,6 +1820,18 @@ git-tree-sha1 = "3ca9a356cd2e113c420f2c13bea19f8d3fb1cb18"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.3"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "d3de2694b52a01ce61a036f18ea9c0f61c4a9230"
@@ -2055,6 +1984,16 @@ deps = ["UUIDs"]
 git-tree-sha1 = "62389eeff14780bfe55195b7204c0d8738436d64"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.1"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "cedc9f9013f7beabd8a9c6d2e22c0ca7c5c2a8ed"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.7.6"
+weakdeps = ["Distributed"]
+
+    [deps.Revise.extensions]
+    DistributedExt = "Distributed"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -2561,7 +2500,6 @@ version = "3.6.0+0"
 # ╠═6a083d99-8d23-4fba-b5e4-342a9f1158e6
 # ╠═4c4c362d-c4e9-41d9-a22b-2dcc69510afc
 # ╠═1f26bba7-d7ea-4b22-bd8e-74895b8d6771
-# ╠═3a9fc98e-4917-4fe6-8d0b-1d88a80c3a67
 # ╠═8a14dd50-946a-4c97-bfb5-f3e096ce6e0d
 # ╟─91ff2453-4a5e-4b86-8004-31d7f01cbc69
 # ╠═f0296f9d-948d-4b51-accf-4de26639251f
@@ -2582,17 +2520,10 @@ version = "3.6.0+0"
 # ╟─2856ddc7-074a-447d-9d91-425ce7e9e35d
 # ╟─9cd7ee6d-dfcb-42a0-b7dc-a5df01b4058a
 # ╟─8b5d694b-e10f-41c5-ad52-aa1f727c57e6
-# ╠═2c1aab25-7983-4cda-9961-00aff9bca75c
-# ╠═1710a41a-15ce-4e41-be8c-019450e64d17
-# ╠═da62de88-32ac-4213-a389-c89e7d912beb
-# ╠═d46f1d2a-db65-474b-b6df-55f57751e09c
-# ╠═e1a88b95-aeff-476c-b6c0-e5faf0074533
-# ╠═0bed6bbc-49a2-45b6-bb76-3d76a4893cd4
-# ╠═9de2a750-42e1-4d10-9dc9-4ae05d665a71
-# ╠═a8d044c0-daca-411d-9ef9-dc23e99a28a5
-# ╠═5e0043d2-a6ba-41b7-a051-c048eada441b
-# ╠═ecf023f5-559b-4fb9-a147-403d19b5e0d2
-# ╠═0c2379ba-1b8c-4ebb-8408-746d28942580
+# ╠═3013bac4-fc8a-4569-954e-ba4e36f8fd3a
+# ╠═eebabacd-5ac1-4334-87d0-3dce155626b5
+# ╠═bb8f662b-65ef-4c24-bc8f-2c74f69c60c0
+# ╠═d700a52f-e1c1-4743-acfe-81a03f974ff2
 # ╟─313e6081-9b7b-45e4-b8e6-aabbcf30fa46
 # ╠═4feccb71-e3b6-4f11-89a0-895434cd5dc6
 # ╠═25e6d3d8-7801-443a-880e-63475aaa4897
