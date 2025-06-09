@@ -29,7 +29,7 @@ using DataFrames, DataFrameMacros
 
 # ╔═╡ 38213eb7-e1c1-4f2f-a5f4-5a6763d60f97
 md"""
-`household-ddp.jl` | **Version 0.1** | *last updated: June 6, 2025*
+`household-ddp.jl` | **Version 0.1** | *last updated: June 9, 2025*
 """
 
 # ╔═╡ a10b314d-647a-42f9-827d-358ba5c55ce7
@@ -355,28 +355,29 @@ fonts = (; regular = Makie.MathTeXEngine.texfont(:regular), bold = Makie.MathTeX
 figure(size = (350, 250); figure_padding = 2, kwargs...) = (; size, fonts, figure_padding, kwargs...)
 
 # ╔═╡ 8bece61a-d78b-426c-8a71-f38ecacb6762
-let
-	fg = @chain results begin
-		stack(Not([:a, :y, :π]))
-		data(_) * mapping(
-			:a => L"current assets $a$",
-			:value => "",
-			layout = :variable,
-			color = :y => nonnumeric => L"income \\ level $y$",
-		) * visual(Lines)
-		draw(; 
-			 facet = (; linkyaxes = false), 
-			 figure = figure((500, 250))
-			)
-	end
-
-	
-
-	fg
+@chain results begin
+	stack(Not([:a, :y, :π]))
+	data(_) * mapping(
+		:a => L"current assets $a$",
+		:value => "",
+		layout = :variable,
+		color = :y => nonnumeric => L"income \\ level $y$",
+	) * visual(Lines)
+	draw(; 
+		facet = (; linkyaxes = false), 
+		figure = figure((500, 250))
+	)
 end
 
 # ╔═╡ 7575c22e-5dfa-495a-ac57-4e0b65bf9d8f
 TableOfContents()
+
+# ╔═╡ 92f14c2c-41a8-403b-8be0-b762efe333f3
+md"""
+## Acknowledgements
+
+The content of this notebook was previously part of `aiyagari.jl`, which benefitted from improvements by [Daniel Schmidt](https://github.com/danieljschmidt).
+"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2379,7 +2380,7 @@ version = "3.6.0+0"
 # ╟─5406c361-81d2-4509-b737-a5f1c59438aa
 # ╟─204c9a23-06b4-4f0a-90f2-aa953ef9021e
 # ╠═ac21e04a-bc45-4e85-a617-426f4cbeab97
-# ╟─d6dd62c1-5315-49dd-8d0b-4669c83b0cf8
+# ╠═d6dd62c1-5315-49dd-8d0b-4669c83b0cf8
 # ╟─8bece61a-d78b-426c-8a71-f38ecacb6762
 # ╟─2f5fdfb0-1aa2-4752-b299-e5ee19e57c6f
 # ╠═b8f1b433-3489-4952-a9c7-6fcc25cae802
@@ -2416,5 +2417,6 @@ version = "3.6.0+0"
 # ╠═624b35b0-af33-4b39-a0e7-d55c21921a1e
 # ╠═9c2edfa8-f2ce-4008-ac83-bb2edd2ed187
 # ╠═7575c22e-5dfa-495a-ac57-4e0b65bf9d8f
+# ╟─92f14c2c-41a8-403b-8be0-b762efe333f3
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
