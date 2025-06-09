@@ -2,13 +2,12 @@
 # v0.20.8
 
 #> [frontmatter]
-#> chapter = 2
-#> section = 2
-#> order = 2
-#> title = "RBC & Imrohoroglu (1989) as Markov Chains"
+#> chapter = 3
+#> section = "3"
+#> order = "3"
+#> title = "The household is a Markov Chain"
 #> layout = "layout.jlhtml"
-#> tags = ["preliminaries"]
-#> description = ""
+#> tags = ["risky"]
 
 using Markdown
 using InteractiveUtils
@@ -27,6 +26,9 @@ end
 
 # ╔═╡ 515aaa65-6840-4948-a651-c0bc40eacac8
 using SparseArrays
+
+# ╔═╡ cdcb64c9-a98b-493d-aa5d-ba34cec59dcc
+using DimensionalData
 
 # ╔═╡ 123ef0b2-e191-4e10-abe3-df3ced4d6f4c
 using QuantEcon
@@ -60,27 +62,32 @@ using LaTeXStrings
 
 # ╔═╡ d653e216-e8cd-11ed-0ecc-27e45fce5065
 md"""
-`households-as-markov-chains.jl` | **Version 0.2** | *last updated: June 6 2025*
+`household-as-markov-chain.jl` | **Version 1.0** | *last updated: June 6 2025*
 """
 
 # ╔═╡ 389f3a61-570f-4255-a5ea-49451b467873
 md"""
-# Introduction
-"""
+# A. Markov Chains
 
-# ╔═╡ c5c3b225-e828-4efa-ac15-ce920d87d8d0
-md"""
-## 1. Recap: Finite State Markov Chains
+(technically, _Finite State_ Markov Chains)
 """
 
 # ╔═╡ ae982351-ea8a-411d-81bc-e1cfb1591bf7
 # ╠═╡ disabled = true
 #=╠═╡
-mc = MarkovChain([0.5 0.1 0.4; 0.1 0.4 0.5; 0.3 0.3 0.4], ["unemployed", "employed", "other"])
+mc = MarkovChain(
+	[0.7 0.1 0.2; 
+	 0.1 0.7 0.2; 
+	 0.2 0.1 0.7], 
+	["(1) good job", "(2) bad job", "(3) unemployed"]
+)
   ╠═╡ =#
 
 # ╔═╡ 20b7c921-d8a4-4e28-b954-3f1dfea22398
 mc = tauchen(20, 0.9, 1.0)
+
+# ╔═╡ 44458905-5506-4e8b-8031-8c99e3fbb3c5
+mc.p
 
 # ╔═╡ f234d009-a4cd-445c-b6a9-50fdf950c484
 simulate(mc, 10)
@@ -92,7 +99,7 @@ N = length(mc.state_values)
 I = 1000
 
 # ╔═╡ c5cdc039-c521-4ee8-8f8c-9386d50da618
-T = 10
+T = 50
 
 # ╔═╡ 77960c18-f706-4a1d-8a64-a1ec553cf61e
 sim_df = mapreduce(vcat, 1:I) do i
@@ -103,21 +110,6 @@ end
 md"""
 ### Tracking individuals
 """
-
-# ╔═╡ 06da6a21-d1da-41f1-a1d2-6de0e887dfcc
-@chain sim_df begin
-	#@subset(:i == 4)
-	@subset(:i % 50 == 0)
-	data(_) * mapping(
-		:t => L"time $t$",
-		:state => "state (e.g. income)",
-		color=:i => nonnumeric
-	) * visual(ScatterLines) #+ mapping([_t_naive_]) * visual(VLines)
-	draw(axis = (title = "Sample paths of selected agents", ))
-end
-
-# ╔═╡ 2f12e9d7-a7f8-431e-b540-e793b9ae58f1
-blue = Makie.wong_colors()[1]
 
 # ╔═╡ a2931a7c-097c-4b5a-be4a-b1c25f9e28d5
 md"""
@@ -130,40 +122,7 @@ md"""
 """
 
 # ╔═╡ 14e676db-a80a-4986-a4fd-f8c7b25ebd5c
-@bind _t_naive_ Slider(1:10, default=1, show_value=true)
-
-# ╔═╡ dfacd672-8f18-4f48-993a-3f06f42a0f1d
-@chain sim_df begin
-	@aside begin
-		bins = sort(unique(_.state))
-	end
-	@subset(:t == _t_naive_)
-	data(_) * mapping(:state) * visual(Hist; bins, color=blue, normalization=:probability)
-	draw
-end
-
-# ╔═╡ b8c0783a-5dd5-46da-a3ed-7e319a1e2a4d
-let
-	fig = Figure()
-	@chain sim_df begin
-		#@subset(:t % 10 == 1)
-		@aside begin
-			xtick_labels = string.(sort(unique(_.t)))
-			xticks = (collect(1:length(xtick_labels)), xtick_labels)
-			xlabel = L"time $t$"
-			ylabel = "cross-sectional distribution"
-			axis = (; xticks, xlabel, ylabel)
-			bins = sort(unique(sim_df.state))
-		end
-		data(_) * mapping(
-			:state,
-			color = :t => !=(_t_naive_),# => nonnumeric,
-			offset= :t => nonnumeric
-		) * visual(Hist; bins, direction=:x, normalization=:probability, scale_to=0.6)
-		draw!(fig[1,1], _; axis)
-	end
-	fig
-end
+@bind _t_naive_ Slider(1:T, default=1, show_value=true)
 
 # ╔═╡ fb0edc46-0846-4aa9-acc2-8d1bdaf6937e
 md"""
@@ -178,33 +137,23 @@ md"""
 # ╔═╡ 0d8f87cf-32b1-4aba-bafa-fae6b02c9ad3
 @bind _t_soph_ Slider(0:100, default=0, show_value=true)
 
-# ╔═╡ b0ea845a-f842-4f47-b9b3-3a29ff012216
-barplot(mc.state_values, vec(π₀' * mc.p^_t_soph_), axis=(; title=latexstring("Cross-sectional distribution at \$t = $_t_soph_\$")))
-
-# ╔═╡ c14ca8ac-c5d9-4bd2-ad2c-751eb31cea67
-let
-	fig = Figure()
-	ax = Axis(fig[1,1], xlabel = L"time $t$", ylabel = "cross-sectional distribution")
-
-	for t ∈ 0:10
-		barplot!(ax, mc.state_values, vec(π₀' * mc.p^t) .* 4, direction = :x, offset = t, color= t == _t_soph_ ? Makie.wong_colors()[1] : :gray40)
-	end
-
-	fig
-end
+# ╔═╡ ad7068d0-3fe2-4997-84c2-86990ec6a786
+md"""
+## Stationary distribution
+"""
 
 # ╔═╡ b413cac5-6b88-4d70-906b-784df8a8fd44
 md"""
-## 2. The RBC Model: A Sample Path of a Markov Chain
+# B. The Household is a Markov Chain
 """
 
 # ╔═╡ df31e48a-9c5f-4ed9-9f5d-1185d6e25c0d
 md"""
-### Set up the Dynamic Program
+## Setting up the Dynamic Program
 """
 
 # ╔═╡ 6c931409-09d9-4d68-8e49-29935d45f6c3
-z_chain = MarkovChain([0.75 0.25; 0.25 0.75], [1.25, 0.75])
+y_chain = MarkovChain([0.75 0.25; 0.25 0.75], [1.25, 0.75])
 
 # ╔═╡ 1f26bba7-d7ea-4b22-bd8e-74895b8d6771
 r = 0.02
@@ -217,12 +166,27 @@ prices = (q = q(r), w = 1.0, Δr = r/2)
 
 # ╔═╡ 91ff2453-4a5e-4b86-8004-31d7f01cbc69
 md"""
-### Solution is a Markov Chain
+## Solution is a Markov Chain
+"""
+
+# ╔═╡ daf5b58e-3df9-484d-8af3-a7f6a15f0066
+md"""
+## Simulating a household ``\iff`` sample path of the Markov Chain
+"""
+
+# ╔═╡ 99a85710-bfb7-45dd-8031-dc9a4400601e
+md"""
+## Policies
+"""
+
+# ╔═╡ b3a95798-8635-4cb2-b212-fc49258ff546
+md"""
+# C. Wealth distribution in partial equilibrium (Imrohoroglu, 1989)
 """
 
 # ╔═╡ b65a274d-2dab-444c-802d-e9bae7a76252
 md"""
-## 3. Bewley-Huggett-Aiyagari: Tracking the Distribution of a Markov Chain
+##  Tracking the Distribution of a Markov Chain 
 
 !!! warning "Note"
     We are not solving for the equilibrium interest rate ``r`` here. So we are in _Partial Equilibrium_ setting of Imrohoroglu (1989).
@@ -230,7 +194,7 @@ md"""
 
 # ╔═╡ 1fd4c26f-de7d-441e-a2ec-7e37da2bc2ce
 md"""
-### Specify initial distribution
+## Specify initial distribution
 """
 
 # ╔═╡ 94c1eb4e-0dd0-41f8-ab88-f1e5f97cbcbc
@@ -239,6 +203,11 @@ md"""
 # ╔═╡ 9cd7ee6d-dfcb-42a0-b7dc-a5df01b4058a
 md"""
 # Appendix
+"""
+
+# ╔═╡ 8b5d694b-e10f-41c5-ad52-aa1f727c57e6
+md"""
+## Helpers for solving the model
 """
 
 # ╔═╡ 2c1aab25-7983-4cda-9961-00aff9bca75c
@@ -252,29 +221,23 @@ hh = Household(σ = 2.0, β = 0.96)
 
 # ╔═╡ 1710a41a-15ce-4e41-be8c-019450e64d17
 function statespace(;
-			k_vals = range(1e-10, 20.0, length = 200),
-			z_chain
+			a_vals = range(1e-10, 20.0, length = 200),
+			y_chain
 		)
 	states = 
-		[(; k, z) for k ∈ k_vals, z ∈ z_chain.state_values] |> vec
+		[(; a, y) for a ∈ a_vals, y ∈ y_chain.state_values] |> vec
 	states_indices = 
-		[(; k_i, z_i) for k_i ∈ 1:length(k_vals), z_i ∈ 1:length(z_chain.state_values)] |> vec
+		[(; a_i, y_i) for a_i ∈ 1:length(a_vals), y_i ∈ 1:length(y_chain.state_values)] |> vec
     policies = 
-	    [(; k_next) for k_next ∈ k_vals] |> vec
+	    [(; a_next) for a_next ∈ a_vals] |> vec
 	policies_indices = 
-	    [(; k_next_i) for k_next_i ∈ 1:length(k_vals)] |> vec
+	    [(; a_next_i) for a_next_i ∈ 1:length(a_vals)] |> vec
 
-	(; states, states_indices, policies, policies_indices, z_chain)
+	(; states, states_indices, policies, policies_indices, y_chain)
 end
 
 # ╔═╡ 6a083d99-8d23-4fba-b5e4-342a9f1158e6
-ss = statespace(; k_vals = range(-1., 5., length = 200), z_chain);
-
-# ╔═╡ 66632035-f8ab-4e91-8eac-78f9bf4a2f23
-states = DataFrame(ss.states)
-
-# ╔═╡ 82966154-6905-417c-9784-bb63e33c83f8
-policies = DataFrame(ss.policies)
+ss = statespace(; a_vals = range(-1., 5., length = 200), y_chain);
 
 # ╔═╡ 3ed2e513-f857-42f5-ae84-feccaa1f56e7
 N_ddp = length(ss.states)
@@ -283,12 +246,12 @@ N_ddp = length(ss.states)
 π₀_ddp = fill(1/N_ddp, N_ddp)
 
 # ╔═╡ d46f1d2a-db65-474b-b6df-55f57751e09c
-function setup_Q!(Q, states_indices, policies_indices, z_chain)
+function setup_Q!(Q, states_indices, policies_indices, y_chain)
     for (i_next_state, next) ∈ enumerate(states_indices)
-        for (i_policy, (; k_next_i)) ∈ enumerate(policies_indices)
-            for (i_state, (; z_i)) ∈ enumerate(states_indices)
-                if next.k_i == k_next_i
-                    Q[i_state, i_policy, i_next_state] = z_chain.p[z_i, next.z_i]
+        for (i_policy, (; a_next_i)) ∈ enumerate(policies_indices)
+            for (i_state, (; y_i)) ∈ enumerate(states_indices)
+                if next.a_i == a_next_i
+                    Q[i_state, i_policy, i_next_state] = y_chain.p[y_i, next.y_i]
                 end
             end
         end
@@ -297,19 +260,19 @@ function setup_Q!(Q, states_indices, policies_indices, z_chain)
 end
 
 # ╔═╡ da62de88-32ac-4213-a389-c89e7d912beb
-function setup_Q(states_indices, policies_indices, z_chain)
+function setup_Q(states_indices, policies_indices, y_chain)
 	Q = zeros(length(states_indices), length(policies_indices), length(states_indices))
-	setup_Q!(Q, states_indices, policies_indices, z_chain)
+	setup_Q!(Q, states_indices, policies_indices, y_chain)
 	Q
 end
 
 # ╔═╡ e1a88b95-aeff-476c-b6c0-e5faf0074533
-function consumption((; z, k), (; k_next), (; q, w, Δr))
-	if k_next < 0 && Δr > 0
-		r = (1/q - 1) + (k_next < 0) * Δr
+function consumption((; y, a), (; a_next), (; q, w, Δr))
+	if a_next < 0 && Δr > 0
+		r = (1/q - 1) + (a_next < 0) * Δr
 		q = 1/(1+r)
 	end
-	c = w * z + k - q * k_next
+	c = w * y + a - q * a_next
 end
 
 # ╔═╡ 0bed6bbc-49a2-45b6-bb76-3d76a4893cd4
@@ -324,9 +287,9 @@ end
 
 # ╔═╡ a8d044c0-daca-411d-9ef9-dc23e99a28a5
 function setup_R!(R, states, policies, prices, u)
-    for (k_i, policy) ∈ enumerate(policies)
+    for (a_i, policy) ∈ enumerate(policies)
         for (s_i, state) ∈ enumerate(states)
-            R[s_i, k_i] = reward(state, policy, prices, u)
+            R[s_i, a_i] = reward(state, policy, prices, u)
         end
     end
     return R
@@ -339,18 +302,18 @@ function setup_R(states, policies, prices, u)
 end
 
 # ╔═╡ 5e0043d2-a6ba-41b7-a051-c048eada441b
-function setup_DDP(household, statespace, prices)
+function setup_DDP(household, statespace, prices, y_chain)
 	(; β, u) = household
 	(; states, policies, states_indices, policies_indices) = statespace
     
 	R = setup_R(states, policies, prices, u)
-	Q = setup_Q(states_indices, policies_indices, z_chain)
+	Q = setup_Q(states_indices, policies_indices, y_chain)
 
 	DiscreteDP(R, Q, β)
 end
 
 # ╔═╡ 4c4c362d-c4e9-41d9-a22b-2dcc69510afc
-ddp = setup_DDP(hh, ss, prices);
+ddp = setup_DDP(hh, ss, prices, y_chain);
 
 # ╔═╡ f0296f9d-948d-4b51-accf-4de26639251f
 results = QuantEcon.solve(ddp, PFI)
@@ -363,36 +326,6 @@ mc_ddp.p |> sparse
 
 # ╔═╡ 9f68abc3-fdc4-484b-bba4-16b2b3f72a87
 path0 = simulate(mc_ddp, 100)
-
-# ╔═╡ 3a3c093d-b4e9-4554-94ed-0f795c1ae088
-let
-	fig = Figure(size = (800, 400))
-	path = DataFrame(ss.states[path0])
-	lines(fig[1,1], path.k, axis = (; title = "evolution of capital", xlabel="time"))
-	lines(fig[1,2], path.z, axis = (; title = "evolution of productivity", xlabel="time"))
-
-	fig
-end
-
-# ╔═╡ 8a50b23b-857b-4579-a154-db1d8794e0ea
-barplot(
-	#mc.state_values,
-	vec(π₀_ddp' * mc_ddp.p^_t_soph_ddp_), axis=(; title=latexstring("Cross-sectional distribution at \$t = $_t_soph_ddp_\$"))
-)
-
-# ╔═╡ 2856ddc7-074a-447d-9d91-425ce7e9e35d
-let
-	fig = Figure()
-	ax = Axis(fig[1,1], xlabel = L"time $t$", ylabel = "cross-sectional distribution")
-
-	for t ∈ 0:10
-		barplot!(ax, 
-			#mc.state_values, 
-			vec(π₀_ddp' * mc_ddp.p^t) .* 70, direction = :x, offset = t, color= t == _t_soph_ddp_ ? Makie.wong_colors()[1] : :gray40)
-	end
-
-	fig
-end
 
 # ╔═╡ ecf023f5-559b-4fb9-a147-403d19b5e0d2
 function solve_details0(ddp, states, policies; solver = PFI)
@@ -412,7 +345,7 @@ function solve_details(ddp, states, policies; solver = PFI)
 
 	@chain df begin
 		@transform(:consumption = consumption(:state, :policy, prices))
-		@transform(:saving = :k_next - :k)
+		@transform(:saving = :a_next - :a)
 		select!(Not([:state, :policy]))
 	end
 end
@@ -421,6 +354,156 @@ end
 md"""
 ## Packages
 """
+
+# ╔═╡ 25e6d3d8-7801-443a-880e-63475aaa4897
+fonts = (; regular = Makie.MathTeXEngine.texfont(:regular), bold = Makie.MathTeXEngine.texfont(:regular))
+
+# ╔═╡ 4feccb71-e3b6-4f11-89a0-895434cd5dc6
+figure(size = (350, 250); figure_padding = 2, kwargs...) = (; size, fonts, figure_padding, kwargs...)
+
+# ╔═╡ 321706fb-cf8f-428b-ab27-d9b5442a6b53
+heatmap(mc.p; 
+		figure = figure(),
+		axis = (; yreversed = true, title = "A heatmap of the transition matrix")
+	   )
+
+# ╔═╡ 40c24469-7629-4728-8731-744a11de9489
+let
+	T = 20
+	sim = DimVector(
+		simulate(mc, T), Dim{:t}(1:T),
+		name = :state
+	)
+
+	@chain sim begin
+		data(_) * mapping(
+			:t => L"time $t$", :state) * visual(ScatterLines)
+		draw(figure = figure((400, 200), figure_padding = 3, title = "A simulated sample path of the Markov Chain"))
+	end
+end
+	
+
+# ╔═╡ 06da6a21-d1da-41f1-a1d2-6de0e887dfcc
+@chain sim_df begin
+	#@subset(:i == 4)
+	@subset(:i % 50 == 0)
+	data(_) * mapping(
+		:t => L"time $t$",
+		:state => "state (e.g. log(income))",
+		color=:i => nonnumeric
+	) * visual(ScatterLines) #+ mapping([_t_naive_]) * visual(VLines)
+	draw(
+		axis   = (; title = "Sample paths of selected agents"),
+		legend = (; show = false),
+		figure = figure((500, 300))
+	)
+end
+
+# ╔═╡ dfacd672-8f18-4f48-993a-3f06f42a0f1d
+@chain sim_df begin
+	@aside blue = Makie.wong_colors()[1]
+	@aside begin
+		bins = sort(unique(_.state))
+	end
+	@subset(:t == _t_naive_)
+	data(_) * mapping(:state) * visual(Hist; bins, color=blue, normalization=:probability)
+	draw(figure = figure((400, 200)))
+end
+
+# ╔═╡ b8c0783a-5dd5-46da-a3ed-7e319a1e2a4d
+let
+	fig = Figure(; figure((700, 200))...)
+	@chain sim_df begin
+		@subset(:t ≤ 10)
+		#@subset(:t % 10 == 1)
+		@aside begin
+			xtick_labels = string.(sort(unique(_.t)))
+			xticks = (collect(1:length(xtick_labels)), xtick_labels)
+			xlabel = L"time $t$"
+			ylabel = "cross-sectional distribution"
+			axis = (; xticks, xlabel, ylabel)
+			bins = sort(unique(sim_df.state))
+		end
+		data(_) * mapping(
+			:state,
+			color = :t => !=(_t_naive_),# => nonnumeric,
+			col = :t => nonnumeric
+		) * visual(Hist; bins, direction=:x, normalization=:probability, scale_to=0.6)
+		draw!(fig[1,1], _; axis)
+	end
+	fig
+end
+
+# ╔═╡ b0ea845a-f842-4f47-b9b3-3a29ff012216
+barplot(
+	mc.state_values, vec(π₀' * mc.p^_t_soph_), 
+	axis=(; title=latexstring("Cross-sectional distribution at \$t = $_t_soph_\$")),
+	figure = figure((400, 200))
+)
+
+# ╔═╡ c14ca8ac-c5d9-4bd2-ad2c-751eb31cea67
+let
+	fig = Figure(; figure((700, 300))...)
+	ax = Axis(fig[1,1], xlabel = L"time $t$", ylabel = "cross-sectional distribution")
+
+	for t ∈ 0:10
+		barplot!(ax, mc.state_values, vec(π₀' * mc.p^t) .* 4, direction = :x, offset = t, color= t == _t_soph_ ? Makie.wong_colors()[1] : :gray40)
+	end
+
+	fig
+end
+
+# ╔═╡ f08a1938-b3ff-4585-989d-c86ff722bac9
+let
+	π = stationary_distributions(mc) |> only
+	barplot(π, figure = figure((400, 200)))
+end
+
+# ╔═╡ a40e0e85-8b6e-429f-b810-746077b2afff
+let
+	π = (mc.p^500)[1,:]
+	barplot(π, figure = figure((400, 200)))
+end
+
+# ╔═╡ 3a3c093d-b4e9-4554-94ed-0f795c1ae088
+let
+	fig = Figure(; figure((700, 200))...)
+	path = DataFrame(ss.states[path0])
+	lines(fig[1,1], path.a, axis = (; title = "evolution of savings", xlabel=L"age $j$"))
+	lines(fig[1,2], path.y, axis = (; title = "evolution of incomes (productivity)", xlabel=L"age $j$"))
+
+	fig
+end
+
+# ╔═╡ 72384cc6-9300-4656-9148-7194dc017d28
+@chain begin
+	[DataFrame(ss.states) DataFrame(ss.policies[results.sigma])]
+	data(_) * mapping(:a, :a_next, color = :y => nonnumeric) * visual(Lines)
+	draw(; figure = figure((450, 250)))
+end
+
+# ╔═╡ 8a50b23b-857b-4579-a154-db1d8794e0ea
+barplot(
+	#mc.state_values,
+	vec(π₀_ddp' * mc_ddp.p^_t_soph_ddp_), 
+	axis=(; title=latexstring("Cross-sectional distribution at \$t = $_t_soph_ddp_\$")),
+	figure = figure((700, 250))
+)
+
+# ╔═╡ 2856ddc7-074a-447d-9d91-425ce7e9e35d
+let
+	fig = Figure(; figure((700, 300))...)
+
+	ax = Axis(fig[1,1], xlabel = L"time $t$", ylabel = "cross-sectional distribution")
+
+	for t ∈ 0:10
+		barplot!(ax, 
+			#mc.state_values, 
+			vec(π₀_ddp' * mc_ddp.p^t) .* 70, direction = :x, offset = t, color= t == _t_soph_ddp_ ? Makie.wong_colors()[1] : :gray40)
+	end
+
+	fig
+end
 
 # ╔═╡ 5cb9d172-3915-4619-a8b2-d85d0340b708
 TableOfContents()
@@ -433,6 +516,7 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 QuantEcon = "fcd29c91-0bd7-5a09-975d-7ac3f643a60c"
@@ -445,6 +529,7 @@ CairoMakie = "~0.13.4"
 Chain = "~0.6.0"
 DataFrameMacros = "~0.4.1"
 DataFrames = "~1.7.0"
+DimensionalData = "~0.29.16"
 LaTeXStrings = "~1.4.0"
 PlutoUI = "~0.7.62"
 QuantEcon = "~0.16.6"
@@ -457,7 +542,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "1e3b51169adb180ef47f7970eca12996aa8273c3"
+project_hash = "a15275f8ff5b5f0e80d4d78779cf8b0cea6261da"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -888,6 +973,30 @@ version = "0.6.54"
     Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
     Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
+[[deps.DimensionalData]]
+deps = ["Adapt", "ArrayInterface", "ConstructionBase", "DataAPI", "Dates", "Extents", "Interfaces", "IntervalSets", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "PrecompileTools", "Random", "RecipesBase", "SparseArrays", "Statistics", "TableTraits", "Tables"]
+git-tree-sha1 = "d49e94d7ff9a76ac9741a19dc51279afeaa836ca"
+uuid = "0703355e-b756-11e9-17c0-8b28908087d0"
+version = "0.29.16"
+
+    [deps.DimensionalData.extensions]
+    DimensionalDataAlgebraOfGraphicsExt = "AlgebraOfGraphics"
+    DimensionalDataCategoricalArraysExt = "CategoricalArrays"
+    DimensionalDataDiskArraysExt = "DiskArrays"
+    DimensionalDataMakie = "Makie"
+    DimensionalDataNearestNeighborsExt = "NearestNeighbors"
+    DimensionalDataPythonCall = "PythonCall"
+    DimensionalDataStatsBase = "StatsBase"
+
+    [deps.DimensionalData.weakdeps]
+    AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
+    CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+    DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
+    Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+    NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
+    PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+    StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+
 [[deps.Distances]]
 deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
 git-tree-sha1 = "c7e3a542b999843086e2f29dac96a618c105be1d"
@@ -1274,6 +1383,11 @@ version = "2025.0.4+0"
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 version = "1.11.0"
+
+[[deps.Interfaces]]
+git-tree-sha1 = "331ff37738aea1a3cf841ddf085442f31b84324f"
+uuid = "85a1e053-f937-4924-92a5-1367d23b7b87"
+version = "0.3.2"
 
 [[deps.Interpolations]]
 deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
@@ -2415,8 +2529,10 @@ version = "3.6.0+0"
 # ╔═╡ Cell order:
 # ╟─d653e216-e8cd-11ed-0ecc-27e45fce5065
 # ╟─389f3a61-570f-4255-a5ea-49451b467873
-# ╟─c5c3b225-e828-4efa-ac15-ce920d87d8d0
 # ╠═ae982351-ea8a-411d-81bc-e1cfb1591bf7
+# ╠═44458905-5506-4e8b-8031-8c99e3fbb3c5
+# ╟─321706fb-cf8f-428b-ab27-d9b5442a6b53
+# ╟─40c24469-7629-4728-8731-744a11de9489
 # ╠═f234d009-a4cd-445c-b6a9-50fdf950c484
 # ╠═20b7c921-d8a4-4e28-b954-3f1dfea22398
 # ╠═510a4ecd-76dc-4478-adec-1adaba39b9fc
@@ -2425,7 +2541,6 @@ version = "3.6.0+0"
 # ╠═77960c18-f706-4a1d-8a64-a1ec553cf61e
 # ╟─afd2d386-dbd3-4eea-975f-f2a6107b00b2
 # ╟─06da6a21-d1da-41f1-a1d2-6de0e887dfcc
-# ╠═2f12e9d7-a7f8-431e-b540-e793b9ae58f1
 # ╟─a2931a7c-097c-4b5a-be4a-b1c25f9e28d5
 # ╟─d370e193-fad9-4f13-aacc-d70dc900c1a1
 # ╟─14e676db-a80a-4986-a4fd-f8c7b25ebd5c
@@ -2436,6 +2551,9 @@ version = "3.6.0+0"
 # ╟─0d8f87cf-32b1-4aba-bafa-fae6b02c9ad3
 # ╟─b0ea845a-f842-4f47-b9b3-3a29ff012216
 # ╟─c14ca8ac-c5d9-4bd2-ad2c-751eb31cea67
+# ╟─ad7068d0-3fe2-4997-84c2-86990ec6a786
+# ╠═f08a1938-b3ff-4585-989d-c86ff722bac9
+# ╠═a40e0e85-8b6e-429f-b810-746077b2afff
 # ╟─b413cac5-6b88-4d70-906b-784df8a8fd44
 # ╟─df31e48a-9c5f-4ed9-9f5d-1185d6e25c0d
 # ╠═341b84aa-ee2b-4d4a-8751-c637eb17c973
@@ -2449,11 +2567,12 @@ version = "3.6.0+0"
 # ╠═f0296f9d-948d-4b51-accf-4de26639251f
 # ╠═fa634f37-d3e8-4200-bbfc-b6bdc21be735
 # ╠═15334cac-f72d-45b0-9b3b-fdef780c313a
+# ╟─daf5b58e-3df9-484d-8af3-a7f6a15f0066
 # ╠═9f68abc3-fdc4-484b-bba4-16b2b3f72a87
 # ╟─3a3c093d-b4e9-4554-94ed-0f795c1ae088
-# ╠═66632035-f8ab-4e91-8eac-78f9bf4a2f23
-# ╠═82966154-6905-417c-9784-bb63e33c83f8
-# ╠═515aaa65-6840-4948-a651-c0bc40eacac8
+# ╟─99a85710-bfb7-45dd-8031-dc9a4400601e
+# ╟─72384cc6-9300-4656-9148-7194dc017d28
+# ╟─b3a95798-8635-4cb2-b212-fc49258ff546
 # ╟─b65a274d-2dab-444c-802d-e9bae7a76252
 # ╟─1fd4c26f-de7d-441e-a2ec-7e37da2bc2ce
 # ╠═3ed2e513-f857-42f5-ae84-feccaa1f56e7
@@ -2462,6 +2581,7 @@ version = "3.6.0+0"
 # ╟─8a50b23b-857b-4579-a154-db1d8794e0ea
 # ╟─2856ddc7-074a-447d-9d91-425ce7e9e35d
 # ╟─9cd7ee6d-dfcb-42a0-b7dc-a5df01b4058a
+# ╟─8b5d694b-e10f-41c5-ad52-aa1f727c57e6
 # ╠═2c1aab25-7983-4cda-9961-00aff9bca75c
 # ╠═1710a41a-15ce-4e41-be8c-019450e64d17
 # ╠═da62de88-32ac-4213-a389-c89e7d912beb
@@ -2474,6 +2594,10 @@ version = "3.6.0+0"
 # ╠═ecf023f5-559b-4fb9-a147-403d19b5e0d2
 # ╠═0c2379ba-1b8c-4ebb-8408-746d28942580
 # ╟─313e6081-9b7b-45e4-b8e6-aabbcf30fa46
+# ╠═4feccb71-e3b6-4f11-89a0-895434cd5dc6
+# ╠═25e6d3d8-7801-443a-880e-63475aaa4897
+# ╠═515aaa65-6840-4948-a651-c0bc40eacac8
+# ╠═cdcb64c9-a98b-493d-aa5d-ba34cec59dcc
 # ╠═123ef0b2-e191-4e10-abe3-df3ced4d6f4c
 # ╠═8962129f-599f-42f1-8466-f1a6d616c9a2
 # ╠═f53fed44-d420-44cc-8a49-acc44d9cb2ca

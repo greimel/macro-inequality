@@ -3,12 +3,11 @@
 
 #> [frontmatter]
 #> chapter = 3
-#> section = 3
-#> order = 3
+#> section = "4"
+#> order = "4"
 #> title = "The Aiyagari model"
 #> layout = "layout.jlhtml"
 #> tags = ["risky"]
-#> description = ""
 
 using Markdown
 using InteractiveUtils
@@ -2908,7 +2907,7 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═f8af393f-9d66-4a58-87f5-91f8b73eb4fe
+# ╟─f8af393f-9d66-4a58-87f5-91f8b73eb4fe
 # ╟─7ce76fa6-5e4a-11ec-34b0-37ddd6335f4d
 # ╟─a274b461-a5df-446a-8374-f04267f5db69
 # ╟─30e30208-17ed-4ba5-a8db-12a16e9326c6
