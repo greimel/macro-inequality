@@ -72,38 +72,19 @@ md"""
 md"""
 # The wealth distribution in general equilibrium
 
-#### The Bewley-Huggett-Aiyagari model
+This notebook introduces the **Bewley-Huggett-Aiyagari model**, a model of the wealth distribution in _general equilibrium_. This notebook builds upon the following two notebooks.
+
+* The household's problem is discussed in [this notebook](https://greimel.github.io/macro-inequality/Summer25/preliminaries/household-ddp/).
+* The wealth distribution in partial equilibrium is discussed in [this notebook](https://greimel.github.io/macro-inequality/Summer25/preliminaries/household-as-markov-chain/).
+
 """
 
-# ╔═╡ a274b461-a5df-446a-8374-f04267f5db69
+# ╔═╡ 20b0ba1c-0077-4497-bc2f-c31584ea6aaf
 md"""
-# Households' problem
+Recall from these notebooks that the household's optimal choices are a _controlled Markov Chain_. The optimal policies and the unique stationary wealth distribution are given below. 
+
+The policy functions and the wealth distribution **depend on prices, in particular, the interest rate ``r``**.
 """
-
-# ╔═╡ 30e30208-17ed-4ba5-a8db-12a16e9326c6
-md"""
-```math
-\begin{align}
-&\max \operatorname{E}_0\Bigl(\sum_{t=0}^\infty \beta^t u(c_t) \Bigr) \\
-&\begin{aligned}
-	\text{subject to } 
-		&u(c) = \log(c) \\
-		&c_t + k_t = k_{t-1}(1 + r - \delta) + y_t \cdot w \\
-		&\log(y_t) \sim \text{some Markov Chain} \\
-		&y_0, k_{-1} \text{ given}
-\end{aligned}
-\end{align}
-```
-
-What needs to be specified:
-* parameter ``\delta``
-* prices ``r``, ``w``
-* idiosynchratic productivity process
-* initial state ``(y_0, k_{-1})``
-"""
-
-# ╔═╡ c49a9d53-e89c-4f54-8513-05b132a38b23
-y_chain = MarkovChain([0.75 0.25; 0.25 0.75], [1.25, 0.75])
 
 # ╔═╡ 355ad472-9c53-464f-a070-7ab16eb9bcbd
 md"""
@@ -111,6 +92,9 @@ md"""
 * Discount factor ``\beta`` $(@bind β_slider Slider(0.95:0.005:0.97, show_value = true, default = 0.96))
 * Interest rate ``r`` $(@bind r_slider Slider(0.01:0.001:0.1, show_value = true, default = 0.04))
 """
+
+# ╔═╡ c49a9d53-e89c-4f54-8513-05b132a38b23
+y_chain = MarkovChain([0.75 0.25; 0.25 0.75], [1.25, 0.75])
 
 # ╔═╡ 81d98334-3b26-42be-9ad9-2ff4e00d031b
 prices = (; r = r_slider, w = 1.0, Δr = 0.0)
@@ -2558,16 +2542,15 @@ version = "3.6.0+0"
 # ╔═╡ Cell order:
 # ╟─f8af393f-9d66-4a58-87f5-91f8b73eb4fe
 # ╟─7ce76fa6-5e4a-11ec-34b0-37ddd6335f4d
-# ╟─a274b461-a5df-446a-8374-f04267f5db69
-# ╟─30e30208-17ed-4ba5-a8db-12a16e9326c6
+# ╟─20b0ba1c-0077-4497-bc2f-c31584ea6aaf
+# ╟─48eced48-2b86-4199-8637-4619c40c55e9
+# ╟─355ad472-9c53-464f-a070-7ab16eb9bcbd
+# ╟─2d1744d3-e8ec-4052-a3bb-e35b90ed60e4
 # ╠═ea989c89-7c51-42b0-a386-d58b99286a8c
 # ╠═c49a9d53-e89c-4f54-8513-05b132a38b23
 # ╠═5780b79c-6924-40b4-9591-1deb2891214a
 # ╠═81d98334-3b26-42be-9ad9-2ff4e00d031b
-# ╟─355ad472-9c53-464f-a070-7ab16eb9bcbd
-# ╟─d5a516f4-77b6-4cb2-b3e3-d7d5bd999aa0
-# ╟─2d1744d3-e8ec-4052-a3bb-e35b90ed60e4
-# ╟─48eced48-2b86-4199-8637-4619c40c55e9
+# ╠═d5a516f4-77b6-4cb2-b3e3-d7d5bd999aa0
 # ╟─e816135f-7f19-4a47-9ed1-fbc935506e17
 # ╟─16775912-a025-47f3-8e4f-fc6ce6142302
 # ╠═85a49b52-98e2-4d81-9b48-45586183bc83
