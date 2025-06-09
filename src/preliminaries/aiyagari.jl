@@ -65,106 +65,39 @@ using QuantEcon
 
 # ╔═╡ f8af393f-9d66-4a58-87f5-91f8b73eb4fe
 md"""
-`aiyagari.jl` | **Version 1.2** | *last updated: June 6, 2025*
+`aiyagari.jl` | **Version 1.2** | *last updated: June 9, 2025*
 """
 
 # ╔═╡ 7ce76fa6-5e4a-11ec-34b0-37ddd6335f4d
 md"""
-# Bewley-Huggett-Aiyagari
+# The wealth distribution in general equilibrium
+
+This notebook introduces the **Bewley-Huggett-Aiyagari model**, a model of the wealth distribution in _general equilibrium_. This notebook builds upon the following two notebooks.
+
+* The household's problem is discussed in [this notebook](https://greimel.github.io/macro-inequality/Summer25/preliminaries/household-ddp/).
+* The wealth distribution in partial equilibrium is discussed in [this notebook](https://greimel.github.io/macro-inequality/Summer25/preliminaries/household-as-markov-chain/).
+
 """
 
-# ╔═╡ a274b461-a5df-446a-8374-f04267f5db69
+# ╔═╡ 20b0ba1c-0077-4497-bc2f-c31584ea6aaf
 md"""
-# Households' problem
+Recall from these notebooks that the household's optimal choices are a _controlled Markov Chain_. The optimal policies and the unique stationary wealth distribution are given below. 
+
+The policy functions and the wealth distribution **depend on prices, in particular, the interest rate ``r``**.
 """
 
-# ╔═╡ 30e30208-17ed-4ba5-a8db-12a16e9326c6
+# ╔═╡ 355ad472-9c53-464f-a070-7ab16eb9bcbd
 md"""
-```math
-\begin{align}
-&\max \operatorname{E}_0\Bigl(\sum_{t=0}^\infty \beta^t u(c_t) \Bigr) \\
-&\begin{aligned}
-	\text{subject to } 
-		&u(c) = \log(c) \\
-		&c_t + k_t = k_{t-1}(1 + r - \delta) + y_t \cdot w \\
-		&\log(y_t) \sim \text{some Markov Chain} \\
-		&y_0, k_{-1} \text{ given}
-\end{aligned}
-\end{align}
-```
-
-What needs to be specified:
-* parameter ``\delta``
-* prices ``r``, ``w``
-* idiosynchratic productivity process
-* initial state ``(y_0, k_{-1})``
-"""
-
-# ╔═╡ d49dd095-62f0-49e6-978c-b2bb9c6eb6f1
-md"""
-## Setting up the Dynamic Program
+* Risk aversion coefficient ``\sigma`` $(@bind σ_slider Slider(1.:0.25:3., show_value = true, default = 2.))
+* Discount factor ``\beta`` $(@bind β_slider Slider(0.95:0.005:0.97, show_value = true, default = 0.96))
+* Interest rate ``r`` $(@bind r_slider Slider(0.01:0.001:0.1, show_value = true, default = 0.04))
 """
 
 # ╔═╡ c49a9d53-e89c-4f54-8513-05b132a38b23
 y_chain = MarkovChain([0.75 0.25; 0.25 0.75], [1.25, 0.75])
 
-# ╔═╡ fb915de8-04cd-4b35-ae32-0b95cf13b15e
-r = 0.02
-
 # ╔═╡ 81d98334-3b26-42be-9ad9-2ff4e00d031b
-prices = (; r, w = 1.0, Δr = r/2)
-
-# ╔═╡ 18df4ae1-aca8-42e8-9767-14987bd7e021
-md"""
-## Solution is a Markov Chain
-"""
-
-# ╔═╡ 972d2f88-c5f7-43f1-870b-d27127f6d7ee
-md"""
-## Policy functions
-
-The figure below show how much a household should consume and how much it should save given its current amount of assets and productivity state.
-"""
-
-# ╔═╡ 51615ade-06d2-40dd-9d54-f0dab0fe5e92
-md"""
-## Stationary distribution
-
-The figure below depicts the probability density over assets for separately for the two productivity levels.
-"""
-
-# ╔═╡ 086f0798-da62-4490-9ab7-8a531f97cf2d
-md"""
-**More on the stationary distribution**
-
-In the first lecture you have learned that the Aiyagari model is a Markov chain with respect to the $n \times n$ transition matrix $Q^*$ that is implicitly defined by the stochastic income process and the optimal savings rule. 
-
-Note that $Q^*$ is different from the $n \times m \times n$ matrix $Q$ which did not impose the optimal savings rule. 
-
-In the cell below, we compute $Q^*$ by combining the optimal savings rule with the $Q$ matrix. We also check if the rows of $Q^*$ sum to 1:
-"""
-
-# ╔═╡ f20c6c28-c8f2-4870-9c98-d5e06cf52d6c
-md"""
-Within the QuantEcon framework, the $Q^*$ matrix is saved as ```res.mc.p``` where ```res``` is some results object that is returned by the ```QuantEcon.solve``` function. Below, we check if the $Q^*$ matrix computed by us is the same as the $Q^*$ matrix computed by the ```QuantEcon project```:
-"""
-
-# ╔═╡ 9a089263-06ce-46e9-9bc7-0b7cdb83246f
-md"""
-If the Markov chain is ergodic, we can obtain the stationary distribution by starting with an arbitray distribution $\pi_1$ over the state space and applying the transition matrix to it until the distribution converges to the stationary distribution $\pi_\infty$. You can do this using the buttons below:
-- Restart: Initialize $\pi_1$ such that all agents are in the high income state with zero assets
-- Update: $\pi_{i+1}' = \pi_i' \cdot Q^*$
-
-Feel free to choose another initialization.
-
-Note that Pluto automatically applies one update step after you press "Restart".
-"""
-
-# ╔═╡ 9ac4d48e-e77e-405e-a8f7-bd69df5cd629
-md"""
-$(@bind restart_dens Button("Restart"))
-$(@bind update_dens Button("Update"))
-"""
+prices = (; r = r_slider, w = 1.0, Δr = 0.0)
 
 # ╔═╡ e816135f-7f19-4a47-9ed1-fbc935506e17
 md"""
@@ -186,27 +119,6 @@ function aggregates(results)
 		Dict
 	end
 end
-
-# ╔═╡ 1be4b128-02c9-4e4e-8b1e-64553dbe0995
-md"""
-## Interactive results
-"""
-
-# ╔═╡ 08b99c92-6f31-42c7-a6dd-c213498deb8f
-md"""
-Risk aversion coefficient $\sigma$:
-"""
-
-# ╔═╡ ffb9ca0b-e5b0-45db-a94d-3fc0ba9c9a86
-@bind σ_slider Slider(1.:0.25:3., show_value = true, default = 2.)
-
-# ╔═╡ 6b98c99d-0261-4656-9477-9a538ffa6d6e
-md"""
-Discount factor $\beta$
-"""
-
-# ╔═╡ d52aa130-4e03-404a-8b56-b31efa9ca83a
-@bind β_slider Slider(0.95:0.005:0.97, show_value = true, default = 0.96)
 
 # ╔═╡ 8af3171b-ba81-4b13-bd81-c2a8a1c311ed
 md"""
@@ -332,21 +244,6 @@ md"""
 First, we have a look at the capital demand and supply curves:
 """
 
-# ╔═╡ ba7fc395-7003-45dd-a1a3-21737c9764bc
-wto_target = 3.63
-
-# ╔═╡ 4feee3a9-d290-4d97-aa74-7910a17d27ca
-md"
-## Calibrating the discount factor $\beta$
-
-Now, let's choose the discount factor $\beta$ such that the wealth-to-output ratio $K/F(K,N)$ matches the US value of $(round(wto_target, digits=3)) (Auclert and Rognlie, 'Inequality and Aggregate Demand', Appendix B). We can achieve this by minimizing the objective function 
-
-$O(\beta) = \left(\frac{K(\beta)}{F(K(\beta),N)} - 3.63\right)^2$
-
-where $K(\beta)$ denotes the equilibrium capital stock in the Aiyagari model that is associated with a given discount factor $\beta$.
-
-"
-
 # ╔═╡ fd97aa43-5e80-4be9-92d1-44d9fc371b84
 md"""
 # Appendix
@@ -363,99 +260,30 @@ HH_DDP = ingredients(download("https://greimel.github.io/macro-inequality/Summer
 # ╔═╡ f9121846-6ba5-4a81-8f45-89300278109f
 (; Household, statespace, setup_DDP, solve_details) = HH_DDP
 
-# ╔═╡ fd3b15cd-bb1c-4892-a83e-80d505592c75
-hh = Household(σ = 2.0, β = 0.96)
+# ╔═╡ ea989c89-7c51-42b0-a386-d58b99286a8c
+hh = Household(σ = 2.0)
 
 # ╔═╡ 5780b79c-6924-40b4-9591-1deb2891214a
 ss = statespace(; a_vals = range(-1., 5., length = 200), y_chain);
 
-# ╔═╡ 858bace0-da73-48af-b35a-9601f4b96a62
-begin 
-	restart_dens
-	j = [1] 
-	# I need to use array here because otherwise Pluto complains that there are multiple definitions of j
-	dist = zeros(size(ss.states))
-	dist[1] = 1.
-	df = DataFrame(ss.states)
-	df.π = dist
-end;
-
-# ╔═╡ d500e4a4-59a7-47c5-a64f-b36e3026d2a7
-ddp = setup_DDP(hh, ss, prices);
-
-# ╔═╡ 51b199a6-68fe-4b00-baff-ad4a108c7dde
-begin
-	res = QuantEcon.solve(ddp, PFI)
-	Q = HH_DDP.setup_Q(ss.states_indices, ss.policies_indices, ss.y_chain)
-	Q_star_1 = zeros(length(ss.states), length(ss.states))
-	for (i_state, state) ∈ enumerate(ss.states_indices)
-		Q_star_1[i_state,:] = Q[i_state,res.sigma[i_state],:]
-	end
-	sum(Q_star_1; dims = 2)'
-end
-
-# ╔═╡ ea9018ef-d82d-4514-958f-a6fc0f790dd5
-begin
-	Q_star_2 = res.mc.p
-	isapprox(Q_star_1, Q_star_2)
-end
-
-# ╔═╡ 5b9fb8c5-1396-497d-9469-651a0832db29
-begin 
-	update_dens
-	j[1] = 	j[1] + 1
-	df.π = (df.π'*Q_star_1)'
-
-	print(j[1], " iterations")
-
-	@chain df begin
-		data(_) * mapping(:a, :π, color = :y => nonnumeric) * visual(Lines)
-		draw
-	end
-end
-
-# ╔═╡ b39a571a-fdd4-4fad-9305-57f15b8d83ef
-results = solve_details(ddp, ss.states, ss.policies, prices; solver = PFI)
-
-# ╔═╡ 0945aaef-6f3c-43c7-9cea-7f358ce4a4c8
-a_first = @chain results begin
-	@subset(:a_next < :a)
-	@groupby(:y)
-	@combine(first(:a))
-end
-
-# ╔═╡ 75c18b79-8bf7-4355-a004-0438d738fccf
-md"""
-Below, we compute the lowest asset value at which we observe dissaving by the household. Households in the low productivity state dissave even when they are very close to the borrowing constraint, while households in the high productivity state only start dissaving above an asset level of $(round(a_first[1, "a_first"], digits = 3)).
-"""
-
-# ╔═╡ 4d34729d-43e0-4f4b-a700-a6b8c896d7e9
-agg = aggregates(results)
-
 # ╔═╡ d5a516f4-77b6-4cb2-b3e3-d7d5bd999aa0
-begin	
-	hh_slider = Household(σ = σ_slider, β = β_slider);
-	ddp_slider = setup_DDP(hh_slider, ss, prices);
-	results_slider = solve_details(ddp_slider, ss.states, ss.policies, prices; solver = PFI);
+output_slider = let
+	hh = Household(σ = σ_slider, β = β_slider)
+	prices = (; prices.w, prices.Δr, r=r_slider)
+	ddp = setup_DDP(hh, ss, prices)
+	
+	results = solve_details(ddp, ss.states, ss.policies, prices; solver = PFI)
+
+	aggregate_savings = mean(results.a, weights(results.π))
+	
+	(; results, aggregate_savings)
 end;
 
 # ╔═╡ 2d1744d3-e8ec-4052-a3bb-e35b90ed60e4
 md"""
 Aggregate savings:
-$(round(mean(results_slider.a, weights(results_slider.π)), digits=3))
+$(round(output_slider.aggregate_savings, digits=3))
 """
-
-# ╔═╡ 48eced48-2b86-4199-8637-4619c40c55e9
-@chain results_slider begin
-	stack(Not([:a, :y]))
-	data(_) * mapping(
-		:a => "current assets a",
-		:value,
-		layout = :variable,
-		color = :y => nonnumeric,
-	) * visual(Lines) + mapping([0]) * visual(VLines, color = :gray, linestyle = (:dash, :loose))
-	draw(; facet = (linkyaxes = false, ), legend = (position = :top, titleposition = :left))
-end
 
 # ╔═╡ 52d33904-3942-4c1a-b021-a45a3597931f
 function excess_savings(hh, statespace, r; w, Δr)
@@ -484,51 +312,6 @@ begin
 		throw(DomainError([left, right], "Function has the same sign at the left endpoint and at the right endpoint"))
 	end
 	
-end
-
-# ╔═╡ 7b807bc0-be48-4850-a33b-295325e95591
-begin
-	
-	go
-	
-	mid = (left_vec[end] + right_vec[end]) / 2
-	ζ_mid = ζ(mid)
-	
-	if ζ_left_vec[end] * ζ_mid < 0.
-		push!(left_vec,    left_vec[end])
-		push!(ζ_left_vec,  ζ_left_vec[end])
-		push!(right_vec,   mid)
-		push!(ζ_right_vec, ζ_mid)
-		
-	elseif ζ_right_vec[end] * ζ_mid < 0.
-		push!(left_vec,    mid)
-		push!(ζ_left_vec,  ζ_mid)
-		push!(right_vec,   right_vec[end])
-		push!(ζ_right_vec, ζ_right_vec[end])
-
-	else
-		throw(DomainError([left, right], "Function has the same sign at the left endpoint and at the right endpoint"))
-		
-	end
-		
-	@info left_vec[end], right_vec[end]
-
-	f = Figure()
-	ax1 = Axis(f[1, 1], xlabel = "interest rate r", ylabel = "excess savings ζ")
-	
-	scatter!(ax1, left_vec, ζ_left_vec)
-	scatter!(ax1, right_vec, ζ_right_vec)
-	#vspan!(ax1, [left_vec[end]], [right_vec[end]], ymin=-1., y_max=1., color = (:grey, 0.2))
-
-	r_vec = vcat(left_vec, reverse(right_vec))
-	ζ_vec = vcat(ζ_left_vec, reverse(ζ_right_vec))
-	
-	lines!(ax1, r_vec, ζ_vec, color="black")
-	#xlabel!(ax1, "excess savings ζ")
-	#ylabel!(ax1, "interest rate r")
-
-	current_figure()
-
 end
 
 # ╔═╡ 68596b0a-4ce5-4371-ac1e-e180092e4e48
@@ -620,49 +403,6 @@ Since the household's decision problem needs to be solved for a different value 
 The resulting equilibrium interest rate is $(round(r_eq, digits = 4)) and the associated capital stock is $(round(k_eq, digits = 3)).
 """
 
-# ╔═╡ e1f7481a-c4a8-4856-9cd2-2e446b85334f
-function wealth_to_output_ratio(β, u, firm, statespace, initial_bracket)
-
-	hh_β = Household(β = β, u = u)
-	
-	r_eq = find_zero(
-		r -> excess_demand(hh_β, firm, statespace, r), 
-		initial_bracket, 
-		Brent(), 
-		atol=1e-5, rtol=1e-5, xatol=1e-5, xrtol=1e-5
-	)
-	k_eq = capital_demand(firm, r_eq)
-
-	return k_eq/ production(firm, k_eq)
-	
-end
-
-# ╔═╡ 4de4a9ef-cc86-400b-aa7d-a3be6f7e58f9
-wealth_to_output_ratio(0.96, hh2.u, firm, ss2, initial_bracket)
-
-# ╔═╡ 7d5c40d5-0a3e-465a-8619-2786126d2be0
-begin
-	
-	β_vals = 0.945:0.005:0.965
-
-	wto_vals = [wealth_to_output_ratio(β, hh2.u, firm, ss2, initial_bracket) for β in β_vals]
-
-	obj_vals = (wto_vals .- wto_target) .^ 2
-	
-end;
-
-# ╔═╡ 4b98d280-4ea1-4a32-be4f-ecdcc3d937ee
-lines(β_vals, obj_vals, axis = (xlabel = L"discount factor $β$", ylabel = "value of the objective function"))
-
-# ╔═╡ 669719e4-0b05-4364-8aed-33e1b7adc400
-β_cal = find_zero(
-	β -> wealth_to_output_ratio(β, hh2.u, firm, ss2, initial_bracket) - wto_target, 
-	(0.945, 0.965), 
-	Brent(), 
-	atol=1e-5, rtol=1e-5, xatol=1e-5, xrtol=1e-5
-)
-
-
 # ╔═╡ 17263f51-b652-4bbb-97fb-8263ae47ae7f
 md"""
 ## Packages
@@ -674,29 +414,64 @@ fonts = (; regular = Makie.MathTeXEngine.texfont(:regular), bold = Makie.MathTeX
 # ╔═╡ 6465de78-de6a-420a-9734-f91e9f748717
 figure(size = (350, 250); figure_padding = 2, kwargs...) = (; size, fonts, figure_padding, kwargs...)
 
-# ╔═╡ fd9d7f3b-fe48-402c-9a4d-089b29bcc53d
-@chain results begin
-	stack(Not([:a, :y, :π]))
+# ╔═╡ 48eced48-2b86-4199-8637-4619c40c55e9
+@chain output_slider.results begin
+	stack(Not([:a, :y]))
 	data(_) * mapping(
 		:a => L"current assets $a$",
 		:value => "",
 		layout = :variable,
 		color = :y => nonnumeric => L"income \\ level $y$",
-	) * visual(Lines)
+	) * visual(Lines) + mapping([0]) * visual(VLines, color = :gray, linestyle = (:dash, :loose))
 	draw(; 
-		facet = (; linkyaxes = false), 
-		figure = figure((500, 250))
-	)
+		 facet = (linkyaxes = false, ), 
+		 figure = figure((500, 250))
+	)	
 end
 
-# ╔═╡ 47f3e4bc-affe-4463-b71e-36d9744b6c63
-@chain results begin
-	data(_) * mapping(
-		:a => L"asset level $a$",
-		:π => "probability mass", 
-		color = :y => nonnumeric => L"income level $y$"
-	) * visual(Lines)
-	draw(; figure = figure((400, 200)))
+# ╔═╡ 7b807bc0-be48-4850-a33b-295325e95591
+begin
+	
+	go
+	
+	mid = (left_vec[end] + right_vec[end]) / 2
+	ζ_mid = ζ(mid)
+	
+	if ζ_left_vec[end] * ζ_mid < 0.
+		push!(left_vec,    left_vec[end])
+		push!(ζ_left_vec,  ζ_left_vec[end])
+		push!(right_vec,   mid)
+		push!(ζ_right_vec, ζ_mid)
+		
+	elseif ζ_right_vec[end] * ζ_mid < 0.
+		push!(left_vec,    mid)
+		push!(ζ_left_vec,  ζ_mid)
+		push!(right_vec,   right_vec[end])
+		push!(ζ_right_vec, ζ_right_vec[end])
+
+	else
+		throw(DomainError([left, right], "Function has the same sign at the left endpoint and at the right endpoint"))
+		
+	end
+		
+	@info left_vec[end], right_vec[end]
+
+	f = Figure(; figure()...)
+	ax1 = Axis(f[1, 1], xlabel = L"interest rate $r$", ylabel = L"excess savings $ζ$")
+	
+	scatter!(ax1, left_vec, ζ_left_vec)
+	scatter!(ax1, right_vec, ζ_right_vec)
+	#vspan!(ax1, [left_vec[end]], [right_vec[end]], ymin=-1., y_max=1., color = (:grey, 0.2))
+
+	r_vec = vcat(left_vec, reverse(right_vec))
+	ζ_vec = vcat(ζ_left_vec, reverse(ζ_right_vec))
+	
+	lines!(ax1, r_vec, ζ_vec, color="black")
+	#xlabel!(ax1, "excess savings ζ")
+	#ylabel!(ax1, "interest rate r")
+
+	current_figure()
+
 end
 
 # ╔═╡ 1392f788-73b5-4733-b1d3-4fb5cc1c8c78
@@ -2767,50 +2542,25 @@ version = "3.6.0+0"
 # ╔═╡ Cell order:
 # ╟─f8af393f-9d66-4a58-87f5-91f8b73eb4fe
 # ╟─7ce76fa6-5e4a-11ec-34b0-37ddd6335f4d
-# ╟─a274b461-a5df-446a-8374-f04267f5db69
-# ╟─30e30208-17ed-4ba5-a8db-12a16e9326c6
-# ╟─d49dd095-62f0-49e6-978c-b2bb9c6eb6f1
-# ╠═fd3b15cd-bb1c-4892-a83e-80d505592c75
+# ╟─20b0ba1c-0077-4497-bc2f-c31584ea6aaf
+# ╟─48eced48-2b86-4199-8637-4619c40c55e9
+# ╟─355ad472-9c53-464f-a070-7ab16eb9bcbd
+# ╟─2d1744d3-e8ec-4052-a3bb-e35b90ed60e4
+# ╠═ea989c89-7c51-42b0-a386-d58b99286a8c
 # ╠═c49a9d53-e89c-4f54-8513-05b132a38b23
 # ╠═5780b79c-6924-40b4-9591-1deb2891214a
-# ╠═d500e4a4-59a7-47c5-a64f-b36e3026d2a7
-# ╠═fb915de8-04cd-4b35-ae32-0b95cf13b15e
 # ╠═81d98334-3b26-42be-9ad9-2ff4e00d031b
-# ╟─18df4ae1-aca8-42e8-9767-14987bd7e021
-# ╠═b39a571a-fdd4-4fad-9305-57f15b8d83ef
-# ╟─972d2f88-c5f7-43f1-870b-d27127f6d7ee
-# ╟─fd9d7f3b-fe48-402c-9a4d-089b29bcc53d
-# ╟─75c18b79-8bf7-4355-a004-0438d738fccf
-# ╟─0945aaef-6f3c-43c7-9cea-7f358ce4a4c8
-# ╟─51615ade-06d2-40dd-9d54-f0dab0fe5e92
-# ╟─47f3e4bc-affe-4463-b71e-36d9744b6c63
-# ╟─086f0798-da62-4490-9ab7-8a531f97cf2d
-# ╠═51b199a6-68fe-4b00-baff-ad4a108c7dde
-# ╟─f20c6c28-c8f2-4870-9c98-d5e06cf52d6c
-# ╠═ea9018ef-d82d-4514-958f-a6fc0f790dd5
-# ╟─9a089263-06ce-46e9-9bc7-0b7cdb83246f
-# ╟─9ac4d48e-e77e-405e-a8f7-bd69df5cd629
-# ╟─858bace0-da73-48af-b35a-9601f4b96a62
-# ╟─5b9fb8c5-1396-497d-9469-651a0832db29
+# ╠═d5a516f4-77b6-4cb2-b3e3-d7d5bd999aa0
 # ╟─e816135f-7f19-4a47-9ed1-fbc935506e17
 # ╟─16775912-a025-47f3-8e4f-fc6ce6142302
-# ╠═4d34729d-43e0-4f4b-a700-a6b8c896d7e9
 # ╠═85a49b52-98e2-4d81-9b48-45586183bc83
-# ╟─1be4b128-02c9-4e4e-8b1e-64553dbe0995
-# ╟─08b99c92-6f31-42c7-a6dd-c213498deb8f
-# ╟─ffb9ca0b-e5b0-45db-a94d-3fc0ba9c9a86
-# ╟─6b98c99d-0261-4656-9477-9a538ffa6d6e
-# ╟─d52aa130-4e03-404a-8b56-b31efa9ca83a
-# ╟─d5a516f4-77b6-4cb2-b3e3-d7d5bd999aa0
-# ╟─2d1744d3-e8ec-4052-a3bb-e35b90ed60e4
-# ╟─48eced48-2b86-4199-8637-4619c40c55e9
 # ╟─8af3171b-ba81-4b13-bd81-c2a8a1c311ed
 # ╟─078bc9d1-9197-4b98-8a53-49171ab42e57
 # ╠═52d33904-3942-4c1a-b021-a45a3597931f
 # ╠═26381c79-5bed-4f80-a65c-69752c5ad063
 # ╟─d284cc00-d438-4a4b-9de4-028131e195f4
 # ╟─9f68bb34-7251-4445-8c18-83821b2b7882
-# ╠═68596b0a-4ce5-4371-ac1e-e180092e4e48
+# ╟─68596b0a-4ce5-4371-ac1e-e180092e4e48
 # ╟─f01710f2-f4bd-4e30-a6c6-d21a4aaeb9d9
 # ╟─748f3ace-1b1e-44a4-9da0-b091cce48623
 # ╟─7b807bc0-be48-4850-a33b-295325e95591
@@ -2837,13 +2587,6 @@ version = "3.6.0+0"
 # ╟─cfdfbaca-0de4-4094-b823-dd9d5e144a49
 # ╠═696278ad-dd04-4177-be08-82ebdecf1408
 # ╠═afff76ff-0215-46c8-be3c-bab66b0c63e0
-# ╟─4feee3a9-d290-4d97-aa74-7910a17d27ca
-# ╠═ba7fc395-7003-45dd-a1a3-21737c9764bc
-# ╠═e1f7481a-c4a8-4856-9cd2-2e446b85334f
-# ╠═4de4a9ef-cc86-400b-aa7d-a3be6f7e58f9
-# ╠═7d5c40d5-0a3e-465a-8619-2786126d2be0
-# ╠═4b98d280-4ea1-4a32-be4f-ecdcc3d937ee
-# ╠═669719e4-0b05-4364-8aed-33e1b7adc400
 # ╟─fd97aa43-5e80-4be9-92d1-44d9fc371b84
 # ╟─46a575f9-a7f9-448c-9bee-69e8d2ca9500
 # ╠═f7f6cace-4596-479e-a047-c6f9f28adcb9
