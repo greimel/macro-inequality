@@ -177,11 +177,6 @@ md"""
 ## Simulating a household ``\iff`` sample path of the Markov Chain
 """
 
-# ╔═╡ 99a85710-bfb7-45dd-8031-dc9a4400601e
-md"""
-## Policies
-"""
-
 # ╔═╡ b3a95798-8635-4cb2-b212-fc49258ff546
 md"""
 # C. Wealth distribution in partial equilibrium (Imrohoroglu, 1989)
@@ -369,13 +364,6 @@ let
 	lines(fig[1,2], path.y, axis = (; title = "evolution of incomes (productivity)", xlabel=L"age $j$"))
 
 	fig
-end
-
-# ╔═╡ 72384cc6-9300-4656-9148-7194dc017d28
-@chain begin
-	[DataFrame(ss.states) DataFrame(ss.policies[results.sigma])]
-	data(_) * mapping(:a, :a_next, color = :y => nonnumeric) * visual(Lines)
-	draw(; figure = figure((450, 250)))
 end
 
 # ╔═╡ 8a50b23b-857b-4579-a154-db1d8794e0ea
@@ -2508,8 +2496,6 @@ version = "3.6.0+0"
 # ╟─daf5b58e-3df9-484d-8af3-a7f6a15f0066
 # ╠═9f68abc3-fdc4-484b-bba4-16b2b3f72a87
 # ╟─3a3c093d-b4e9-4554-94ed-0f795c1ae088
-# ╟─99a85710-bfb7-45dd-8031-dc9a4400601e
-# ╟─72384cc6-9300-4656-9148-7194dc017d28
 # ╟─b3a95798-8635-4cb2-b212-fc49258ff546
 # ╟─b65a274d-2dab-444c-802d-e9bae7a76252
 # ╟─1fd4c26f-de7d-441e-a2ec-7e37da2bc2ce
