@@ -130,7 +130,16 @@ function solve_details0(ddp, states, policies; solver = PFI)
 	df = [DataFrame(states) DataFrame(policies[results.sigma])]
 	df.state = states
 	df.policy = policies[results.sigma]
-	df.π = only(stationary_distributions(results.mc)[:, 1])
+
+	# TODO improve elegance
+	if length(stationary_distributions(results.mc)) == 1	
+		df.π = only(stationary_distributions(results.mc))
+	else 
+		π = zeros(size(results.mc.p, 1))
+		π[1:50] .= 1/50
+		
+		df.π = vec(π' * (results.mc.p^200))
+	end
 
 	df
 end
@@ -340,8 +349,17 @@ end
 # ╔═╡ 7b4988d0-cfa6-43e6-a984-73da994b2e23
 ddp = setup_DDP(hh, ss, prices);
 
+# ╔═╡ bcc8bd95-149a-4cb1-b604-ddfca294aa22
+function solve_imrohoroglu(hh, statespace, prices)
+	ddp = setup_DDP(hh, statespace, prices)
+	
+	results = solve_details(ddp, statespace.states, statespace.policies, prices, solver = PFI)
+
+	return results
+end
+
 # ╔═╡ ac21e04a-bc45-4e85-a617-426f4cbeab97
-results = solve_details(ddp, ss.states, ss.policies, prices; solver = PFI)
+results = solve_imrohoroglu(hh, ss, prices)
 
 # ╔═╡ 4798742d-03f6-4752-b218-10b94e70b6bf
 md"""
@@ -2380,7 +2398,7 @@ version = "3.6.0+0"
 # ╟─5406c361-81d2-4509-b737-a5f1c59438aa
 # ╟─204c9a23-06b4-4f0a-90f2-aa953ef9021e
 # ╠═ac21e04a-bc45-4e85-a617-426f4cbeab97
-# ╠═d6dd62c1-5315-49dd-8d0b-4669c83b0cf8
+# ╟─d6dd62c1-5315-49dd-8d0b-4669c83b0cf8
 # ╟─8bece61a-d78b-426c-8a71-f38ecacb6762
 # ╟─2f5fdfb0-1aa2-4752-b299-e5ee19e57c6f
 # ╠═b8f1b433-3489-4952-a9c7-6fcc25cae802
@@ -2408,6 +2426,7 @@ version = "3.6.0+0"
 # ╟─495a6ac5-ab5e-48a9-8a99-5d968d445826
 # ╟─0b488e40-4a87-4d7b-bb24-d0fbf3aa791e
 # ╠═d8008687-318e-4b40-8506-229428968a8d
+# ╠═bcc8bd95-149a-4cb1-b604-ddfca294aa22
 # ╟─4798742d-03f6-4752-b218-10b94e70b6bf
 # ╠═38708e54-85c2-44d3-b016-ef6c43093a8c
 # ╠═13170b68-6cde-4271-a975-7f09ea50f01e
