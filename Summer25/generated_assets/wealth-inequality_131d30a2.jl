@@ -1,6 +1,14 @@
 ### A Pluto.jl notebook ###
 # v0.20.8
 
+#> [frontmatter]
+#> chapter = 3
+#> section = "5"
+#> order = "5"
+#> title = "Wealth inequality"
+#> layout = "layout.jlhtml"
+#> tags = ["risky"]
+
 using Markdown
 using InteractiveUtils
 
