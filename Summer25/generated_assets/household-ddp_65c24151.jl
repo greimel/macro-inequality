@@ -29,7 +29,7 @@ using DataFrames, DataFrameMacros
 
 # ╔═╡ 38213eb7-e1c1-4f2f-a5f4-5a6763d60f97
 md"""
-`household-ddp.jl` | **Version 0.1** | *last updated: June 9, 2025*
+`household-ddp.jl` | **Version 0.2** | *last updated: June 13, 2025*
 """
 
 # ╔═╡ a10b314d-647a-42f9-827d-358ba5c55ce7
