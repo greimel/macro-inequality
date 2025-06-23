@@ -199,43 +199,66 @@ function solve_EGM_SS(wSS,rSS,np::NumericalParameters; max_iter::Int = 3000, pri
 end
 
 # ╔═╡ dba53e12-36aa-4cce-b829-fe86433c1d20
-function build_Λ(a_choice, (; na, ns, a_grid, Ps))
-	
+"""
+    build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
+
+Construct the sparse transition matrix Λ for the endogenous grid method.
+Each row corresponds to a current state (asset grid node and shock state),
+and each row distributes probability mass to future asset nodes and shock states,
+according to the policy a_choice and the exogenous transition matrix Ps.
+
+The function uses linear interpolation to assign probability between the two
+neighboring grid points of the chosen asset, and accounts for all possible
+shock transitions.
+"""
+function build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
     N = na * ns
-    # Preallocate vectors for sparse entries (each state transitions to two neighbors per shock state)
-    M = 2 * N * ns
-    I = Vector{Int}(undef, M)
-    J = Vector{Int}(undef, M)
-    V = Vector{eltype(a_choice)}(undef, M)
+
+    # number of nonzeros: two interpolation weights per state (bracket)
+    nnz = 2 * N * ns
+    rows = Vector{Int}(undef, nnz)
+    cols = Vector{Int}(undef, nnz)
+    prob = Vector{eltype(a_choice)}(undef, nnz)
     idx = 1
 
+    # Loop over current shock state s and asset-grid index i
     for s in 1:ns, i in 1:na
-        al = a_choice[i, s]
-        al_idx = searchsortedlast(a_grid, al)
-        low  = clamp(al_idx,     1, na)
-        high = clamp(al_idx + 1, 1, na)
-        denom = a_grid[high] - a_grid[low]
-        wr = denom == 0 ? 1.0 : (al - a_grid[low]) / denom
-        lr = 1 - wr
-        from = (s - 1) * na + i
+        # Next-period asset chosen by policy for state (s,i)
+        chosen_asset = a_choice[i, s]
 
-        for sp in 1:ns
-            p = Ps[s, sp]
-            # weight to upper grid point
-            I[idx] = from
-            J[idx] = (sp - 1) * na + high
-            V[idx] = p * wr
+        # Locate bracketing grid points for interpolation
+        low_idx = clamp(searchsortedlast(a_grid, chosen_asset), 1, na)
+        high_idx = clamp(low_idx + 1, 1, na)
+        asset_low = a_grid[low_idx]
+        asset_high = a_grid[high_idx]
+
+        # Compute interpolation weights between low and high grid points
+        span = asset_high - asset_low
+        weight_high = span == 0 ? 1.0 : (chosen_asset - asset_low) / span
+        weight_low = 1.0 - weight_high
+
+        # Flatten (s,i) to row index in the NxN matrix
+        row_idx = (s - 1) * na + i
+
+        # Distribute probability mass to neighboring points for each next shock state
+        for s_next in 1:ns
+            prob = Ps[s, s_next]
+            # Contribution to the high asset grid node
+            rows[idx] = row_idx
+            cols[idx] = (s_next - 1) * na + high_idx
+            prob[idx] = prob * weight_high
             idx += 1
-            # weight to lower grid point
-            I[idx] = from
-            J[idx] = (sp - 1) * na + low
-            V[idx] = p * lr
+
+            # Contribution to the low asset grid node
+            rows[idx] = row_idx
+            cols[idx] = (s_next - 1) * na + low_idx
+            prob[idx] = prob * weight_low
             idx += 1
         end
     end
 
-    return sparse(I, J, V, N, N)
-
+    # Build and return the sparse transition matrix
+    return sparse(rows, cols, prob, N, N)
 end
 
 # ╔═╡ c00e475a-aefa-4bb8-b7ae-de4fc7202b96
