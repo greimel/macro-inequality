@@ -198,6 +198,9 @@ function solve_EGM_SS(wSS,rSS,np::NumericalParameters; max_iter::Int = 3000, pri
 	return solve_EGM_SS(c_guess,wSS,rSS,np, max_iter = max_iter, print = print)
 end
 
+# ╔═╡ e51ad87c-bd2e-4104-b875-415a7948a368
+flat_index(i_y, i_a, na) = (i_y - 1) * na + i_a
+
 # ╔═╡ dba53e12-36aa-4cce-b829-fe86433c1d20
 """
     build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
@@ -212,19 +215,22 @@ neighboring grid points of the chosen asset, and accounts for all possible
 shock transitions.
 """
 function build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
-    N = na * ns
+    ny = ns
+    N = length(a_choice)
 
-    # number of nonzeros: two interpolation weights per state (bracket)
-    nnz = 2 * N * ns
+    # number of nonzeros:
+    #   - two interpolation weights per state (bracket),
+    #   - ny possible income states
+    nnz = 2 * N * ny
     rows = Vector{Int}(undef, nnz)
     cols = Vector{Int}(undef, nnz)
     prob = Vector{eltype(a_choice)}(undef, nnz)
     idx = 1
 
-    # Loop over current shock state s and asset-grid index i
-    for s in 1:ns, i in 1:na
-        # Next-period asset chosen by policy for state (s,i)
-        chosen_asset = a_choice[i, s]
+    # Loop over current shock index i_y and asset-grid index i_a
+    for i_y in 1:ny, i_a in 1:na
+        # Next-period asset chosen by policy for state (i_y, i_a)
+        chosen_asset = a_choice[i_a, i_y]
 
         # Locate bracketing grid points for interpolation
         low_idx = clamp(searchsortedlast(a_grid, chosen_asset), 1, na)
@@ -234,25 +240,25 @@ function build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
 
         # Compute interpolation weights between low and high grid points
         span = asset_high - asset_low
-        weight_high = span == 0 ? 1.0 : (chosen_asset - asset_low) / span
+        weight_high = span == 0.0 ? 1.0 : (chosen_asset - asset_low) / span
         weight_low = 1.0 - weight_high
 
-        # Flatten (s,i) to row index in the NxN matrix
-        row_idx = (s - 1) * na + i
+        # Flatten (i_y, i_a) to row index in the NxN matrix
+        row_idx = flat_index(i_y, i_a, na)
 
-        # Distribute probability mass to neighboring points for each next shock state
-        for s_next in 1:ns
-            prob = Ps[s, s_next]
+        # Loop over next-period shock index i_y_next
+        for i_y_next in 1:ny
+            prob_ = Ps[i_y, i_y_next]
             # Contribution to the high asset grid node
             rows[idx] = row_idx
-            cols[idx] = (s_next - 1) * na + high_idx
-            prob[idx] = prob * weight_high
+            cols[idx] = flat_index(i_y_next, high_idx, na)
+            prob[idx] = prob_ * weight_high
             idx += 1
 
             # Contribution to the low asset grid node
             rows[idx] = row_idx
-            cols[idx] = (s_next - 1) * na + low_idx
-            prob[idx] = prob * weight_low
+            cols[idx] = flat_index(i_y_next, low_idx, na)
+            prob[idx] = prob_ * weight_low
             idx += 1
         end
     end
@@ -260,6 +266,7 @@ function build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
     # Build and return the sparse transition matrix
     return sparse(rows, cols, prob, N, N)
 end
+
 
 # ╔═╡ c00e475a-aefa-4bb8-b7ae-de4fc7202b96
 "Computing the stationary distribution of a Markov Chain with a sparse transition matrix
@@ -2413,6 +2420,7 @@ version = "3.6.0+0"
 # ╠═c6236db9-05aa-45d8-952e-97df0fe7a80b
 # ╠═327e678f-457d-43ea-a095-b7155049e350
 # ╠═46bb7ab1-1c73-4262-b7aa-56c2f83d58f6
+# ╠═e51ad87c-bd2e-4104-b875-415a7948a368
 # ╠═dba53e12-36aa-4cce-b829-fe86433c1d20
 # ╠═c00e475a-aefa-4bb8-b7ae-de4fc7202b96
 # ╠═3b4c7325-7d5f-4e2b-8af8-3b142348b5be
