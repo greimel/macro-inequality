@@ -199,64 +199,42 @@ function solve_EGM_SS(wSS,rSS,np::NumericalParameters; max_iter::Int = 3000, pri
 end
 
 # ╔═╡ dba53e12-36aa-4cce-b829-fe86433c1d20
-function build_Λ(a_choice::Matrix, np::NumericalParameters)
+function build_Λ(a_choice, (; na, ns, a_grid, Ps))
+	
+    N = na * ns
+    # Preallocate vectors for sparse entries (each state transitions to two neighbors per shock state)
+    M = 2 * N * ns
+    I = Vector{Int}(undef, M)
+    J = Vector{Int}(undef, M)
+    V = Vector{eltype(a_choice)}(undef, M)
+    idx = 1
 
-    (; na, ns, a_grid, Ps) = np
+    for s in 1:ns, i in 1:na
+        al = a_choice[i, s]
+        al_idx = searchsortedlast(a_grid, al)
+        low  = clamp(al_idx,     1, na)
+        high = clamp(al_idx + 1, 1, na)
+        denom = a_grid[high] - a_grid[low]
+        wr = denom == 0 ? 1.0 : (al - a_grid[low]) / denom
+        lr = 1 - wr
+        from = (s - 1) * na + i
 
-	#pre-allocate arrays
-    weights_R = zeros(eltype(a_choice),na*ns,ns)
-    weights_L = zeros(eltype(a_choice),na*ns,ns)
-    IDX_col_R = zeros(Int64,na*ns,ns) #where agents "go"
-
-    @views begin
-        for ss = 1:ns
-            for aa = 1:na
-
-            #find closest smaller capital value on grid  
-            al_idx = searchsortedlast(a_grid,a_choice[aa,ss])
-    
-            ss_shifter = (ss-1)*na #inner helper variable
-
-                    #if clause checks for boundary cases
-                    if al_idx == na   
-					#if higher than highest grid point, I assign entire mass to maximum grid point	
-
-                        for sss = 1:ns
-                            weights_R[ss_shifter + aa,sss] += Ps[ss,sss]
-                            IDX_col_R[ss_shifter + aa,sss] = al_idx + (sss-1)*na
-                        end
-
-                    elseif al_idx == 0 
-						#if lower than smallest grid point, I assign entire mass to lowest grid point	
-
-                        for sss = 1:ns
-                            weights_L[ss_shifter + aa,sss] += Ps[ss,sss]
-                            IDX_col_R[ss_shifter + aa,sss] = (sss-1)*na + 2
-                        end
-
-                    else    #regular case - using weights formula
-
-                        wr = ((a_choice[aa,ss] - a_grid[al_idx]) / (a_grid[al_idx+1] 																	- a_grid[al_idx]))
-                        lr = 1.0 - wr
-
-                        for sss = 1:ns
-                            weights_R[ss_shifter + aa,sss] += Ps[ss,sss]*wr
-                            weights_L[ss_shifter + aa,sss] += Ps[ss,sss]*lr                         
-                            IDX_col_R[ss_shifter + aa,sss] = (sss-1)*na + al_idx + 1
-                        end
-
-                    end
-
-            end
+        for sp in 1:ns
+            p = Ps[s, sp]
+            # weight to upper grid point
+            I[idx] = from
+            J[idx] = (sp - 1) * na + high
+            V[idx] = p * wr
+            idx += 1
+            # weight to lower grid point
+            I[idx] = from
+            J[idx] = (sp - 1) * na + low
+            V[idx] = p * lr
+            idx += 1
         end
-
-        IDX_from = repeat(1:(na*ns),outer=2*ns)
-        weights = vcat(weights_R[:], weights_L[:])
-        IDX_to = vcat(IDX_col_R[:],IDX_col_R[:] .- 1)
     end
 
-    #return sparse transition matrix
-    return sparse(IDX_from,IDX_to,weights,na*ns,na*ns)
+    return sparse(I, J, V, N, N)
 
 end
 
