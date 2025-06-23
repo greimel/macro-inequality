@@ -4,11 +4,17 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ d504abcd-5267-4b1d-9417-d9aa6239c919
-using LinearAlgebra: I
-
 # ╔═╡ 53f04096-1734-4275-bede-cdbb4925384b
 using PlutoUI
+
+# ╔═╡ 4fb56e22-3976-4176-a031-ec64fb6bc1a8
+using Statistics: mean
+
+# ╔═╡ 3c028e91-b36f-4daf-90c1-4b5992c50b52
+using StatsBase: weights
+
+# ╔═╡ d504abcd-5267-4b1d-9417-d9aa6239c919
+using LinearAlgebra: I
 
 # ╔═╡ 6d216a54-31cf-45c6-9989-97c5e0c26608
 using SparseArrays
@@ -26,7 +32,7 @@ using DimensionalData
 using DataFrames, DataFrameMacros, Chain
 
 # ╔═╡ 2e39b88d-e987-45dc-b25c-e9e1591a7feb
-using QuantEcon: rouwenhorst
+using QuantEcon: rouwenhorst, MarkovChain, QuantEcon
 
 # ╔═╡ 4aade7a1-9355-4a95-a084-0e506ac476c4
 using CairoMakie, AlgebraOfGraphics
@@ -34,18 +40,20 @@ using CairoMakie, AlgebraOfGraphics
 # ╔═╡ 90c508f2-935d-417f-ad7e-6f635bb38f21
 using BasicInterpolators: LinearInterpolator, NoBoundaries
 
-# ╔═╡ 7d21bf82-6756-43ad-aa14-15269440a314
-"Calibration of the model"
-Base.@kwdef struct ModelParameters{T}
-	β::T = 0.98 	#Household discount factor - will be changed by calibration
-	σ::T = 1.0   	#relative risk aversion
-    δ::T = 0.025 	#capital depreciation
-    ρs::T = 0.966 	#persistence of HH income process
-    σs::T = (1.0-ρs^2)^0.5 * 0.5 #variance for household income process
-    α::T  = 0.11 	#capital share
-    Z_ss::T = 0.8 	#steady state TFP - will be changed by calibration
-    ρA::T = 0.9 	#persistence of TFP
-    σA::T = 0.007 	#variance of TFP
+# ╔═╡ eea3420b-44ca-487c-87c1-93b39216ffed
+md"""
+`imohoroglu-egm.jl` | **Version 0.1** | _last updated: June 23 2025_
+"""
+
+# ╔═╡ 5a4ada81-06ab-402a-abbe-143295faead1
+md"""
+# Solve Imrohroglu with EGM
+"""
+
+# ╔═╡ 662debb9-b4f0-4854-9c22-6b4c149257b5
+function Household(; σ = 1.0, β = 0.96,	
+                      u = σ == 1 ? log : x -> (x^(1 - σ) - 1) / (1 - σ))
+	(; β, u, σ)
 end
 
 # ╔═╡ 6faaf9b6-e44d-4293-83cc-02373074032d
@@ -53,28 +61,48 @@ function exponential_grid(amin,amax,na)
 	return exp.(range(0.0, stop=log(amax-amin+1.0), length = na)) .+ amin .- 1.0
 end
 
-# ╔═╡ 07d79c1f-ecf3-4440-a688-c7498ed58b3a
-Base.@kwdef struct NumericalParameters{F,I}
-	#include instance of model parameters
-	mp::ModelParameters{F} = ModelParameters()
-
-	# specification for grids
-	na::I 	= 500   #no. of points on asset grids
-	ns::I 	= 7     #no. of points on skill grid
-	amin::F = 0.0   #borrowing limit
-	amax::F = 100.0 #upper end grid
-
-	#set grids and transition matrix for s process
-	s_grid::Vector{F} 	= exp.(rouwenhorst(ns, mp.ρs, mp.σs).state_values)
-	Ps::Matrix{F} 		= rouwenhorst(ns, mp.ρs, mp.σs).p
-	a_grid::Vector{F} 	= exponential_grid(amin, amax, na)
-
-	#tolerance value for HH problem
-	tolHH::F = 1e-10
-
-	#size of Sequence Space Jacobians
-	T::I = 300
+# ╔═╡ f3d0f2b9-d64c-43f5-892a-39dc31aa062f
+function Statespace(; amin, amax, na, y_chain)
+	a_grid = exponential_grid(amin, amax, na)
+	y_grid = y_chain.state_values
+	
+	a_dim = Dim{:a}(a_grid)
+	y_dim = Dim{:y}(y_grid)
+	dims = (a_dim, y_dim)
+	
+	(; a_grid, y_grid, y_chain, dims)
 end
+
+# ╔═╡ 036d2f18-e889-46a5-ae90-7ebaecab4124
+function log_rouwenhorst(args...; normalize_mean = true)
+	mc₀ = rouwenhorst(args...)
+
+	state_values 	= exp.(mc₀.state_values)
+
+	π∞ = QuantEcon.stationary_distributions(mc₀) |> only
+
+	if normalize_mean
+		𝔼y = mean(state_values, weights(π∞))
+		state_values ./= 𝔼y
+	end
+	
+	return MarkovChain(mc₀.p, state_values)
+end
+
+# ╔═╡ 6577a8e9-095c-4b4b-b277-251e04697cdd
+function default_income_process(;
+	ρ = 0.966, 	          #persistence of HH income process
+    σ = (1.0-ρ^2)^0.5 * 0.5, #variance for household income process
+	n = 7,
+	normalize_mean = true
+)
+	log_rouwenhorst(n, ρ, σ; normalize_mean)
+end
+
+# ╔═╡ 9820a4b4-3dea-4f9d-96b7-3e9a7d1515a4
+md"""
+## EGM
+"""
 
 # ╔═╡ 41c5dda5-7056-4545-a2a6-dd73d66c9734
 a_prev(c_prev, a, y_prev; w_prev, r_prev) = (a + c_prev - w_prev * y_prev)/(1+r_prev)
@@ -84,21 +112,24 @@ c_curr(a, y, a_next; w_prev, r_prev) = (1+r_prev) * a + y * w_prev - a_next
 
 # ╔═╡ 5e080d82-5ece-4f2c-9fd4-e670984d4f49
 #"""compute expected marginal value function"""
-function get_𝔼u′(c_curr, (; mp, Ps))
-	(; σ)      = mp
-    return ((c_curr.^(-σ))) * Ps'   
+function get_𝔼u′(c_curr, (; σ), (; y_chain))
+	(; p) = y_chain
+	
+    return ((c_curr.^(-σ))) * p'   
 end
 
 # ╔═╡ 48fc1aef-ef7e-4227-b522-40e7ec0f348d
-function EGM_update(cⱼ::AbstractArray,w_prev,r_prev,r,np::NumericalParameters)
+function EGM_update(cⱼ::AbstractArray,
+					prev_prices,
+					curr_prices,
+					hh, statespace)
 
-    (; mp, a_grid, s_grid, ns, na, amin) = np
-    (; β, σ) = mp
-
-	(; s_grid, a_grid) = np
+	(; a_grid, y_grid) = statespace
+	amin = minimum(a_grid)
+	
 	a_dim = Dim{:a}(a_grid)
-	s_dim = Dim{:s}(s_grid)
-	dims = (a_dim, s_dim)
+	y_dim = Dim{:y}(y_grid)
+	dims = (a_dim, y_dim)
 
 	################
 	## STEP BACK ###
@@ -106,42 +137,51 @@ function EGM_update(cⱼ::AbstractArray,w_prev,r_prev,r,np::NumericalParameters)
 	################
 	
 	# get cⱼ₋₁ from cⱼ
-    𝔼u′ = get_𝔼u′(cⱼ, np)
-    cⱼ₋₁ =  𝔼u′.^(-1/σ) * (β*(1+r)).^(-1/σ)
-
-    @assert all(>(0), cⱼ₋₁)
+	cⱼ₋₁ = let
+		(; σ, β) = hh
+		(; r) = curr_prices
+		
+	    𝔼u′ = get_𝔼u′(cⱼ, hh, statespace)
+	    cⱼ₋₁ =  𝔼u′.^(-1/σ) * (β*(1+r)).^(-1/σ)
+	end
+   # @assert all(>(0), cⱼ₋₁)
     
     #calculate assets today consistent with savings choice
 	a_curr = a_grid
-	y_prev = s_grid
-	y_curr = s_grid
+	y_prev = y_grid
+	y_curr = y_grid
+
+	r_prev = prev_prices.r
+	w_prev = prev_prices.w
 	
 	aⱼ₋₁ = DimArray( 
-		a_prev.(cⱼ₋₁, a_curr, y_prev'; w_prev, r_prev),
-		dims
-	)
+			a_prev.(cⱼ₋₁, a_curr, y_prev'; w_prev, r_prev),
+			dims
+		)
 
 	##################
 	## STEP FORWARD ##
 	### (cⱼ, aⱼ₊₁) ###
 	##################
 	
-    a_next = zeros(eltype(aⱼ₋₁), dims)
+    a_next = zeros(eltype(aⱼ₋₁), dims, name = :a_next)
 
-    for si = 1:ns #loop over income states
+    for si = 1:length(y_grid) #loop over income states
         #interpolate savings for unconstrained states
-        itp_a = LinearInterpolator(aⱼ₋₁[s = si], a_grid, NoBoundaries()) 
+        itp_a = LinearInterpolator(aⱼ₋₁[y = si], a_grid, NoBoundaries()) 
 			
-        a_next[s = si] .= max.(
+        a_next[y = si] .= max.(
 			itp_a.(a_grid),
 			amin # enforcing the borrowing constraint
 		)
     end
 
 	#back out consumption from budget constraint
-	c = c_curr.(a_curr, y_curr', a_next; r_prev, w_prev)
+	c = DimArray(
+		c_curr.(a_curr, y_curr', a_next; r_prev, w_prev),
+		dims; name = "c")
 
-    return parent(c), parent(a_next)
+    return (; c, a_next)
 
 end
 
@@ -151,52 +191,60 @@ For solving the household problem in steady state, we keep iterating on this fun
 """
 
 # ╔═╡ c6236db9-05aa-45d8-952e-97df0fe7a80b
-function solve_EGM_SS(cGuess::AbstractArray, wSS, rSS, np::NumericalParameters;  
-    max_iter::Int = 3000, print::Bool = false)
-
-    c0 = cGuess  
-
-    local c1, a1
+function solve_EGM_SS(c_guess::AbstractArray, prices, hh, statespace;  
+    max_iter::Int = 3000, print::Bool = false, tolHH = 1e-10)
 	
-    dist = 1.0; iter = 0
-    while (dist>np.tolHH) & (iter < max_iter)
+    local c, a_next
+	c_old = c_guess
+	
+    Δ = 1.0; iter = 0
+    while (Δ > tolHH) & (iter < max_iter)
 
-	    c1, a1 = EGM_update(c0, wSS, rSS, rSS, np)
+	    (; c, a_next) = EGM_update(c_old, prices, prices, hh, statespace)
 	
-	    dist = maximum(abs.(c1 .- c0))
+	    Δ = maximum(abs.(c_old .- c))
 	
-	    if print & (rem(iter, 100) == 0.0)
-	    	println("iteration: ",iter," current distance: ",dist)
+	    if print & (iter % 100 == 0)
+	    	@info "iteration: $iter current distance: $Δ"
 	    end
 	
 	    #update
-	    c0 = copy(c1)
+	    c_old .= c
 
 	    iter += 1
     end
 
 	#check convergence
-    println("Done after ",iter," iterations, final distance ",dist)
+    @info "Done after $iter iterations, final distance $Δ"
     if iter == max_iter 
 		@warn "Non-convergence of solve_EGM_SS"
 	end
 
-    return c1, a1
+    return (; c, a_next)
 end
 
 # ╔═╡ 327e678f-457d-43ea-a095-b7155049e350
-function get_cguess(w,r,np)
-	incs = w*np.s_grid 
- 	return 0.1 .+ 0.1*((1+r)*np.a_grid .+ incs')
+function get_cguess((; r, w), (; y_grid, a_grid, dims))
+	incs = w * y_grid 
+	
+ 	c = DimArray(
+		0.1 .+ 0.1 * ((1+r) * a_grid .+ incs'),
+		dims; name = :c
+	)
+	
 end
 
 # ╔═╡ 46bb7ab1-1c73-4262-b7aa-56c2f83d58f6
-function solve_EGM_SS(wSS,rSS,np::NumericalParameters; max_iter::Int = 3000, print::Bool = false)
-
-	c_guess = get_cguess(wSS,rSS,np)
+function solve_EGM_SS(prices, hh, statespace; kwargs...)
+	c_guess = get_cguess(prices, statespace)
 	
-	return solve_EGM_SS(c_guess,wSS,rSS,np, max_iter = max_iter, print = print)
+	return solve_EGM_SS(c_guess, prices, hh, statespace; kwargs...)
 end
+
+# ╔═╡ 3e4d0f84-1b9f-460f-ae9e-072ff639a71c
+md"""
+## Stationary distribution
+"""
 
 # ╔═╡ e51ad87c-bd2e-4104-b875-415a7948a368
 flat_index(i_y, i_a, na) = (i_y - 1) * na + i_a
@@ -205,17 +253,18 @@ flat_index(i_y, i_a, na) = (i_y - 1) * na + i_a
 """
     build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
 
-Construct the sparse transition matrix Λ for the endogenous grid method.
+Construct the sparse transition matrix `Λ` for the endogenous grid method.
 Each row corresponds to a current state (asset grid node and shock state),
 and each row distributes probability mass to future asset nodes and shock states,
-according to the policy a_choice and the exogenous transition matrix Ps.
+according to the policy `a_choice` and the exogenous transition matrix `Ps`.
 
 The function uses linear interpolation to assign probability between the two
 neighboring grid points of the chosen asset, and accounts for all possible
 shock transitions.
 """
-function build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
-    ny = ns
+function build_Λ(a_choice::AbstractMatrix, (; y_grid, a_grid, y_chain))
+    ny = length(y_grid)
+	na = length(a_grid)
     N = length(a_choice)
 
     # number of nonzeros:
@@ -248,7 +297,7 @@ function build_Λ(a_choice::AbstractMatrix, (; na, ns, a_grid, Ps))
 
         # Loop over next-period shock index i_y_next
         for i_y_next in 1:ny
-            prob_ = Ps[i_y, i_y_next]
+            prob_ = y_chain.p[i_y, i_y_next]
             # Contribution to the high asset grid node
             rows[idx] = row_idx
             cols[idx] = flat_index(i_y_next, high_idx, na)
@@ -280,51 +329,55 @@ function inv_dist(Π::AbstractArray)
 end
 
 # ╔═╡ 4968431f-9188-4ee8-a8a5-86b136a862ff
-function partial_equilibrium(r_ss,w_ss,np; max_iter=3000)
+function solve_imrohoroglu(houshold, statespace, prices; kwargs...)
 
 	#solve HH problem
-	c_ss, a_ss = solve_EGM_SS(w_ss,r_ss,np; max_iter)
+	(; c, a_next) = solve_EGM_SS(prices, houshold, statespace; kwargs...)
 	
 	#build transition matrix
-	Λ =  build_Λ(a_ss, np)
+	Λ =  build_Λ(a_next, statespace)
 
 	#get invariant distribution
 	D = inv_dist(Λ)
 
-	(; s_grid, a_grid) = np
-	a_dim = Dim{:a}(a_grid)
-	s_dim = Dim{:s}(s_grid)
-	dims = (a_dim, s_dim)
+	(; dims) = statespace
 
-	out = DimStack(
-		DimArray(c_ss, dims, name = :c),
-		DimArray(a_ss, dims, name = :a_next),
-		DimArray(reshape(D, size(c_ss)),    dims, name = :pmf),
+	tmp = DimStack(
+		c, a_next,
+		DimArray(
+			reshape(D, size(c)),
+			dims, name = :pmf),
 	)
 
-	(; out)
+	df = @chain tmp begin
+		DataFrame
+		@transform(:saving = :a_next - :a * (1+prices.r))
+	end
+	
+	df
 end
 
 # ╔═╡ db9c4803-0770-430f-a999-8f9d8ed821bc
 let
-	np = NumericalParameters(; amax = 150.0)
-	r = 0.018
-	w = 1.0
-	
-	(; out) = partial_equilibrium(r, w, np; max_iter=1000)
+	statespace = Statespace(; amin = 0.0, amax = 150.0, na = 500, y_chain = default_income_process(normalize_mean = true))
+	household = Household(; β = 0.98, σ = 1.0)
 
-	
-	@info @test CSV.read("egm-test-bc.csv", DataFrame) ≈ DataFrame(out)
-	
-	#CSV.write("egm-test-bc.csv", DataFrame(out))
+	prices = (; r = 0.018, w = 1.0)
 
-	@chain DataFrame(out) begin
+	df = solve_imrohoroglu(household, statespace, prices)
+
+	#@info @test CSV.read("egm-test-bc.csv", DataFrame) ≈ df
+	
+	#CSV.write("egm-test-bc.csv", df)
+
+	@chain df begin
 		@groupby(:a)
 		@combine(:pmf = sum(:pmf))
 		data(_) * mapping(:a, :pmf) * visual(Lines)
 		draw
 	end
-	
+
+	df
 	
 end
 
@@ -352,6 +405,8 @@ PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 QuantEcon = "fcd29c91-0bd7-5a09-975d-7ac3f643a60c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 AlgebraOfGraphics = "~0.10.8"
@@ -365,6 +420,7 @@ DimensionalData = "~0.29.17"
 PlutoTest = "~0.2.2"
 PlutoUI = "~0.7.63"
 QuantEcon = "~0.16.6"
+StatsBase = "~0.34.5"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -373,7 +429,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "6cb2600f3aa7ecb94b9b87efd72de6cf95f770ad"
+project_hash = "a0d788b04f1d660571d7d79a9fbf47cab28e2c32"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -2406,12 +2462,16 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═4968431f-9188-4ee8-a8a5-86b136a862ff
-# ╠═d504abcd-5267-4b1d-9417-d9aa6239c919
+# ╟─eea3420b-44ca-487c-87c1-93b39216ffed
+# ╟─5a4ada81-06ab-402a-abbe-143295faead1
 # ╠═db9c4803-0770-430f-a999-8f9d8ed821bc
-# ╠═7d21bf82-6756-43ad-aa14-15269440a314
+# ╠═4968431f-9188-4ee8-a8a5-86b136a862ff
+# ╠═662debb9-b4f0-4854-9c22-6b4c149257b5
+# ╠═f3d0f2b9-d64c-43f5-892a-39dc31aa062f
 # ╠═6faaf9b6-e44d-4293-83cc-02373074032d
-# ╠═07d79c1f-ecf3-4440-a688-c7498ed58b3a
+# ╠═6577a8e9-095c-4b4b-b277-251e04697cdd
+# ╠═036d2f18-e889-46a5-ae90-7ebaecab4124
+# ╟─9820a4b4-3dea-4f9d-96b7-3e9a7d1515a4
 # ╠═48fc1aef-ef7e-4227-b522-40e7ec0f348d
 # ╠═41c5dda5-7056-4545-a2a6-dd73d66c9734
 # ╠═a209a529-d1c5-4fae-81f6-8f570559ae57
@@ -2420,12 +2480,16 @@ version = "3.6.0+0"
 # ╠═c6236db9-05aa-45d8-952e-97df0fe7a80b
 # ╠═327e678f-457d-43ea-a095-b7155049e350
 # ╠═46bb7ab1-1c73-4262-b7aa-56c2f83d58f6
-# ╠═e51ad87c-bd2e-4104-b875-415a7948a368
+# ╟─3e4d0f84-1b9f-460f-ae9e-072ff639a71c
 # ╠═dba53e12-36aa-4cce-b829-fe86433c1d20
+# ╠═e51ad87c-bd2e-4104-b875-415a7948a368
 # ╠═c00e475a-aefa-4bb8-b7ae-de4fc7202b96
-# ╠═3b4c7325-7d5f-4e2b-8af8-3b142348b5be
+# ╟─3b4c7325-7d5f-4e2b-8af8-3b142348b5be
 # ╠═53f04096-1734-4275-bede-cdbb4925384b
 # ╠═83d8eb54-88eb-4355-ba6c-d0a625dc1c7e
+# ╠═4fb56e22-3976-4176-a031-ec64fb6bc1a8
+# ╠═3c028e91-b36f-4daf-90c1-4b5992c50b52
+# ╠═d504abcd-5267-4b1d-9417-d9aa6239c919
 # ╠═6d216a54-31cf-45c6-9989-97c5e0c26608
 # ╠═24f2a368-a899-4619-a208-db19b18ec8d4
 # ╠═d90bbfd0-8201-4221-9657-4124b015cdfa
