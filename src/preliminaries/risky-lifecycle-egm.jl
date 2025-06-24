@@ -57,8 +57,12 @@ function exponential_grid(amin,amax,na)
 end
 
 # ╔═╡ 68c038ec-c197-4044-8b3a-26974f284e8b
-function Statespace(; amin, amax, na, y_chain)
-	a_grid = exponential_grid(amin, amax, na)
+function Statespace(; amin, amax, na, y_chain, exponential = true)
+	if exponential
+		a_grid = exponential_grid(amin, amax, na)
+	else
+		a_grid = range(amin, amax, length=na)
+	end
 	y_grid = y_chain.state_values
 	
 	a_dim = Dim{:a}(a_grid)
@@ -481,7 +485,7 @@ const DD = DimensionalData
 
 # ╔═╡ 48a39844-3ec1-4300-9ee5-ade8c9a5c1d0
 let
-	statespace = Statespace(; amin = 0.0, amax = 150.0, na = 10, y_chain = default_income_process(normalize_mean = true, n = 4))
+	statespace = Statespace(; amin = 0.0, amax = 150.0, na = 10, y_chain = default_income_process(normalize_mean = true, n = 4), exponential = false)
 	household = Household(; β = 0.98, σ = 2.0)
 
 	prices = (; r = 0.018, w = 1.0)
@@ -494,7 +498,7 @@ let
 	a_grid = DimVector(statespace.a_grid, DD.dims(dims, :a))
 	y_grid = DimVector(statespace.y_grid, DD.dims(dims, :y))
 
-	cⱼ = (1 + prices.r) .* a_grid .+ prices.w .* y_grid'
+	cⱼ = @d (1 + prices.r) .* a_grid .+ prices.w .* y_grid
 	cⱼ = DimArray(cⱼ, name = :cⱼ)
 	
 	(; σ) = household
@@ -516,16 +520,57 @@ let
 
 	w_prev = prices.w
 	r_prev = prices.r
+
 	aⱼ₋₁ = DimArray(
-		(a_grid .+ cⱼ₋₁ .- w_prev .* y_grid')/(1+r_prev),
-		name = :aⱼ₋₁
+			@d((a_grid .+ cⱼ₋₁ .- w_prev .* y_grid ) ./ (1+r_prev)),
+			name = :aⱼ₋₁
 	)
 
-	@chain DimStack(aⱼ₋₁, cⱼ₋₁) begin
-		DataFrame
-		data(_) * mapping(:aⱼ₋₁, :cⱼ₋₁, color = :y => nonnumeric) * visual(ScatterLines)
+	aⱼ₋₁_interpolated = similar(aⱼ₋₁)
+	
+	a_dim = collect(DD.dims(aⱼ₋₁, :a))
+	for y ∈ DD.dims(aⱼ₋₁_interpolated, :y)
+		
+		itp = linear_interpolation(
+			collect(
+				aⱼ₋₁[y=At(y)]), 
+				a_dim,
+				extrapolation_bc=Line()
+		)
+		@info itp(a_grid)
+		@info aⱼ₋₁_interpolated[y = At(y)]
+		aⱼ₋₁_interpolated[y = At(y)] = itp(a_grid)
+	end
+
+	aⱼ₋₁_interpolated
+		
+	#scatterlines(vec(aⱼ₋₁[y=1]), vec(a_grid))
+
+	#scatter!(
+	#	vec(a_grid), 
+	#	vec(itp(a_grid)),
+	#	color = :darkorange, markersize = 5
+	#)
+
+	#current_figure()
+	#scatter(vec(aⱼ₋₁), a_grid)
+
+#=	df = DimStack(aⱼ₋₁, cⱼ₋₁) |> DataFrame
+	@chain df begin
+		data(_) * mapping(:aⱼ₋₁, :a, color = :y => nonnumeric) * visual(ScatterLines)
 		draw
 	end
+=#
+	
+	#DD.dims(aⱼ₋₁, :a) |> collect
+#	DataFrame(aⱼ₋₁[y = 1])
+#	DD.dims(aⱼ₋₁, :a)
+	
+	#itp = linear_interpolation(df.aⱼ₋₁, df.a)
+	#scatter!(a_grid, itp[a_grid])
+
+	#current_figure()
+	# =#
 #	scatter(aⱼ₋₁, cⱼ₋₁)
 	#aⱼ₋₁ = DimArray( 
 	#		a_prev.(cⱼ₋₁, a_curr, y_prev'; w_prev, r_prev),
