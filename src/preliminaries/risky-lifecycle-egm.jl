@@ -634,7 +634,7 @@ function _solve_backward_forward_risk_(::EGM, par, statespace; price_paths, init
 	## SOLVE BACKWARDS ("solve policy functions")
 	t_J = t_born + J
 	prices_J = (; r = rs[t=At(t_J)], w = ws[t = At(t_J)])
-	c_J_tmp = @d (1 + prices_J.r) .* a_grid .+ prices_J.w .* y_grid
+	c_J_tmp = @d (1 + prices_J.r) .* a_grid .+ prices_J.w .* (y_grid .* y[j = At(J)])
 	
 	     c[j = At(J)] .= c_J_tmp # CHECK CORRECT DIMENSIONS ???
 	   c_x[j = At(J)] .= c_J_tmp # CHECK CORRECT DIMENSIONS ???
@@ -663,7 +663,7 @@ function _solve_backward_forward_risk_(::EGM, par, statespace; price_paths, init
 			cⱼ₋₁ = DimArray(cⱼ₋₁, name = :cⱼ₋₁)
 		end
 		
-		aⱼ₋₁ = @d a_prev_risk.(cⱼ₋₁, a_grid, y_grid, Ref(prices_prev))
+		aⱼ₋₁ = @d a_prev_risk.(cⱼ₋₁, a_grid, (y_grid .* y[j = At(j)]), Ref(prices_prev))
 	
 		for y ∈ DD.dims(dims, :y)
 	
@@ -683,7 +683,7 @@ function _solve_backward_forward_risk_(::EGM, par, statespace; price_paths, init
 			a_next[j = At(j-1), y = At(y)] .= max.(aⱼ_itp.(a_grid), a_min)
 		end
 
-		c[j = At(j-1)] = @d c_curr_risk.(a_grid, a_next[j = At(j-1)], y_grid, Ref((; r = prices_prev.r_prev, w = prices_prev.w_prev, m = prices_prev.m_prev)))
+		c[j = At(j-1)] = @d c_curr_risk.(a_grid, a_next[j = At(j-1)], (y_grid .* y[j = At(j)]), Ref((; r = prices_prev.r_prev, w = prices_prev.w_prev, m = prices_prev.m_prev)))
 	end
 
 	
@@ -914,7 +914,7 @@ let
 
 	@chain π begin
 		DataFrame
-		@subset(:a < 10)
+		@subset(:a < 5)
 		@groupby(:a)
 		@combine(:π = sum(:π))
 #		@subset(:π > 0)
