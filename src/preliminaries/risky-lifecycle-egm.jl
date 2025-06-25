@@ -650,8 +650,7 @@ function _solve_backward_forward_risk_(::EGM, par, statespace; price_paths, init
 			)
 	
 			   c_x[j = At(j-1), y = At(y)] .= cⱼ₋₁_itp.(a_grid)
-			a_next[j = At(j-1), y = At(y)] .= #max.(
-				aⱼ_itp.(a_grid)#, a_min)
+			a_next[j = At(j-1), y = At(y)] .= max.(aⱼ_itp.(a_grid), a_min)
 		end
 
 		c[j = At(j-1)] = @d c_curr_risk.(a_grid, a_next[j = At(j-1)], y_grid, Ref((; r = prices_prev.r_prev, w = prices_prev.w_prev, m = prices_prev.m_prev)))
@@ -838,7 +837,7 @@ let
 		@transform(:Δ = :c_x - :c)
 		@subset(:j < 10, :a < 5)
 		data(_) * mapping(
-				:a, :Δ,
+				:a, :c,
 				group = :j => nonnumeric, color = :j,
 				layout = :y => nonnumeric
 		) * visual(Lines)
