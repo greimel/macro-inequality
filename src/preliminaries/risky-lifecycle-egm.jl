@@ -110,6 +110,36 @@ let
 
 end
 
+# ╔═╡ f4681d7c-e81e-4298-a0f8-ec3b5da96011
+function weighted_neighbours(x, x_grid)
+	n = length(x_grid)
+	low_idx = clamp(searchsortedlast(x_grid, x), 1, n)
+    high_idx = clamp(low_idx + 1, 1, n)
+    x_low  = x_grid[low_idx]
+    x_high = x_grid[high_idx]
+
+	span = x_high - x_low
+	weight_high = span == 0.0 ? 1.0 : (x - x_low) / span
+    weight_low = 1.0 - weight_high
+	
+	high = (; i = high_idx, x = x_high, weight = weight_high)
+	low = (; i = low_idx,  x = x_low,   weight = weight_low)
+	
+	(; high, low)
+	
+end
+
+# ╔═╡ b8543ee6-4eb2-4002-8b2b-a5bd6bc5d0ec
+let
+	statespace = Statespace(; amin = 0.0, amax = 100.0, na = 100, y_chain = default_income_process())
+
+	(; a_grid) = statespace
+	a = 1.0
+	@assert a ∉ a_grid
+
+	weighted_neighbours(a, a_grid)
+end
+
 # ╔═╡ cac697fa-cde9-4b45-ae7a-e582388e491c
 c_prev_risk(c, r, (; β, γ)) = c / (β * (1 + r))^(1/γ)
 
@@ -812,7 +842,7 @@ function get_par(;
 end
 
 # ╔═╡ 46964708-1e84-4e05-bf2d-440efa54efe8
-let
+risky_out = let
 	y = income_profile(120, 41)
 	
 	par = get_par(; demo = :lifecycle, y, a̲ = 0.0)
@@ -832,7 +862,92 @@ let
 	
 	(; c, c_x, a_next) = partial_equilibrium_risk(par, statespace, (; K_guess, r, w), return_df = true)
 
-	@chain DimStack(a_next, c, c_x) begin
+	policies = DimStack(a_next, c, c_x)
+		
+	(; policies, statespace, par)
+	#@info @test out.K_hh ≈ 6.169575851057367
+	
+	#(; sol, K_hh) = out
+end
+
+# ╔═╡ 7df1a518-ece7-4a98-a430-278c1700b564
+let
+	(; policies, statespace, par) = risky_out
+	(; m) = par
+	(; a_next) = policies
+
+	(; a_grid, y_grid, y_chain) = statespace
+	j = 0
+	J = maximum(DD.dims(a_next, :j))
+	aⱼ = a_grid[30]
+	@info aⱼ
+	yⱼ = minimum(y_grid)
+	π  = 1.0
+
+	π = zeros(DD.dims(a_next), name = :π)
+	π[j = At(j), a = At(aⱼ)] .= 1 ./ length(y_grid)
+	
+	get_states(da) = NamedTuple{name.(DD.dims(da))}.(DimPoints(da))
+	states = get_states(π[j = At(j)])
+	P = DimArray(y_chain.p, (Dim{:from}(y_grid), Dim{:y}(y_grid)))
+
+	for j ∈ 0:90  #J-1
+
+		positive_mass = findall(π[j = At(j)] .> 0)
+	
+		for ind ∈ positive_mass
+		
+			#π_ind = π[j = At(j)][ind]
+			
+			(; a, y) = states[ind]
+			a_n = a_next[j = At(j), a = At(a), y = At(y)]
+			
+			(; high, low) = weighted_neighbours(a_n, a_grid)
+			#@info a, high.x, low.x
+			π_base = π[j = At(j)][ind] * (1 - m[j = At(j)])
+			π[j = At(j+1), a = At(high.x)] .+= π_base .* high.weight .* P[from = At(yⱼ)]
+			π[j = At(j+1), a = At(low.x)]  .+= π_base .* low.weight .* P[from = At(yⱼ)]
+		end
+	end
+	
+	sum(π, dims = (:a, :y)) |> vec
+
+	@chain π begin
+		DataFrame
+		@subset(:a < 10)
+		@groupby(:a)
+		@combine(:π = sum(:π))
+#		@subset(:π > 0)
+		data(_) * mapping(:a, :π) * visual(Lines)
+		draw
+	end
+		
+	#=
+	
+
+	(; high, low) = weighted_neighbours(aⱼ₊₁, a_grid)
+	
+	P = DimArray(y_chain.p, (Dim{:from}(y_grid), Dim{:y}(y_grid)))
+
+	P[from = At(yⱼ)]
+
+	
+
+	π[j = At(j+1), a = At(high.x)] .+= high.weight .* P[from = At(yⱼ)]
+	π[j = At(j+1), a = At(low.x)]  .+= low.weight .* P[from = At(yⱼ)]
+
+	π[j = At(j+1)] .> 0 |> sum
+	#a_next[j = At(0)] #|> collect .|> first
+
+#	getproperty.(ind, :val) #getproperty.(ind[1]).val
+	
+#	a_next[j = At(0)]
+	# =#
+end
+
+# ╔═╡ 17e397d2-cdd4-4335-bfba-557bbe2615e5
+let
+	@chain risky_out.policies begin
 		DataFrame
 		@transform(:Δ = :c_x - :c)
 		@subset(:j < 10, :a < 5)
@@ -843,9 +958,6 @@ let
 		) * visual(Lines)
 		draw(facet = (; linkyaxes = false))
 	end
-	#@info @test out.K_hh ≈ 6.169575851057367
-	
-	#(; sol, K_hh) = out
 end
 
 # ╔═╡ 13173588-b32f-48cd-8234-6a45673bfd01
@@ -3134,7 +3246,11 @@ version = "3.6.0+0"
 # ╠═fc1fa5b1-4868-4951-ba14-14d07ccf2ee7
 # ╠═48a39844-3ec1-4300-9ee5-ade8c9a5c1d0
 # ╠═980ec36d-26b7-49b6-bafd-c31ea3a1befe
+# ╠═7df1a518-ece7-4a98-a430-278c1700b564
+# ╠═f4681d7c-e81e-4298-a0f8-ec3b5da96011
+# ╠═b8543ee6-4eb2-4002-8b2b-a5bd6bc5d0ec
 # ╠═46964708-1e84-4e05-bf2d-440efa54efe8
+# ╠═17e397d2-cdd4-4335-bfba-557bbe2615e5
 # ╠═ba932291-dd10-43a1-9f86-8659a66365f5
 # ╠═cac697fa-cde9-4b45-ae7a-e582388e491c
 # ╠═7ff370ce-53e4-40d8-90e0-6712c844dc41
