@@ -69,7 +69,8 @@ function Statespace(; amin, amax, na, y_chain, exponential = true)
 	y_dim = Dim{:y}(y_grid)
 	dims = (a_dim, y_dim)
 	
-	(; a_grid, y_grid, y_chain, dims)
+	(; a_grid = DimVector(a_grid, a_dim, name = :a),
+	   y_grid = DimVector(y_grid, y_dim, name = :y), y_chain, dims)
 end
 
 # ╔═╡ d82f2dcd-6e81-459b-bd53-a31194176b7b
@@ -97,6 +98,41 @@ function default_income_process(;
 )
 	log_rouwenhorst(n, ρ, σ; normalize_mean)
 end
+
+# ╔═╡ fc1fa5b1-4868-4951-ba14-14d07ccf2ee7
+md"""
+# Adapting the code
+"""
+
+# ╔═╡ 980ec36d-26b7-49b6-bafd-c31ea3a1befe
+let
+	statespace = Statespace(; amin = 0.0, amax = 150.0, na = 10, y_chain = default_income_process(normalize_mean = true, n = 6))
+
+end
+
+# ╔═╡ cac697fa-cde9-4b45-ae7a-e582388e491c
+c_prev_risk(c, r, (; β, γ)) = c / (β * (1 + r))^(1/γ)
+
+# ╔═╡ 7ff370ce-53e4-40d8-90e0-6712c844dc41
+a_prev_risk(c_prev, a, y_prev, (; w_prev, r_prev, m_prev)) = (a * (1-m_prev) + c_prev - w_prev * y_prev)/(1+r_prev)
+
+# ╔═╡ 66bc077a-8843-448d-b883-03619b21d6ff
+c_curr_risk(a, a_next, y, (; w, r, m)) = (1+r) * a + y * w - (1-m) * a_next
+
+# ╔═╡ c09a6bd6-9e5f-4265-9a52-71ea586a385d
+# ╠═╡ disabled = true
+#=╠═╡
+function a_prev_c_prev_risk(cⱼ, aⱼ, yⱼ, par; r, r_prev, w_prev, m_prev)
+	cⱼ₋₁ = c_prev_risk(cⱼ, r, par)
+	aⱼ₋₁ = a_prev_risk(cⱼ₋₁, aⱼ; y_prev, 
+				w_prev, r_prev, m_prev)
+		
+	(; cⱼ₋₁, aⱼ₋₁)
+end
+  ╠═╡ =#
+
+# ╔═╡ 64055da7-95a9-4920-abcb-c88f2add29c1
+c_J(a, y, (; r, w)) = (1 + r) * a + w * y
 
 # ╔═╡ 0680a3c4-c437-4d67-bacb-49c34fdded1c
 md"""
@@ -537,68 +573,217 @@ let
 				a_dim,
 				extrapolation_bc=Line()
 		)
-		@info itp(a_grid)
-		@info aⱼ₋₁_interpolated[y = At(y)]
+
 		aⱼ₋₁_interpolated[y = At(y)] = itp(a_grid)
 	end
 
 	aⱼ₋₁_interpolated
+
+	
+end
+
+# ╔═╡ ba932291-dd10-43a1-9f86-8659a66365f5
+function _solve_backward_forward_risk_(::EGM, par, statespace; price_paths, init_state, j_init = 0, t_born = 0)
+	(; J, y, m, a̲) = par
+	(; rs, ws) = price_paths
+	
+	a_init = init_state
+
+	#a_dim = statespace.dims
+	(; a_grid, y_grid, dims) = statespace
+	grid = a_grid
+	a_min = 0.0
+	
+	j_dim = Dim{:j}(0:J)
+	j_sim_dim = Dim{:j}(j_init:J)
+	
+	c_x    = zeros(dims..., j_dim, name = :c_x)
+	c      = zeros(dims..., j_dim, name = :c)
+	a_next = zeros(dims..., j_dim, name = :a_next)
+	
+	## SOLVE BACKWARDS ("solve policy functions")
+	t_J = t_born + J
+	prices_J = (; r = rs[t=At(t_J)], w = ws[t = At(t_J)])
+	c_J_tmp = @d (1 + prices_J.r) .* a_grid .+ prices_J.w .* y_grid
+	
+	     c[j = At(J)] .= c_J_tmp # CHECK CORRECT DIMENSIONS ???
+	   c_x[j = At(J)] .= c_J_tmp # CHECK CORRECT DIMENSIONS ???
+	a_next[j = At(J)] .= 0.0
+	
+	P_dims = (DD.dims(dims, :y), DD.dims(dims, :y))
+	P = DimArray(statespace.y_chain.p, P_dims)
+
+	for j ∈ J:-1:1
+		t = t_born + j
+		cⱼ   = c[j = At(j)]
+
+		prices      = (; r = rs[t=At(t)],   w = ws[t = At(t)],   m = m[j = At(j)])
+		prices_prev = (; r_prev = rs[t = At(t-1)], 
+					   	 w_prev = ws[t = At(t-1)],
+					     m_prev =  m[j = At(j-1)]
+					  )
 		
-	#scatterlines(vec(aⱼ₋₁[y=1]), vec(a_grid))
+		cⱼ₋₁ = let
+			(; γ, β) = par
+			(; r) = prices
+	
+			𝔼u′ = cⱼ .^ (-γ) * P'
+		    
+		    cⱼ₋₁ =  𝔼u′.^(-1/γ) * (β*(1+r)).^(-1/γ)
+			cⱼ₋₁ = DimArray(cⱼ₋₁, name = :cⱼ₋₁)
+		end
+		
+		aⱼ₋₁ = @d a_prev_risk.(cⱼ₋₁, a_grid, y_grid, Ref(prices_prev))
+	
+		for y ∈ DD.dims(dims, :y)
+	
+			cⱼ₋₁_itp = LinearInterpolation(
+				aⱼ₋₁[y = At(y)], 
+				cⱼ₋₁[y = At(y)],
+				extrapolation_bc = Line()
+			)
 
-	#scatter!(
-	#	vec(a_grid), 
-	#	vec(itp(a_grid)),
-	#	color = :darkorange, markersize = 5
-	#)
+			aⱼ_itp = LinearInterpolation(
+				aⱼ₋₁[y = At(y)], 
+				parent(a_grid),
+				extrapolation_bc = Line()
+			)
+	
+			   c_x[j = At(j-1), y = At(y)] .= cⱼ₋₁_itp.(a_grid)
+			a_next[j = At(j-1), y = At(y)] .= #max.(
+				aⱼ_itp.(a_grid)#, a_min)
+		end
 
-	#current_figure()
-	#scatter(vec(aⱼ₋₁), a_grid)
-
-#=	df = DimStack(aⱼ₋₁, cⱼ₋₁) |> DataFrame
-	@chain df begin
-		data(_) * mapping(:aⱼ₋₁, :a, color = :y => nonnumeric) * visual(ScatterLines)
-		draw
+		c[j = At(j-1)] = @d c_curr_risk.(a_grid, a_next[j = At(j-1)], y_grid, Ref((; r = prices_prev.r_prev, w = prices_prev.w_prev, m = prices_prev.m_prev)))
 	end
-=#
-	
-	#DD.dims(aⱼ₋₁, :a) |> collect
-#	DataFrame(aⱼ₋₁[y = 1])
-#	DD.dims(aⱼ₋₁, :a)
-	
-	#itp = linear_interpolation(df.aⱼ₋₁, df.a)
-	#scatter!(a_grid, itp[a_grid])
 
-	#current_figure()
+	
+	
+	return (; c, c_x, a_next) #[j = At(J-1)]
+	
+
+	
 	# =#
-#	scatter(aⱼ₋₁, cⱼ₋₁)
-	#aⱼ₋₁ = DimArray( 
-	#		a_prev.(cⱼ₋₁, a_curr, y_prev'; w_prev, r_prev),
-	#		dims
-	#	)
-	#
-	#DimStack(cⱼ₋₁)
-	
 
-	
-	
-#	first(DimIndices(tmp)) |> typeof
-#	for ind ∈ DimIndices(tmp)
-#		@info ind
-#	end
-	#for y ∈ DD.dims(tmp, :y), a ∈ DD.dims(tmp, :a)
-	#	a ∈
-	#	@info y
-	#end
 
-	#eachindex(tmp) |> collect
-	#df = solve_imrohoroglu(household, statespace, prices)
+	############
+	for j ∈ J:-1:1
+		t = t_born + j
+		
+		cⱼ   = c[j = At(j)]
 
-	#@info @test CSV.read("egm-test-bc.csv", DataFrame) ≈ df
-	
-	#CSV.write("egm-test-bc.csv", df)
+		cⱼ₋₁_aⱼ₋₁_df = 0.0 #a_prev_c_prev_risk.(cⱼ, grid, Ref(par); 
+				#r = rs[t = At(t)], r_prev=rs[t = At(t-1)], w_prev=ws[t = At(t-1)],
+				#y_prev=y[j = At(j-1)], m_prev=m[j = At(j-1)]) |> DataFrame
 
+		df₀ = cⱼ₋₁_aⱼ₋₁_df
+
+		(; cⱼ₋₁, aⱼ₋₁) = df₀
+			
+		cⱼ₋₁_itp = LinearInterpolation(aⱼ₋₁, cⱼ₋₁, extrapolation_bc = Line())
 	
+		c[j = At(j-1)] .= cⱼ₋₁_itp.(grid)
+	end
+
+	return c
+	
+	## SOLVE FORWARD "simulate"
+	a_sim      = zeros(j_dim, name = :a)
+	a_next_sim = zeros(j_dim, name = :a_next)
+	c_sim      = zeros(j_dim, name = :c)
+		
+	a_sim[j = At(j_init)] = a_init
+	
+	for j ∈ j_init:J
+		t = t_born + j
+		aⱼ = a_sim[j = At(j)]
+			
+		cⱼ_itp = LinearInterpolation(grid, c[j = At(j)], extrapolation_bc = Line())
+			
+		cⱼ = cⱼ_itp(aⱼ)
+		
+		aⱼ₊₁ = a_next(cⱼ; a=aⱼ, w=ws[t = At(t)], y=y[j=At(j)], r=rs[t = At(t)], m=m[j=At(j)])
+
+		#@info (; j, aⱼ₊₁)
+		# handling the constraint
+		if j == J
+			a̲ = 0.0
+		end
+		if aⱼ₊₁ < a̲
+			aⱼ₊₁ = a̲
+			cⱼ = c_curr(aⱼ, aⱼ₊₁; w=ws[t = At(t)], y=y[j=At(j)], r=rs[t = At(t)], m=m[j=At(j)])
+		end
+
+		c_sim[j = At(j)] = cⱼ
+		a_next_sim[j = At(j)] = aⱼ₊₁
+		
+		if j < J
+			a_sim[j = At(j+1)] = aⱼ₊₁
+		end	
+	end
+
+	sim_df = DataFrame(DimStack(a_sim, c_sim, a_next_sim))
+
+	(; sim_df, path_state = a_sim, c)
+end
+
+# ╔═╡ 5a947389-9c8c-4ac3-b162-b93a30479d1f
+function solve_backward_forward_risk(M::EGM, par, statespace; r, w, init_state)
+	(; J) = par
+	
+	rs = DimArray(fill(r, J+1), Dim{:t}(0:J))
+	ws = DimArray(fill(w, J+1), Dim{:t}(0:J))
+
+	price_paths = (; rs, ws)
+	
+	_solve_backward_forward_risk_(M, par, statespace; price_paths, init_state)
+end
+
+# ╔═╡ ae0252ca-4a39-4581-9fd4-b99f635a6ca8
+function partial_equilibrium_risk(par, statespace, (; K_guess, r, w); 
+								  pmf = pmf(par.m), 
+								  details = true, return_df = false,
+								  init_state = statespace.a_grid[1],
+								  solution_method = EGM()
+								 )
+	(; bonds2GDP) = par
+
+	sol = solve_backward_forward_risk(
+		solution_method, par, statespace; r, w, init_state
+	)
+
+	#=
+	(; sim_df) = sol
+
+	agg_nt = aggregate(sim_df, pmf)
+
+	GDP = output(K_guess, par)
+	B₀ = bonds2GDP * GDP
+	
+	K_hh = agg_nt.a
+	
+	K_supply = K_hh - B₀
+	ζ = K_supply - K_guess
+
+	if details
+		#= @info @chain sim_df begin
+			leftjoin(_, DataFrame(pmf), on = :j)
+			stack([:a, :a_next, #= :c, :y, :m,=# :pmf], :j)
+			data(_) * mapping(:j, :value, layout = :variable) * visual(Lines)
+			draw(facet = (; linkyaxes = false))
+		end
+		=#
+
+		#@info NamedTuple{(:K_guess, :r, :w)}(round.((K_guess, r, w), sigdigits = 4)) |> repr
+		if return_df
+			return (; ζ, K_guess, r, w, K_hh, K_supply, B₀, par, sol, pmf_df= DataFrame(pmf))
+		else
+			return (; ζ, K_guess, r, w, K_hh, K_supply, B₀, par, sol)
+		end
+	else
+		return ζ
+	end
+	=#
 end
 
 # ╔═╡ 4e6216db-e6fe-4bdc-9bd4-d22e9edc532a
@@ -625,6 +810,43 @@ function get_par(;
 		m, J, γ, a̲,
 		y, u,
 		w = 1.0)
+end
+
+# ╔═╡ 46964708-1e84-4e05-bf2d-440efa54efe8
+let
+	y = income_profile(120, 41)
+	
+	par = get_par(; demo = :lifecycle, y, a̲ = 0.0)
+
+	statespace = Statespace(; amin = 0.0, amax = 150.0, na = 100, y_chain = default_income_process(normalize_mean = true, n = 6))
+	
+	#statespace = let
+	#	a_grid = statespace.a_grid
+	#	a_grid = range(0.0, 12.0, length = 600)
+	#	(; a_grid, dims = (Dim{:a}(a_grid), ))
+	#end
+	
+	K_guess = 4.522301994771901
+	r = interest_rate(K_guess, par) 
+	w = wage(K_guess, par)
+
+	
+	(; c, c_x, a_next) = partial_equilibrium_risk(par, statespace, (; K_guess, r, w), return_df = true)
+
+	@chain DimStack(a_next, c, c_x) begin
+		DataFrame
+		@transform(:Δ = :c_x - :c)
+		@subset(:j < 10, :a < 5)
+		data(_) * mapping(
+				:a, :Δ,
+				group = :j => nonnumeric, color = :j,
+				layout = :y => nonnumeric
+		) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end
+	#@info @test out.K_hh ≈ 6.169575851057367
+	
+	#(; sol, K_hh) = out
 end
 
 # ╔═╡ 13173588-b32f-48cd-8234-6a45673bfd01
@@ -2902,7 +3124,6 @@ version = "3.6.0+0"
 # ╔═╡ Cell order:
 # ╠═10d34c05-63e9-444e-aff8-bc7aa82858eb
 # ╠═c9106199-39e7-4af5-bd33-16923e5b28ff
-# ╠═48a39844-3ec1-4300-9ee5-ade8c9a5c1d0
 # ╠═a2b8696d-ff6c-42e2-9c76-5dd45a882487
 # ╠═68c038ec-c197-4044-8b3a-26974f284e8b
 # ╠═46170d0a-d23b-4e7e-bf34-bb181db8dd20
@@ -2911,6 +3132,18 @@ version = "3.6.0+0"
 # ╠═8daf8548-2245-4271-80f7-d8a352687260
 # ╠═45caaf75-c1bb-40d0-b4e7-5039d1ba3ba4
 # ╠═3128e1c7-2e13-4bd5-b6b7-9d3b90a126b3
+# ╠═fc1fa5b1-4868-4951-ba14-14d07ccf2ee7
+# ╠═48a39844-3ec1-4300-9ee5-ade8c9a5c1d0
+# ╠═980ec36d-26b7-49b6-bafd-c31ea3a1befe
+# ╠═46964708-1e84-4e05-bf2d-440efa54efe8
+# ╠═ba932291-dd10-43a1-9f86-8659a66365f5
+# ╠═cac697fa-cde9-4b45-ae7a-e582388e491c
+# ╠═7ff370ce-53e4-40d8-90e0-6712c844dc41
+# ╠═66bc077a-8843-448d-b883-03619b21d6ff
+# ╠═c09a6bd6-9e5f-4265-9a52-71ea586a385d
+# ╠═64055da7-95a9-4920-abcb-c88f2add29c1
+# ╠═ae0252ca-4a39-4581-9fd4-b99f635a6ca8
+# ╠═5a947389-9c8c-4ac3-b162-b93a30479d1f
 # ╠═0680a3c4-c437-4d67-bacb-49c34fdded1c
 # ╠═67196d11-9bcc-4512-a707-189ab3f3104b
 # ╠═14c512b8-2f0e-4831-a1b4-4e66f3e061f5
