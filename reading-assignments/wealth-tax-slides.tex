@@ -186,7 +186,82 @@
     \end{itemize}
 \end{frame}
 
+\section{\cite{boar2023income-or-wealth}}
 
+\begin{frame}{Overview}
+    \begin{itemize}
+        \item Capital income tax is better than wealth tax
+        \item Losses from misallocation are much smaller
+        \item 
+        \item \cite{guvenen2023use}: capital usage is tied to entrepreneurial skill
+        \item \cite{boar2023income-or-wealth}: unskilled people can rent capital to firm
+        \item Transition dynamics vs Steady states
+        \item \cite{boar2023income-or-wealth} use simpler model
+    \end{itemize}
+    
+\end{frame}
+\begin{frame}{Model}
+
+    \begin{itemize}
+        \item Infinite horizon, no deaths/births
+        \item capital can be used twice by entrepreneurs; income is given by
+        \begin{equation*}
+            i_t =  w_t e_t (1 - \ell_t) + r_{t-1} a_t + \pi_t(a_t, z_t)
+        \end{equation*}
+        \item ($\implies$ all entrepreneurs produce?)
+        \item firm \& entrepreneurs produce the same good
+        \item entrepreneurs provide only 37\% of output
+       
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Table 2}
+    \centering
+    \includegraphics[scale = 0.6]{BM_Tab_2.png}
+\end{frame}
+
+\begin{frame}{Table 3}
+    \centering
+    \includegraphics[scale = 0.6]{BM_Tab_3.png}
+\end{frame}
+
+\begin{frame}{Figure 1}
+    \centering
+    \includegraphics[scale = 0.45]{BM_Fig_1.png}
+\end{frame}
+
+
+\begin{frame}{Criticisms}
+    \begin{itemize}
+        \item measuring welfare changes along the transition is good, but
+        \begin{itemize}
+            \item why don't show steady-state comparison first? (does the transition flip the result?)
+            \item why don't let people die (perpetual youth)
+        \end{itemize}
+        \item simple income process: permanent/persistent vs transitory shocks is standard
+        \item lacking explantion of differences vs \cite{guvenen2023use}
+        \item capital can be used twice by entrepreneurs
+        \item entrepreneur's production is perfectly substitutable
+        \item don't decompose welfare changes
+    \end{itemize}
+    
+\end{frame}
+
+\begin{frame}{Insights}
+    \begin{itemize}
+        \item measure of welfare change matters
+        \begin{equation*}
+            \int \frac{\Delta_i^{1 - x}}{1-x} di
+        \end{equation*}
+        \begin{itemize}
+            \item \citet{guvenen2023use} use $x=0$
+            \item \citet{boar2023income-or-wealth} use $x = \sigma$ (CRRA parameter) 
+        \end{itemize}
+        \item $x$ captures preference for (in)equality
+     
+    \end{itemize}
+    
+\end{frame}
 \bibliographystyle{ecta}
 \bibliography{../inequality}
 
