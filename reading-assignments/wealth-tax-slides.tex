@@ -61,25 +61,23 @@
    \centering \structure{What will happen in the long-run?}
 \end{frame}
 
-\begin{frame}{Model}
-    
-\end{frame}
-
-\begin{frame}{Extensions over simple Aiyagari from lecture}
+\begin{frame}{Recall: Aiyagari}
+    \begin{align*}
+    V(a, y) &= \max_{c, a'} \left\{ u(c) + \beta \mathbb{E}[V(a', y')] \right\} \\
+    &\begin{aligned} \text{s.t. } & c + a' = (1 + r) a + y
+        \\
+       % &\textcolor{red}{r = r(a) + \sigma(a) \cdot x} \\
+        &y \sim \text{some Markov Chain} \\
+        &a' \geq \underline{a}
+    \end{aligned}
+    \end{align*}
+    where
     \begin{itemize}
-        \item entrepreneurs vs workers
-        \item lifecycle, age-specific death rates, bequests
-        \item endogenous labor supply
-        \item various taxes
+        \item $a$ is current assets,
+        \item $y$ is risky labor income,
+        \item $r$ is the interest rate,
+        \item $\beta$ is the discount factor.
     \end{itemize}
-\end{frame}
-
-\begin{frame}{Entrepreneurs vs workers}
-    \begin{itemize}
-        \item households work in the firm
-        \item entrepreneurs 
-    \end{itemize}
-    
 \end{frame}
 
 \begin{frame}{Skills}
@@ -105,33 +103,6 @@
     \end{itemize}
 \end{frame}
 
-\begin{frame}{Production side}
-    \begin{itemize}
-        \item Final output: $Y = F(K_e, X)$, where $K_e$ is entrepreneurial capital and $X$ is the intermediate good.
-        \item Intermediate good $X$ is produced by specialized firms using labour and technology.
-        \item Bonds market: agents trade risk-free bonds $B$ at interest rate $r_b$ to finance investment and smooth consumption.
-    \end{itemize}
-\end{frame}
-
-\begin{frame}{Recall: Aiyagari}
-    \begin{align*}
-    V(a, y) &= \max_{c, a'} \left\{ u(c) + \beta \mathbb{E}[V(a', y')] \right\} \\
-    &\begin{aligned} \text{s.t. } & c + a' = (1 + r) a + y
-        \\
-       % &\textcolor{red}{r = r(a) + \sigma(a) \cdot x} \\
-        &y \sim \text{some Markov Chain} \\
-        &a' \geq \underline{a}
-    \end{aligned}
-    \end{align*}
-    where
-    \begin{itemize}
-        \item $a$ is current assets,
-        \item $y$ is risky labor income,
-        \item $r$ is the interest rate,
-        \item $\beta$ is the discount factor.
-    \end{itemize}
-\end{frame}
-
 \begin{frame}{Aiyagari with lifecycle, entrepreneurs and labor choice}
     \begin{align*}
     V_j(a, e) &= \max_{c, \ell, a', b} \left\{\phi_j u(c, (1-\ell)) + (1-\phi_j)v(b) + \beta \mathbb{E}[V(a', e')] \right\} \\
@@ -150,6 +121,15 @@
         \item $\pi(a, z)$
     \end{itemize}
 \end{frame}
+
+\begin{frame}{Production side}
+    \begin{itemize}
+        \item Final output: $Y = F(K_e, X)$, where $K_e$ is entrepreneurial capital and $X$ is the intermediate good.
+        \item Intermediate good $X$ is produced by specialized firms using labour and technology.
+        \item Bonds market: agents trade risk-free bonds $B$ at interest rate $r_b$ to finance investment and smooth consumption.
+    \end{itemize}
+\end{frame}
+
 
 %\begin{frame}{Tax reform}
 %    \begin{itemize}
