@@ -1,0 +1,19 @@
+\setbeamertemplate{title page}{
+\begin{minipage}[b][\paperheight]{\textwidth}
+\ifx\inserttitlegraphic\@empty\else\usebeamertemplate*{title graphic}\fi
+\vfill%
+\ifx\inserttitle\@empty\else\usebeamertemplate*{title}\fi
+\ifx\insertsubtitle\@empty\else\usebeamertemplate*{subtitle}\fi
+\usebeamertemplate*{title separator}
+\ifx\beamer@shortauthor\@empty\else\usebeamertemplate*{author}\fi
+\ifx\insertinstitute\@empty\else\usebeamertemplate*{institute}\fi
+\ifx\insertdate\@empty\else\usebeamertemplate*{date}\fi
+\vfill
+\vspace*{1mm}
+\end{minipage}
+}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
