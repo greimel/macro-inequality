@@ -7,6 +7,17 @@
 %\preauthor{}
 %\postauthor{}
 
+\usepackage{xcolor}
+
+\newcommand{\red}{\textcolor{red}}
+\newcommand{\orange}{\textcolor{orange}}
+\newcommand{\gray}{\textcolor{gray}}
+\newcommand{\green}{\textcolor{green}}
+\newcommand{\blue}{\textcolor{blue}}
+
+\newcommand{\new}{\red{\emph{NEW!}} }
+\newcommand{\maybe}{\orange{\emph{NEW?}} }
+
 \usepackage{amsmath,amssymb,amsthm,mathtools}
 \usepackage{bm}
 \usepackage{booktabs,hyperref}
@@ -14,20 +25,16 @@
 \bibliographystyle{ecta}
 
 \begin{document}
-\noindent {\LARGE Topics in Distributional Macroeconomics}
+\noindent {\LARGE Macroeconomics and Inequality}
 
-\medskip \noindent {\large Elective Course, Tinbergen Institute, May/June 2022}
+\medskip \noindent {\large MSc Economics, University of Vienna}
 
-\subsection*{Lecturers}
+\subsection*{Lecturer}
 
-Fabian Greimel (coordinator), \url{https://www.greimel.eu}
+Fabian Greimel, \url{https://www.greimel.eu}
 
-\noindent
-Stefanie J. Huber, \url{https://sites.google.com/site/stefaniehuber/}
-
-\noindent
-Enrico Perotti, \url{https://www.enricoperotti.eu}
-
+%\noindent
+%Stefanie J. Huber, \url{https://sites.google.com/site/stefaniehuber/}
 
 \subsection*{Description}
 
@@ -42,116 +49,89 @@ The focus of the course is on topics, rather than computational methods. (These 
 \subsection*{Topics}
 
 \begin{enumerate}
-\item Consumer Credit and Default (May 11, Greimel)
-\item Household Balance Sheets and Recessions (May 18, Greimel)
-\item Inequality, Interest Rates and Household Debt (May 25, Greimel \& Perotti)
-\item Monetary Policy, Heterogeneity and HANK (June 8, Greimel)
-\item Behavioral Macroeconomics (June 15, Huber)
+\item $J$-period lifecycle model
+\item Overlapping generations
+\item Infinite horizon
+\item Income risk, borrowing constraints
+\item 
+\item 
+\item Modelling the wealth distribution
+\begin{itemize}
+  \item Wealth inequality
+  \item Wealth taxes
+\end{itemize} 
+\item Welfare
+\item Housing
+\begin{itemize}
+  \item Housing 
+\end{itemize}
 \end{enumerate}
 
 \subsection*{Evaluation}
 
 \begin{enumerate}
-\item Group homeworks
-\item Presentation of a paper
-\item Research proposal
+\item Assignments
+\item Midterm exam
+\item Final exam
 \end{enumerate}
 
 \subsection*{Structure and Content}
 
-\paragraph{Week 1: Introduction and consumer credit (Greimel)}
 \begin{enumerate}
-\item Introduction
-  \begin{enumerate}
-  \item Heterogeneity in Macroeconomics: Some History (Based on lecture notes by Ben Moll)
-  \item Policy relevance
-  \item Modeling income and wealth inequality
-  \item Modeling secured and unsecured debt
-  \item infinite lifetime vs perpetual youth vs lifecycle model
-  \end{enumerate}
+ \item Household Balance Sheets and the Great Recession
+  %  \begin{enumerate}
+  %  \item \cite{mian2013household}
+  %  \item \cite{berger2015consumption}
+  %  \end{enumerate}
+ \item Housing Wealth Effects: How Consumption Reacts to a House Price Bust
+  %  \begin{enumerate}
+  %  \item \cite{berger2018house}
+  %  \item \cite{guren2021housing}
+  %  \end{enumerate}
+%   \item Saving Glut of the Rich  \citep{kumhof2015inequality,mian2021indebted-demand}
+   \item Social comparisons and trickle-down consumption
+     \citep{bertrand2016trickle, bellet2024mcmansion, drechsel2025falling-behind}
+   \item Microeconomics Heterogeneity and Macroeconomic Shocks \citep{kaplan2018microeconomic}
+   \item Inequality and growth \citep{moll2022uneven}
+   \item \citet{hubmer2021sources} decompose wealth inequality into various sources. Earnings, tax progressivity, and return heterogeneity (Table 2)
 
-\item Consumer Credit and Default \citep{athreya2002welfare,chatterjee2007quantitative,livshits2007consumer}, surveyed by \citet{exler2020consumer}
+   Exercise: How does wealth inequality depend on the tax system. (Progressive taxes lower wealth inequality compared to a flat tax.)
+
+   \item \citet{guvenen2023use}
+   \item \citet{fagereng2022asset}
+   \item \citet{guvenen2022global} insights from the GRID project
 \end{enumerate}
 
-\paragraph{Week 2: Household balance sheets (Greimel)}
+
+\section{Lecture by lecture}
+
+\subsection{Part 1: Preliminaries}
+
+\subsection{Part 2: Wealth inequality}
 
 \begin{enumerate}
-\item Household Balance Sheets and the Great Recession
-  \begin{enumerate}
-  \item \cite{mian2013household}
-  \item \cite{berger2015consumption}
-  \end{enumerate}
-\item Housing Wealth Effects: How Consumption Reacts to a House Price Bust
-  \begin{enumerate}
-  \item \cite{berger2018house}
-  \item \cite{guren2021housing}
-  \item \cite{greimel2019understanding}
-  \end{enumerate}
+  \item {}[Feature] Income risk and credit constraints (I)
+  \item {}[Feature] Income risk and credit constraints (II)
+  \item \new Taking $J \to \infty$
+  \item Household as a Markov Chain
+  \item Modelling the Wealth Distribution
+  \item {}[Paper] Wealth inequality \citep{hubmer2021sources}
+  \item {}[Paper] \new Housing markets and Wealth inequality (Kindermann)
+  \item \new Measuring Social Welfare (for policy evaluation)
+  \item \maybe (Housing markets and wealth inequality II (redistribution from renters to landlords?))
+  \item {}[Feature] \new Entrepreneurs
+  \item {}[Paper] Wealth taxes (I) \citep{guvenen2023use}
+  \item {}[Paper] Wealth taxes (II) \citep{boar2023income-or-wealth}
 \end{enumerate}
 
-\paragraph{Week 3: Inequality, interest rates and household debt in the long-run}
+\subsection{Part 3: Bonus topics}
 
 \begin{enumerate}
-  \item First Part (Greimel)
-  \begin{itemize}
-  \item Saving Glut of the Rich  \citep{kumhof2015inequality,mian2021indebted-demand}
-  \item Social comparisons and trickle-down consumption
-    \citep{bertrand2016trickle, bellet2019mcmansion, drechsel2021falling-behind}
-  \end{itemize}
-  
-\item Second Part (Perotti)
-  \begin{itemize}
-  \item Redistributive Growth \citep{doettling2020secular}
-  \end{itemize}
+  \item {} [Paper] \maybe Microeconomics Heterogeneity and Macroeconomic Shocks \citep{kaplan2018microeconomic}
+  \item {} [Paper] \maybe CO$_2$ tax
 \end{enumerate}
 
-\paragraph{Week 4: Monetary Policy, Heterogeneity and HANK (Greimel)}
-\begin{itemize}
-\item Microeconomics Heterogeneity and Macroeconomic Shocks \citep{kaplan2018microeconomic}
-\item Original HANK \citep{kaplan2018monetary}
-\item Simple HANK \citep{bilbiie2018analytical}
-\end{itemize}
 
-\paragraph{Week 5: Behavioral macroeconomics (Huber)}
-\begin{enumerate}
-\item Empirical Evidence on cross-country heterogeneity in House Price Booms and Busts \citep{Huber:2019}
-\item The Rent versus Buy Decision: User Cost Approach
-  versus Behavioral Concepts
-  \citep{Huber:2022,Huber:2020}
-\item Social Networks, Experience Effects and Expectations 
-  \citep{Kuchler:2019, bailey2018housing, Malmendier:2019, kaplan2020housing}
-\item Survey: \citep{kuchler2022expectations}
-\end{enumerate}
-
-\paragraph{Weeks 6 \& 7: Student presentations}
-
-\begin{itemize}
-\item Inequality and growth
-  \begin{itemize}
-  \item \citet{moll2022uneven}
-  \item \citet{lippi2021unequal}
-  \end{itemize}
-\item Innovation, productivity and market power
-  \begin{itemize}
-  \item \citet{deloecker2020market-power}
-  \item \citet{liu2022interest-power}
-  \item \citet{akcigit2019business-dynamism}
-  \item \citet{aghion2018innovation-inequality}
-  \item \citet{acemoglu2018innovation-growth}
-  \end{itemize}
-\item Behavioural Consumer Credit
-  \begin{itemize}
-  \item over-optimism: \citep{exler2020over-optimistic}
-  \item present bias \citep{laibson2021present}
-  \end{itemize}
-\item Other
-  \begin{itemize}
-  \item \citet{bailey2019beliefs-leverage}
-  \item \citet{laibson2022mpc-to-mpx}
-  \item more suggestions to follow
-  \item \dots or make your own suggestion
-  \end{itemize}
-\end{itemize}
 
 % \section{Models \& Code}
 
