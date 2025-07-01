@@ -1,935 +1,1080 @@
 ### A Pluto.jl notebook ###
 # v0.20.8
 
-#> [frontmatter]
-#> chapter = 8
-#> section = 5
-#> order = 5
-#> title = "Sequence space jacobian"
-#> layout = "layout.jlhtml"
-#> tags = ["unfinished"]
-#> description = ""
-
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ d16f7d1b-b994-4950-bd57-e8b65265b445
-using Setfield: @set!
+# ╔═╡ c9da52e2-098a-46c4-acbf-173fce6965d8
+using PlutoUI
 
-# ╔═╡ 17c3ce8a-f6ce-4877-80e5-bcc7d5cb241f
-using BasicInterpolators: LinearInterpolator, NoBoundaries
+# ╔═╡ acd91d10-53a9-44f2-8e91-ce058a30535b
+using Chain, DataFrames, DataFrameMacros
 
-# ╔═╡ e1f5de7f-2f79-4347-a5c1-5fefbca387c0
-using ForwardDiff: ForwardDiff
+# ╔═╡ 33b42231-663b-4e3f-ba4c-18f0a1ce24ea
+using CairoMakie, AlgebraOfGraphics
 
-# ╔═╡ 51910340-cd95-42d4-a86f-698524419dc1
-using SparseArrays: sparse
+# ╔═╡ 4741eb11-c44c-4141-bb02-269ff2b78ad2
+using PlutoTest
 
-# ╔═╡ 289a93b3-35ef-4202-a842-8347bc75527e
-using LinearAlgebra: I # represents identity matrix of arbitrary size
+# ╔═╡ 5c1537af-7d35-4231-84a4-3aef4e998e31
+using StatsBase
 
-# ╔═╡ 4e059acd-8ef1-448f-84ec-068ebb8adb89
+# ╔═╡ d7bd570b-3e14-476c-8337-7edbab49980a
+using DimensionalData
+
+# ╔═╡ 91ddd974-9d67-4cd3-b4f8-60521c37baaa
+using LinearAlgebra: dot
+
+# ╔═╡ 2db71af0-fcc7-4822-a6cc-bbcf07107182
 using Roots: find_zero
 
-# ╔═╡ ead31806-1c52-4aab-848e-10fdf2459b0a
-using QuantEcon: rouwenhorst
+# ╔═╡ fd369634-4ddb-40cf-a1a0-e7e6282b7595
+using Interpolations
 
-# ╔═╡ 6367fa56-1118-4ff7-98c1-a065ee82addd
-using PlutoUI: TableOfContents
+# ╔═╡ 8daf8548-2245-4271-80f7-d8a352687260
+using QuantEcon: QuantEcon, rouwenhorst, MarkovChain, stationary_distributions
 
-# ╔═╡ f298f640-073e-46bc-9bde-b2eb066cd274
-using DataFrames: DataFrame
+# ╔═╡ 45caaf75-c1bb-40d0-b4e7-5039d1ba3ba4
+using Statistics: mean
 
-# ╔═╡ bba8b62a-a68a-4d04-ad06-a61e2ae88a19
-using DataFrameMacros
+# ╔═╡ 3128e1c7-2e13-4bd5-b6b7-9d3b90a126b3
+using StatsBase: weights
 
-# ╔═╡ 69d08f00-1bb2-4f93-a8ab-f7ac00a63f34
-using Chain: @chain
-
-# ╔═╡ 1f61e4a1-b3a2-430f-8089-06b0714a9ba7
-using CairoMakie
-
-# ╔═╡ bab8326e-5e8f-4a8d-8efa-f4a5ec1ceea3
-using AlgebraOfGraphics: data, mapping, visual, draw, draw!, nonnumeric
-
-# ╔═╡ fde84d77-ca84-4389-a89d-8a3ad41641fe
+# ╔═╡ 254ef9ca-038e-4bf3-bca6-46560561e602
 md"""
-_Slightly adapted from_ [Matthias Hänsel's notebook](https://github.com/mhaense1/SSJ_Julia_Notebook)
+# Setup
 """
 
-# ╔═╡ 8b8b913e-9758-11ee-07bc-cb7712eed09d
-md"""
+# ╔═╡ 50a9974a-85f6-45f8-b337-8032502cd0a1
+function simple_initial_distribution(statespace)# ; a_ind=1)
+	(; dims, y_grid, a_grid) = statespace
 
-# Solving Heterogeneous Agents models using Sequence Space Jacobians - from scratch!
-
-## by Matthias Hänsel
-
-This notebook demonstrates how to solve a neoclassical Heterogenous Agents business cycle model using the Sequence Space Jacobian (SSJ) linearization method proposed by  *[Auclert et al. (2021 - henceforth ABRS)](https://onlinelibrary.wiley.com/doi/full/10.3982/ECTA17434)*
-
-ABRS themselves have written a comprehensive *[Python package](https://github.com/shade-econ/sequence-jacobian)* implementing their method. In many cases, you may simply want to use that.
-
-However, in case you do not want to, e.g. because you prefer to use a different language or use model extensions not easily accommodated by their package, you'll have to program up things yourself. Here, I show you how that can be done for the simple Krusell and Smith (1998)-type model also used in the ABRS paper.
-
-This notebook focusses on practical implementation in **Julia**, for the theory behind you should read the paper. The hope is that understanding how to implement the method for a simple setting will also help you understanding how you can use it for different, more complicated environments.
-
-The notebook assumes some familiarity with Julia and features the following parts:
-
-1. Description of the model
-2. Solving/Calibrating the steady state 
-3. Implementing the SSJ method
-
-* I tried to focus more on a *clear* and *simple* implementation instead one optimized for speed.
-
-
-* You'll see that once you can implement the model's steady state, getting linearized IRFs using SSJ is fairly easy.
-
-
-* In Julia, you can easily get the Jacobians of the Heterogenous Block using *automatic differentiation* with the `ForwardDiff.jl` package. This can potentially give you more exact Jacobians compared to the ABRS package relying on finite differences.
-
-
-"""
-
-# ╔═╡ c68eabcf-5846-484e-8945-bde27002cc60
-md""" 
-## The model
-
-The description (mostly) follows the ABRS paper.
-
-### Households
-
-* There is a unit mass of ex-ante identical households who differ ex-post by their labor productivity $s$ (''skill'') and asset holdings $a$. 
-
-
-* Skill s follows a time-invariant discrete Markov Chain with $n_s$ states $\mathcal{S}:=\lbrace s_1,s_2,...,s_{n_s}\rbrace$ and exogenous transition probabilities $P(s',s)$. This introduces the income risk. $\pi_s$ denotes the stationary distribution of $P$.
-
-
-* Savings choices $a$ are the solution to the household's consumption saving problem, which is characterized by the following Bellman equation
-```math
-V_t(s,a) = \max_{a'} \frac{c^{1-\sigma}-1}{1-\sigma} + \beta \sum_{s'\in \mathcal{S}}P(s',s)V_{t+1}(s',a') 
-```
-```math
-\text{subject to}~~c+a' = (1+r_t)a + w_ts ~~\text{and}~~a'\geq \bar{a}
-```
-
-* We denote by $D$ the distribution of households, i.e. $D_t(s,a)$ is the mass of households who start the period with skill $s$ and assets $a$. 
-
-### Firms
-
-* Production is done by a neo-classical firm sector employing a Cobb-Douglas technology of form $Y_t = Z_t K_t^\alpha L_t^{1-\alpha}$, where $Z_t$ is TFP. Capital $K_t$ depreciates by $\delta$ every period. Under the standard assumptions, firms input choices will be characterized by 
-```math
-r_t + \delta = \alpha Z_t \left(\frac{K_t}{L_t}\right)^{\alpha-1} ~~\text{and}~~w_t = (1-\alpha) Z_t \left(\frac{K_t}{L_t}\right)^{\alpha} 
-```
-
-
-
-### Market clearing
-
-In an equilibrium, the following market clearing conditions will have to hold:
-
-* Asset market:
-```math
-K_t = \sum_{s\in \mathcal{S}}\int a D(s,a)da
-```
-
-* Labor market
-```math
-L_t = \sum_{s\in \mathcal{S}}\pi_s(s) s
-```
-
-* Good market
-```math
-Y_t = K_{t+1} - (1-\delta)K_t + \underbrace{\sum_{s\in \mathcal{S}}\int c(s,a) D(s,a)da}_{=\text{aggregate consumption}} 
-```
-
-In this model, labor market clearing is trivial as there is no labor supply choice on behalf of hosueholds. Also, if the Asset market clears, the Goods market will also due to Walras' law.
-
-
-### Calibration:
-
-The calibration follows the example model in the ABRS paper and can be seen in the code block below.
-The skill process follows an AR(1)-process in logs that will be discretized to 7 points using the Rouwenhorst method 
-(the function implementing the Rouwenhorst method is off-the-shelf from *[QuantEcon.jl](https://github.com/QuantEcon/QuantEcon.jl)*).
-
-"""
-
-# ╔═╡ fbccf6ee-5cd2-43ba-ba6a-f09fe219d803
-"Calibration of the model"
-Base.@kwdef struct ModelParameters{T}
-	β::T = 0.98 	#Household discount factor - will be changed by calibration
-	σ::T = 1.0   	#relative risk aversion
-    δ::T = 0.025 	#capital depreciation
-    ρs::T = 0.966 	#persistence of HH income process
-    σs::T = (1.0-ρs^2)^0.5 * 0.5 #variance for household income process
-    α::T  = 0.11 	#capital share
-    Z_ss::T = 0.8 	#steady state TFP - will be changed by calibration
-    ρA::T = 0.9 	#persistence of TFP
-    σA::T = 0.007 	#variance of TFP
+	n = length(a_grid)
+	n_half = n ÷ 2
+	
+	#a₀ = a_grid[1]
+	
+	π₀ = zeros(dims, name = :π₀)
+	π₀[a = 1:n_half] .= (1/n_half) ./ length(y_grid)
+	π₀
 end
 
-# ╔═╡ 58332b84-63a4-4b9d-8d7a-34d5a8d5b4c9
-md"""
-The household discount factor will be calibrated to target a steady state interest real rate of $r_{ss}=0.01$, while $Z_{ss}$ is chosen to normalize $Y_{ss}=1$.
+# ╔═╡ a8b5361c-27c5-46c2-8011-d4157c6f7d3e
+function trivial_initial_distribution(statespace ; a_ind=1)
+	(; dims, y_grid, a_grid) = statespace
+	
+	π₀ = zeros(dims, name = :π₀)
+	π₀[a = a_ind] .= 1.0 ./ length(y_grid)
+	π₀
+end
 
-## Implementation
+# ╔═╡ a2b8696d-ff6c-42e2-9c76-5dd45a882487
+function Household(; σ = 1.0, β = 0.96,	
+                      u = σ == 1 ? log : x -> (x^(1 - σ) - 1) / (1 - σ))
+	(; β, u, σ)
+end
 
-### Numerical Set up
-
-* We will represent the households' policy function as well as the distribution $D(s,a)$ on a grid over $s$ and $a$.
-
-
-* The discretization of the skill process $s$ is handled by the Rouwenhorst method
-
-
-* For the asset dimension, we will use an exponentially-spaced grid, which has much more points at the lower end (where the household's policy has more curvature). If $\mathbf{u}(\bar{a},a_{max})$ denotes a uniformly spaced grid between $\bar{a}$ and some $a_{max}$, the exponentially spaced $\mathcal{A}$ grid is given by
-```math
-\mathcal{A} = a_{min} - 1 + \exp(\mathbf{u}(0.0,\log(1+a_{max}-\bar{a})))
-```
-
-
-* Below is a function generting such a grid.
-
-
-
-"""
-
-# ╔═╡ 1cae17bd-4ee4-43af-bc79-5889740c1289
+# ╔═╡ 46170d0a-d23b-4e7e-bf34-bb181db8dd20
 function exponential_grid(amin,amax,na)
 	return exp.(range(0.0, stop=log(amax-amin+1.0), length = na)) .+ amin .- 1.0
 end
 
-# ╔═╡ 611a1c93-86fe-46db-9dd7-1882923d6ce3
-md"""
-* For simplicity, I will be using the same grid for both the household (HH) policy functions and distribution
-
-
-* For accuracy, it may be beneficial to use different ones, e.g. a finer grid for the distribution.
-
-
-* Additionally, we will set some tolerance value for solving the household problem and include everything in a structure called `NumericalParameters`
-
-"""
-
-# ╔═╡ 1a7de3ab-15f3-4ce4-9ae7-5851e2fcade9
-Base.@kwdef struct NumericalParameters{F,I}
-	#include instance of model parameters
-	mp::ModelParameters{F} = ModelParameters()
-
-	# specification for grids
-	na::I 	= 500   #no. of points on asset grids
-	ns::I 	= 7     #no. of points on skill grid
-	amin::F = 0.0   #borrowing limit
-	amax::F = 100.0 #upper end grid
-
-	#set grids and transition matrix for s process
-	s_grid::Vector{F} 	= exp.(rouwenhorst(ns, mp.ρs, mp.σs).state_values)
-	Ps::Matrix{F} 		= rouwenhorst(ns, mp.ρs, mp.σs).p
-	a_grid::Vector{F} 	= exponential_grid(amin, amax, na)
-
-	#tolerance value for HH problem
-	tolHH::F = 1e-10
-
-	#size of Sequence Space Jacobians
-	T::I = 300
+# ╔═╡ 85eca6cf-30ec-4c78-8a77-c17faf7b8d24
+function no_income_risk()
+	MarkovChain(ones(1,1), [1.0])
 end
 
-# ╔═╡ f21c5612-cc36-4c38-88a3-2c52d80f1e11
-md"""
-## Solving the Household Problem
-
-We are now ready to implement code that solves the household problem in the stationary steady state. We will use the Endogenous Grid Method (EGM) by *[Carroll (2006)](https://www.sciencedirect.com/science/article/pii/S0165176505003368)*.
-
-For given **next period** marginal value functions/consumption policy functions, it backs out current policy choices by inverting the Euler equation. It is very efficient as it does not use any numerical root finding or optimization.
-
-Below find the function for the main iterative loop:
-"""
-
-# ╔═╡ 37213ced-a460-40ee-9bd5-fd23d127c8f5
-#"""compute expected marginal value function"""
-function update_EVa(cpol::AbstractArray,r::T,np::NumericalParameters) where T<:Real
-    return (1.0+r)*((cpol.^(-np.mp.σ)))*np.Ps'   
+# ╔═╡ 969a11f3-a32b-41a7-a1c3-12a6e53c26a4
+function simple_income_risk()
+	MarkovChain([0.9 0.1; 0.2 0.8], [0.85, 1.15])
 end
 
-# ╔═╡ eedf7b40-aa00-4df2-a750-a5f6edddf627
-function EGM_update(cPrime::AbstractArray,w,r,rPrime,np::NumericalParameters)
+# ╔═╡ d82f2dcd-6e81-459b-bd53-a31194176b7b
+function log_rouwenhorst(args...; normalize_mean = true)
+	mc₀ = rouwenhorst(args...)
 
-    (; mp, a_grid, s_grid, ns, na, amin) = np
-    (; β, σ) = mp
+	state_values 	= exp.(mc₀.state_values)
 
-	#get
-    EVa = update_EVa(cPrime,rPrime,np)
+	π∞ = QuantEcon.stationary_distributions(mc₀) |> only
 
-	#invert Euler equation
-    c_endog = (β*EVa).^(-1/σ)
-
-    @assert all(x -> x>0, c_endog)
-
-    #vector of labor/transfer incomes for different types
-    inc   = w*s_grid 
-    
-    #calculate assets today consistent with savings choice
-    a_endog = (c_endog .- inc' .+ a_grid)./(1.0 + r)
-
-    #below the points, borrowing constraints become binding
-    constr = a_endog[1,:]
-
-	#pre-allocate some arrays
-    aPrime = zeros(eltype(a_endog),na,ns)
-
-	#for interoperability with ForwardDiff:
-    ag = a_grid .+ zeros(eltype(a_endog),1)
-	#ensures that the grid has the same type as a_endog
-
-    for si = 1:ns #loop over ind. state  
-
-        #interpolate savings for unconstrained states
-        itp_a = LinearInterpolator(a_endog[:,si],ag,NoBoundaries()) 
-			
-        aPrime[:,si] = itp_a.(ag)
-
-		#apply borrowing constraint
-		aPrime[a_grid .< constr[si],si] .= amin
-        
-    end
-
-	#back out consumption from budget constraint
-	c = (1+r) * a_grid .+ inc' .- aPrime
-   
-    return c, aPrime 
-
-end
-
-# ╔═╡ 0ea09255-d6bf-4157-a4f4-f014894f96fe
-md"""
-For solving the household problem in steady state, we keep iterating on this function for fixed $r$ and $w$ until convergence, starting from some intial guess. The function below implements this:
-"""
-
-# ╔═╡ f9d864a1-df93-4acb-b9a1-dcae9f650594
-function solve_EGM_SS(cGuess::AbstractArray, wSS, rSS, np::NumericalParameters;  
-    max_iter::Int = 3000, print::Bool = false)
-
-    c0 = cGuess  
-
-    local c1, a1
-	
-    dist = 1.0; iter = 0
-    while (dist>np.tolHH) & (iter < max_iter)
-
-	    c1, a1 = EGM_update(c0, wSS, rSS, rSS, np)
-	
-	    dist = maximum(abs.(c1 .- c0))
-	
-	    if print & (rem(iter, 100) == 0.0)
-	    	println("iteration: ",iter," current distance: ",dist)
-	    end
-	
-	    #update
-	    c0 = copy(c1)
-
-	    iter += 1
-    end
-
-	#check convergence
-    println("Done after ",iter," iterations, final distance ",dist)
-    if iter == max_iter 
-		@warn "Non-convergence of solve_EGM_SS"
+	if normalize_mean
+		𝔼y = mean(state_values, weights(π∞))
+		state_values ./= 𝔼y
 	end
-
-    return c1, a1
-end
-
-# ╔═╡ 39444ee9-13ec-4788-8bb2-02c49f7a2416
-md"""
-
-For convenience, lets also generate a version of the function that starts with some specified guess:
-"""
-
-# ╔═╡ 1fb98a85-34f5-43ed-9047-40e156d2e87e
-function get_cguess(w,r,np)
-	incs = w*np.s_grid 
- 	return 0.1 .+ 0.1*((1+r)*np.a_grid .+ incs')
-end
-
-# ╔═╡ 84c86387-7c0b-4a54-b2ee-3bd369b33e5e
-function solve_EGM_SS(wSS,rSS,np::NumericalParameters; max_iter::Int = 3000, print::Bool = false)
-
-	c_guess = get_cguess(wSS,rSS,np)
 	
-	return solve_EGM_SS(c_guess,wSS,rSS,np, max_iter = max_iter, print = print)
+	return MarkovChain(mc₀.p, state_values)
 end
 
-# ╔═╡ adb024cf-37d9-48bd-a8b6-5974aa23c8db
-md"""
-
-## Computing the distribution
-
-I will approximate the model's invariant distribution using the non-stochastic simulation method proposed by *[Young (2010)](https://www.sciencedirect.com/science/article/pii/S0165188909001316)*.
-
-Practically, we approximate the continous wealth distribution with a discrete one. How?
-
-* We have wealth gridpoints $\mathcal{A}=\lbrace{a_1,a_2,...,a_{na}\rbrace}$ and income grid points $\mathcal{S}$. The unit mass of households needs to be assigned to the points on $\mathcal{A}\times \mathcal{S}$.
-
-
-* At any gridpoint $(s,a)$, we know the HH savings policy $a'(s,a)$. 
-
-
-* Now, for savings policy $a'$, find the grid point just below and above so that $a_{i-1}<a'<a_{i}$ 
-
-
-* Of the mass of agents with (s,a), we assign a share $w_{i-1} := \frac{a'-a_{i}}{a_{i-1}-a_{i}}$ to point $a_{i-1}$ and $(1-w_{i-1})$ to $a_i$. This preserves the total amount saved of these agents as $w_{i-1}a_{i-1}+(1-w_{i-1})a_i=a'$.
-
-
-* We also need to take into account the income state transitions, so we should thus assign fraction $P(s_1,s)w_{i-1}$ of the mass at $(s,a)$ to $(s_1,a_{i-1})$ and so on.
-
-
-* This way, treating the discretized distribution as a vector $\mathbf{D}$ of length $n_a \times n_s$, for given savings policies $a'(s,a)$ we can construct a stochastic matrix $\Lambda$ that tells us where the masses assigned to the different grid points will go.
-
-
-* The steady state distribution will in turn have to fulfill $\mathbf{D} = \Lambda_{ss}'\mathbf{D}$, which is a linear system we can solve for $\mathbf{D}$ (formally, it is the unit eigenvalue of $\Lambda_{ss}'$).
-
-
-* Below is a function that constructs said transition matrix given policies $a'(s,a)$:
-
-
-"""
-
-# ╔═╡ 762af298-c4bc-400d-b8c6-7bbd135d2ffa
-function build_Λ(a_choice::Matrix, np::NumericalParameters)
-
-    (; na, ns, a_grid, Ps) = np
-
-	#pre-allocate arrays
-    weights_R = zeros(eltype(a_choice),na*ns,ns)
-    weights_L = zeros(eltype(a_choice),na*ns,ns)
-    IDX_col_R = zeros(Int64,na*ns,ns) #where agents "go"
-
-    @views begin
-        for ss = 1:ns
-            for aa = 1:na
-
-            #find closest smaller capital value on grid  
-            al_idx = searchsortedlast(a_grid,a_choice[aa,ss])
-    
-            ss_shifter = (ss-1)*na #inner helper variable
-
-                    #if clause checks for boundary cases
-                    if al_idx == na   
-					#if higher than highest grid point, I assign entire mass to maximum grid point	
-
-                        for sss = 1:ns
-                            weights_R[ss_shifter + aa,sss] += Ps[ss,sss]
-                            IDX_col_R[ss_shifter + aa,sss] = al_idx + (sss-1)*na
-                        end
-
-                    elseif al_idx == 0 
-						#if lower than smallest grid point, I assign entire mass to lowest grid point	
-
-                        for sss = 1:ns
-                            weights_L[ss_shifter + aa,sss] += Ps[ss,sss]
-                            IDX_col_R[ss_shifter + aa,sss] = (sss-1)*na + 2
-                        end
-
-                    else    #regular case - using weights formula
-
-                        wr = ((a_choice[aa,ss] - a_grid[al_idx]) / (a_grid[al_idx+1] 																	- a_grid[al_idx]))
-                        lr = 1.0 - wr
-
-                        for sss = 1:ns
-                            weights_R[ss_shifter + aa,sss] += Ps[ss,sss]*wr
-                            weights_L[ss_shifter + aa,sss] += Ps[ss,sss]*lr                         
-                            IDX_col_R[ss_shifter + aa,sss] = (sss-1)*na + al_idx + 1
-                        end
-
-                    end
-
-            end
-        end
-
-        IDX_from = repeat(1:(na*ns),outer=2*ns)
-        weights = vcat(weights_R[:], weights_L[:])
-        IDX_to = vcat(IDX_col_R[:],IDX_col_R[:] .- 1)
-    end
-
-    #return sparse transition matrix
-    return sparse(IDX_from,IDX_to,weights,na*ns,na*ns)
-
-end
-
-# ╔═╡ a65afbc3-15f0-40cb-9032-e249caf3176a
-md"""
-
-* We should construct $\Lambda$ as a sparse matrix as most of its entries will be $0$
-
-
-* Understanding how it needs to be constructed (and implemented) is probably one of hardest parts of everything here. Perhaps consult additional sources.
-
-
-* Finding the invariant distribution afterwards is very easy:
-"""
-
-# ╔═╡ 108071dd-fb5b-4c25-a062-62a00b58e55f
-"Computing the stationary distribution of a Markov Chain with a sparse transition matrix
-
-[source](https://discourse.julialang.org/t/stationary-distribution-with-sparse-transition-matrix/40301/3)
-"
-function inv_dist(Π::AbstractArray)
-	#Π is a Stochastic Matrix
-    x = [1; (I - Π'[2:end,2:end]) \ Vector(Π'[2:end,1])]
-    return  x./sum(x) #normalize so that vector sums up to 1.
-end
-
-# ╔═╡ 197230d2-3323-44ea-87a0-16063711ee7a
-md"""
-* For potential speed-ups you should look into iterative or Krylov Subspace methods to solve the system instead of relying on `\`. Here, the above will be reasonably fast.
-"""
-
-# ╔═╡ f2191b50-b9f7-4657-85fc-5798264873d6
-md"""
-
-## Solving the steady state
-
-We are now ready to calibrate/solve for the model's steady state. As in the ABRS paper, I will set $\beta$ so that $r_{ss}=0.01$ in Steady State and choose steady state TFP to normalize $Y_{ss}=1$.
-
-
-"""
-
-# ╔═╡ 8e296503-bde8-4d4f-b18f-53a34e3fe8c8
-function β_objective(β,K_target,r_ss,w_ss,np)
-
-	@set! np.mp.β = β
-
-	#solve HH problem
-	c_ss, a_ss = solve_EGM_SS(w_ss,r_ss,np)
-
-	#build transition matrix
-	Λ =  build_Λ(a_ss, np)
-
-	#get invariant distribution
-	D = inv_dist(Λ)
-
-	#aggregate capital stock implied by HH savings
-	K_ss = sum(reshape(D,(np.na,np.ns)).*np.a_grid)
-
-	#return relative distance to target
-	return (K_ss/K_target) - 1	
-end
-
-# ╔═╡ e6172cbd-a77f-4e00-b40f-596fa15caaeb
-# Note: Since NumericalParameters is an immutable struct, I use @set!
-# from the Setfield package to change its elements.
-	
-function get_steady_state(r_target,np::NumericalParameters)
-
-	#unpack objects
-	(; mp, s_grid, na, ns) = np
-	(; δ, α) = mp
-
-
-	#compute steady state labor supply
-	s_dist = inv_dist(np.Ps) #invariant distribution over s
-	L = s_dist'*s_grid 		 #aggregate labor supply
-
-	#normalize steady state labor supply to one
-	@set! np.s_grid = np.s_grid./L ; L = 1.0
-
-	#get steady state K/Y ratio implied by r target
-	KoverY_ss = α/(r_target + δ)
-	K_ss = KoverY_ss #due to Y = 1 normalization
-
-	#choose Z_ss so that indeed Y=1
-	@set! np.mp.Z_ss = 1/(K_ss^α * L^(1-α))
-
-	#get corresponding steady state wage
-	w_ss = (1-α)*np.mp.Z_ss*(K_ss/L)^(α)
-
-	#calibrate β - uses β in np struct as initial guess
-	β = find_zero(b -> β_objective(b,K_ss,r_target,w_ss,np),np.mp.β)
-
-	@set! np.mp.β = β
-
-	#get remaining steady state objectives for correct β
-	c_ss, a_ss = solve_EGM_SS(w_ss,r_target,np)
-
-	#get distribution as (na × ns matrix)
-	D_ss = reshape(inv_dist(build_Λ(a_ss, np)),(na,ns))
-
-	df_ss = [(; a, s) for (a, s) ∈ Iterators.product(np.a_grid, np.s_grid)] |>
-		vec |> DataFrame
-
-	df_pol = DataFrame(;
-		c = vec(c_ss),
-		a_next = vec(a_ss),
-		π = vec(D_ss)
-	)
-	
-	micro_df = [df_ss df_pol]
-	
-	return (; K_ss, L, w_ss, c_ss, a_ss, D_ss, np, micro_df)
-end
-
-# ╔═╡ ce219259-f7a8-43e6-89d9-de8787644046
-md"""
-Now, lets get that steady state (and measure the time):
-"""
-
-# ╔═╡ 229f1996-3a93-43d2-8a65-b2e80ce6b12c
-#Now, lets get our steady state objects
-@time out_ss = 
-	get_steady_state(0.01,NumericalParameters())
-
-# ╔═╡ 487056aa-2c18-45a6-b343-d7c467db7a68
-md"""
-
-* Getting the steady state was pretty fast, although further speed-ups are certainly possible.  
-
-
-* Let's plot some interesting steady state objects:
-
-"""
-
-# ╔═╡ 132054ba-478c-4429-81f5-d8846f842e2f
-md"""
-
-* The consumption function looks as we would expect, steeper close to the borrowing constraint and flatterning out at high wealth levels.
-
-
-* The wealth distribution looks rather ugly, featuring a huge amount of people at the borrowing constraint and some secondary "spikes" points close to it borrowing constraint (as the big amounts of people at the borrowing constraint being hit by the same income shock all choose to save the same amount)
-
-
-# Getting the Sequence Space Jacobians
-
-Now we are ready to apply the ABRS method. Explaining in detail how it works would require quite a bit of text, so read the paper for that. I'll just show you the implementation.
-
-First get the object denoted as ``\mathcal{E}`` in their paper:
-
-"""
-
-# ╔═╡ b085ffea-fb4e-4f61-a081-b546b44fbdcc
-function get_𝓔(Λ,y_ss,np::NumericalParameters)
-
-	𝓔 = zeros(length(y_ss),np.T+1)
-	𝓔[:,1] = y_ss[:]
-
-	for tt = 2:(np.T+1)
-		𝓔[:,tt] = Λ*𝓔[:,tt-1]
+# ╔═╡ 70fc73c5-4154-4a04-99fa-ce084d42ea93
+function default_income_process(;
+	ρ = 0.966, 	          #persistence of HH income process
+    σ = (1.0-ρ^2)^0.5 * 0.5, #variance for household income process
+	n = 7,
+	normalize_mean = true
+)
+	if n > 1 && σ > 0
+		log_rouwenhorst(n, ρ, σ; normalize_mean)
+	else
+		no_income_risk()
 	end
-
-	return 𝓔
 end
 
-# ╔═╡ c76e1c3c-ded9-4fcc-971b-fd011178acae
+# ╔═╡ b0b70488-c50e-46fc-92c4-042b4b59da95
 md"""
-That is pretty simple. For the objects they denote as $\mathcal{Y}$ and $\mathcal{D}$, we need to conduct the backward iteration:
+# Compare methods: no risk
 """
 
-# ╔═╡ b6a0da97-2907-4bd1-9b9a-3469734a9013
-"function that conducts the backwards iterations, taking as inputs the SS and perturbations of w and r"
-function backward_objective(dx_w,dx_r,c_ss,w_ss,r_ss,D_ss,np::NumericalParameters)
+# ╔═╡ 4404bdd9-35f8-4c79-9224-286e356599d5
+md"""
+# Compare methods: with risk
+"""
 
-	#Note: dx_w and dx_r are the perturbations to the wage and interest rate 
-	#T periods in advance
-	
-	(; T) = np
+# ╔═╡ b461ef85-6ed3-479e-b127-e803e55cb374
+md"""
+# General functionality
+"""
 
-	type_ind = dx_w+dx_r #get type of perturbance to initialize containers
+# ╔═╡ d5c68b87-8d39-4486-b1bc-6a9bf6d6745e
+md"""
+### `aggregate`, and `*_equilibrium`
+"""
 
-	#initialize containers
-	K_terms = zeros(eltype(type_ind),T)
-	D_terms = zeros(eltype(type_ind),length(D_ss),T)
-
-	#get values for re-centering 
-	#(cf. Appendix C of Auclert et al. (2021))
-	c_nc = EGM_update(c_ss,w_ss,r_ss,r_ss,np)[1]
-	
-	c_rc = c_ss
-
-	#backward iteration
-	for tt in Iterators.reverse(1:T)
-		if tt==T
-			c_t, aPrime_t = EGM_update(c_rc,w_ss + dx_w,r_ss + dx_r,r_ss,np)
-		elseif tt == (T-1)
-			c_t, aPrime_t = EGM_update(c_rc,w_ss,r_ss,r_ss + dx_r,np)
-		else
-			c_t, aPrime_t = EGM_update(c_rc,w_ss,r_ss,r_ss,np)
-		end
-
-		Λ = build_Λ(aPrime_t,np)
-
-		K_terms[tt] = (aPrime_t[:])'*D_ss[:]
-		D_terms[:,tt] = Λ'*D_ss[:]
-
-		#do re-centering
-		c_rc = c_ss .+ (c_t .- c_nc)
+# ╔═╡ b45d3033-3a14-4c3a-9eeb-62baa71dab3d
+function aggregate(sim_df)
+	agg_nt = @chain sim_df begin
+		stack(Not(:j, :π))
+		@groupby(:variable)
+		@combine(:value = mean(:value, weights(:π)))
+		(; (Symbol.(_.variable) .=> _.value)...)
 	end
-
-	return vcat(K_terms,D_terms[:])
 end
 
-# ╔═╡ 08e8a1b7-181a-4b14-960f-511de6a94b13
-function get_𝒴_𝒟(c_ss,w_ss,r_ss,D_ss,np::NumericalParameters)
+# ╔═╡ 46068b3b-fad4-4ba7-97bb-8c0e43589a96
+wage(K, (; L, α, Θ, δ))          = K ≤ 0.0 ? NaN : (1-α) * Θ * (K/L)^(α)
 
-	(; T, na, ns) = np
+# ╔═╡ 42ca4fde-502d-489f-979b-1213584bb72d
+interest_rate(K, (; L, α, Θ, δ)) = K ≤ 0.0 ? NaN : α * Θ * (K/L)^(α-1) - δ
 
-	#objective function to be differentiated
-	obj_fun(x) = backward_objective(x[1],x[2],c_ss,w_ss,r_ss,D_ss,np::NumericalParameters)
+# ╔═╡ fd045d53-7d11-4dac-824c-0e382b80d4f5
+inverse_interest_rate(r, (; L, α, Θ, δ)) = ((r + δ)/(α * Θ))^(1/(α - 1)) * L
 
-	#automatic differentiation using ForwardDiff
-	derivs = ForwardDiff.jacobian(x -> obj_fun(x),zeros(2))
+# ╔═╡ 94c3c00a-389a-4cc8-97aa-c51339a3ef37
+output(K, (; L, α, Θ, δ))           = K ≤ 0.0 ? NaN : Θ * K^α * L^(1-α)
 
-	#note given way the outputs of obj_fun are saved, need to flip arrays
-	#(done by reverse())
-	𝒴_w = reverse(derivs[1:T,1])  
-	𝒟_w = reverse(reshape(derivs[(T+1):end,1],(na*ns,T)),dims=2)
-	𝒴_r = reverse(derivs[1:T,2])  
-	𝒟_r = reverse(reshape(derivs[(T+1):end,2],(na*ns,T)),dims=2)
+# ╔═╡ 2e383465-5496-43ed-bcec-5607a84a1e26
+md"""
+### `solve_backward_forward`
+"""
+
+# ╔═╡ 86e800fc-97f8-4a79-bc5c-bacfa9f2a6c0
+md"""
+### `solve_forward`
+"""
+
+# ╔═╡ f4681d7c-e81e-4298-a0f8-ec3b5da96011
+function weighted_neighbours(x, x_grid)
+	n = length(x_grid)
+	low_idx = clamp(searchsortedlast(x_grid, x), 1, n)
+    high_idx = clamp(low_idx + 1, 1, n)
+    x_low  = x_grid[low_idx]
+    x_high = x_grid[high_idx]
+
+	span = x_high - x_low
+	weight_high = span == 0.0 ? 1.0 : (x - x_low) / span
+    weight_low = 1.0 - weight_high
 	
-	return 𝒴_w, 𝒟_w,𝒴_r, 𝒟_r
+	high = (; i = high_idx, x = x_high, weight = weight_high)
+	low = (; i = low_idx,  x = x_low,   weight = weight_low)
+	
+	(; high, low)
+	
+end
+
+# ╔═╡ e87157e7-1aef-4ce6-8230-aa2e598d198f
+md"""
+# Method dependent functionality
+"""
+
+# ╔═╡ 4687e30b-6b98-4e85-baed-dfdf2639609a
+md"""
+### Solving backward
+"""
+
+# ╔═╡ bf2cc89f-a272-4539-a172-c0c9b179bea9
+md"""
+### Model related
+"""
+
+# ╔═╡ cac697fa-cde9-4b45-ae7a-e582388e491c
+c_prev_risk(c, r, (; β, γ)) = c / (β * (1 + r))^(1/γ)
+
+# ╔═╡ 7ff370ce-53e4-40d8-90e0-6712c844dc41
+a_prev_risk(c_prev, a, y_prev, (; w_prev, r_prev, m_prev)) = (a * (1-m_prev) + c_prev - w_prev * y_prev)/(1+r_prev)
+
+# ╔═╡ 66bc077a-8843-448d-b883-03619b21d6ff
+c_curr_risk(a, a_next, y, (; w, r, m)) = (1+r) * a + y * w - (1-m) * a_next
+
+# ╔═╡ c09a6bd6-9e5f-4265-9a52-71ea586a385d
+# ╠═╡ disabled = true
+#=╠═╡
+function a_prev_c_prev_risk(cⱼ, aⱼ, yⱼ, par; r, r_prev, w_prev, m_prev)
+	cⱼ₋₁ = c_prev_risk(cⱼ, r, par)
+	aⱼ₋₁ = a_prev_risk(cⱼ₋₁, aⱼ; y_prev, 
+				w_prev, r_prev, m_prev)
 		
+	(; cⱼ₋₁, aⱼ₋₁)
 end
+  ╠═╡ =#
 
-# ╔═╡ f30878da-9b59-4364-a8e4-8bc7ba25d42a
+# ╔═╡ 14c512b8-2f0e-4831-a1b4-4e66f3e061f5
 md"""
-Now, with all these objects, we can construct the sequence space Jacobian $\mathcal{J}$ as described in the ABRS paper. 
-For this purpose, we will first assemble the "fake news matrix" $\mathcal{F}$.
-
+### Budget constraint, parameters
 """
 
-# ╔═╡ 1ec7f486-5949-4762-acb6-228e09f6676d
-function build_𝒥(𝒴,𝓓,𝓔,np::NumericalParameters)
-
-	#construct fake news matrix 𝓕
-	
-	𝓕 = zeros(np.T,np.T)
-
-	𝓕[1,:] = 𝒴 
-	𝓕[2:end,:] .= 𝓔[:,1:(np.T-1)]'*𝓓
-
-	#assemble the Sequence Space Jacobian 𝒥
-
-	𝒥 = zeros(np.T,np.T)
-	𝒥[:,1] .= 𝓕[:,1]
-	𝒥[1,2:end] .= 𝓕[1,2:end]
-
-	for tt = 2:np.T
-		@views 𝒥[2:end,tt] .= 𝓕[2:end,tt] .+ 𝒥[1:(end-1),tt-1]
-	end
-	
-	return 𝒥, 𝓕
+# ╔═╡ 91bbe376-ced2-4b88-b564-b72d7bf0900f
+begin
+	abstract type SolutionMethod end
+	struct VFI <: SolutionMethod end
+	struct EGM <: SolutionMethod end
+	struct Risky <: SolutionMethod end
 end
 
-# ╔═╡ 8842ee9f-d3f2-4d97-a9be-fe11cabd5536
-function build_jacobians((; a_ss, c_ss, w_ss, D_ss, np))
-	Λ = build_Λ(a_ss,np)
-	𝓔 = get_𝓔(Λ,a_ss,np)
-	𝒴_w, 𝒟_w,𝒴_r, 𝒟_r =  get_𝒴_𝒟(c_ss,w_ss,0.01,D_ss,np)
-	𝓙_r,𝓕_r = build_𝒥(𝒴_r,𝒟_r,𝓔,np)
-	𝓙_w,𝓕_w = build_𝒥(𝒴_w,𝒟_w,𝓔,np)
+# ╔═╡ db4b45b9-fc4a-457e-bfa2-9778d2002413
+c(a, a_next; m, y, r, w) = w * y + (1+r) * a - a_next * (1-m)
 
-	(; 𝓙_r,𝓕_r, 𝓙_w, 𝓕_w)
-end
+# ╔═╡ d37ead9d-23e3-4492-863e-17c39c068f1c
+"type of policy_plus named tuple"
+PPT() = typeof(
+	(a_i = 1, a_i_next = 1, c = 1.0, a = 1.0, a_next = 1.0,
+	m = 1.0, y = 1.0, r = 1.0, w = 1.0, j = 1, t = 1)
+)
 
-# ╔═╡ 1ae74070-56d4-447e-8800-e233bf3759b8
+# ╔═╡ ba2cd4ef-3acf-4d87-a7db-27c1bdf0994e
 md"""
-Lets see what comes out:
+### Demographics
 """
 
-# ╔═╡ c33342e3-662a-4d33-b096-85afd7ac651c
-md"""
-Luckily, we can replicate Figure 2 in the ABRS paper. So, what we did seems correct!
+# ╔═╡ 44dde0b2-ad39-4558-b260-41590796b2a7
+function pmf(m; births = nothing)
+	
+	j_dim =	DimensionalData.dims(m, :j)
 
-Now, let's get the general equilibrium Jacobian by accumulating along the DAG in ABRS's Figure 4.  Since this model only features static equilibrium conditions, that is extremely simple here. We can also check that we get the same IRFs as ABRS' Figure 1.
+	_births_ = isnothing(births) ? 1.0 : births
+
+	pmf = cumprod([_births_; (1 .- m)])[begin:end-1]
+	pmf = DimVector(pmf, j_dim, name = :pmf) 
+	
+	if isnothing(births)
+		pmf .= pmf ./ sum(pmf)
+	end
+
+	return pmf
+
+end
+
+# ╔═╡ 0e58d89d-0ce7-4ec4-b89d-e4db8fb03b3f
+p_surv₀ = DimVector(
+	[0.9945385, 0.9995935, 0.9997525, 0.999799, 0.999836, 0.9998605, 0.9998755, 0.999885, 0.99989, 0.99989, 0.999884, 0.9998745, 0.9998525, 0.9998115, 0.99975, 0.9996605, 0.999536, 0.9993885, 0.999241, 0.9991345, 0.99906, 0.998978, 0.9988925, 0.99881, 0.9987215, 0.998631, 0.9985435, 0.9984545, 0.998359, 0.998259, 0.998161, 0.9980625, 0.997962, 0.997868, 0.9977805, 0.997691, 0.9975995, 0.997493, 0.997366, 0.997226, 0.997077, 0.99692, 0.9967525, 0.9965905, 0.996419, 0.9962185, 0.995971, 0.995691, 0.9953685, 0.9950285, 0.994659, 0.9942635, 0.993815, 0.993334, 0.9927975, 0.9921995, 0.9915535, 0.9908825, 0.990155, 0.9893715, 0.988523, 0.987618, 0.9866885, 0.985767, 0.9848455, 0.983935, 0.982972, 0.9818665, 0.980645, 0.9793075, 0.9778105, 0.9760855, 0.9741015, 0.971813, 0.9691475, 0.9657655, 0.9623835000000001, 0.958681, 0.9545755, 0.9497485, 0.9445295, 0.9388595, 0.9326274999999999, 0.9255175, 0.9172435, 0.907863, 0.8973555, 0.885727, 0.873394, 0.859642, 0.844195, 0.827184, 0.8087880000000001, 0.78986, 0.7707634999999999, 0.7515835, 0.732595, 0.7140934999999999, 0.6963895, 0.6798, 0.662296, 0.6438275, 0.6243405, 0.6037785, 0.5820815, 0.559187, 0.5350275, 0.509533, 0.4826284999999999, 0.454237, 0.42427349999999997, 0.39265149999999993, 0.35927850000000006, 0.32405700000000004, 0.28970799999999997, 0.25419400000000003, 0.21690299999999996, 0.17774900000000005, 0.13663599999999998, 0.093468, 1.0],
+	Dim{:j}(0:120)
+)
+
+# ╔═╡ 046d2a75-c05f-4c27-95c7-e960cb14f494
+function mortality(model; m = 1/45, J = 120)
+	
+	j₀ = 0
+
+	j_dim = Dim{:j}(j₀:J)
+	
+	if model == :perpetual_youth
+		return DimVector([fill(m, J); 1.0], j_dim)
+	elseif model == :lifecycle
+		return 1 .- p_surv₀[j = At(j₀:J)]
+	else
+		@error "model ∉ [:perpetual_youth, :lifecycle]. Please fix!"
+	end
+	
+end
+
+# ╔═╡ 857e9793-6cc8-4c29-935c-493d88cc5da7
+md"""
+### Income profile
 """
 
-# ╔═╡ 75e7d7a1-3000-420f-a097-bdcdecb2a6b8
-"helper function that generates TFP IRFs according to AR(1) in logs"
-function get_dZ(shock_size,Zss,ρ,T)
+# ╔═╡ 09c2d6c5-1268-44f7-89af-628ecba011a5
+"""
+	`J` ... age of death
+    `JR` ... retirement age
+"""
+function income_profile(J, JR)
+	@assert JR < J
 
-    logZ = zeros(T+1) ; logZ[1] = log(Zss)
+	y = [3e-06 * j^3 - 0.0012 * j^2 + 0.0589 * j + 0.9503 for j ∈ 1:JR]
 
-    for tt = 2:(T+1)
-        logZ[tt] = (1-ρ)*log(Zss) .+ ρ*(logZ[tt-1]) .+ (tt==2)*shock_size
-    end
+	y = [y; fill(y[end], J - JR)]
 
-    dZ = exp.(logZ[2:end]) .- Zss
-    return dZ, logZ[2:end]
+	DimArray(y, Dim{:j}(0:J-1), name = :y)
 end
 
-# ╔═╡ 35da88ec-c411-44a7-8001-4608b2a1e5d5
-fonts = (; regular = Makie.MathTeXEngine.texfont())
+# ╔═╡ 4c27296c-aa27-4a48-816e-5d10ecceecf8
+function simple_income_profile(J, JR; y=1.0, yR = 0.0)
+	y = [fill(y, JR); fill(yR, J - JR)]
 
-# ╔═╡ 9cd6427d-fe38-4dc3-ab38-7b04c4118548
-let
-	(; micro_df) = out_ss
-	fig = Figure(; size = (700, 300), fonts)
-
-	plt1 = @chain micro_df begin
-		@subset(:a < 25)
-		data(_) * mapping(
-			:a => L"wealth $a$",
-			:c => L"consumption $c$",
-			color = :s => nonnumeric
-		) * visual(Lines)
-	end
-
-	plt2 = @chain micro_df begin
-		@subset(0 < :a < 15)
-		@groupby(:a)
-		@combine(:π = sum(:π))
-		data(_) * mapping(
-			:a => L"wealth $a$",
-			:π => "distribution"
-		) * visual(Lines)
-	end
-
-	draw!(fig[1,1], plt1, axis = (; title = "Consumption policy"))
-	draw!(fig[1,2], plt2, axis = (; title = "Wealth distribution"))
-
-	fig
+	DimArray(y, Dim{:j}(0:J-1), name = :y)
 end
 
-# ╔═╡ 9d4f0265-273a-4c00-8bb6-28c2b9ce2663
-let
-	(; np) = out_ss
+# ╔═╡ df140406-28a5-49cc-b5c1-ecc53819802c
+md"""
+### Value function iteration
+"""
+
+# ╔═╡ 4e661c4d-41df-4b63-b188-2a52aa62be2d
+function iterate_back!(v_curr, policy_curr, policy_plus_curr, 
+					   statespace, par, v_next;
+						m, y, r, w, j, t)
+	(; β, u) = par
+	(; a_grid, P, y_grid) = statespace
+
+	for (y_i, yy) ∈ enumerate(y_grid)
+
+		𝔼v = v_next * P[y_i, :] #, dims = :y)
+		
+		for (a_i, a) ∈ enumerate(a_grid)
+			# for a given grid point a, find optimal choice
+			inc = y * yy
+			(v_opt, a_i_opt) = findmax(
+						(u ∘ c).(a, a_grid; m, y=inc, r, w) + β * (1-m) .* 𝔼v
+					)
 	
-	(; 𝓙_r, 𝓕_r, 𝓙_w, 𝓕_w) = build_jacobians(out_ss)
-
-	#replicate Figure 2 from ABRS paper
-	fig = Figure(; size = 1.3 .* (600, 200), fonts)
-	ax1 = Axis(fig[1,1], title = L"Columns of $J_r$")
-	ax2 = Axis(fig[1,2], title = L"First Column of $F_r$")
-	ax3 = Axis(fig[1,3], title = L"Further Columns of $F_r$")
+			# save interesting output
+			v_curr[a = a_i, y = y_i]           = v_opt
+			policy_curr[a = a_i, y = y_i]      = a_i_opt # a_next_index
+			a_next = a_grid[a_i_opt]
 	
-	for s ∈ 0:25:100
-		lines!(ax1, 𝓙_r[:,1 + s], label = L"s = %$s")
-	end
-
-	lines!(ax2, 𝓕_r[:,1])
-
-	for s ∈ 25:25:100
-		lines!(ax3, 𝓕_r[:,1 + s], label = L"s = %$s")
-	end
-
-	axislegend(ax1)
-	axislegend(ax3)		
+			if !isnothing(policy_plus_curr)
+				policy_plus_curr[a = a_i, y = y_i] = (;
+							a_i,
+							a_i_next = a_i_opt,
+							c = c(a, a_next; m, y = inc, r, w),
+							a,
+				            a_next,
+							m, y = inc, r, w, j, t
+				)
+			end
 	
-	fig
-
-end
-
-# ╔═╡ 0beed15f-e850-46a2-9f17-0fc410271f5a
-function GE_jacobian(np, K_ss, L_ss, 𝓙_r, 𝓙_w)
-	(; mp, T) = np
-	(; α, δ, Z_ss) = mp
-
-	#get derivatives of the firm block 
-	dwdk = α*(1-α)*Z_ss*K_ss^(α-1)*L_ss^(-α) 	#deriv. of wage w.r.t. capital
-	drdk = (α-1)*α*Z_ss*K_ss^(α-2)*L_ss^(1-α) 	#deriv. of interest rate w.r.t. capital
-	dwdz = (1-α)*(K_ss/L_ss)^α 	#deriv. of wage w.r.t. TFP
-	drdz = α*(K_ss/L_ss)^(α-1) 	#deriv. of interest rate w.r.t. TFP
-	
-	#chain derivatives
-	H_k =  𝓙_r*drdk .+ 𝓙_w*dwdk - I
-	H_z = 𝓙_r*drdz .+ 𝓙_w*dwdz
-	
-	#GE Jacobian from Implicit Function Theorem
-	G = -inv(H_k)*H_z
-end	
-
-# ╔═╡ b8c50ea0-c08f-48ae-bb0a-5286d61c7ff2
-let
-	(; np, K_ss, L) = out_ss
-	(; mp, T) = out_ss.np
-	(; Z_ss) = mp
-
-	(; 𝓙_r, 𝓙_w) = build_jacobians(out_ss)
-	
-	G = GE_jacobian(np, out_ss.K_ss, L, 𝓙_r, 𝓙_w)
-
-	#produce equivalent to Figure 1 in the ABRS paper.	
-	T_plot = 50
-	
-	fig = Figure(; fonts, size = (800, 300))
-	ax1 = Axis(fig[1,1], title = L"AR(1) shock with persistence $ρ$")
-	ax2 = Axis(fig[1,2], title = L"News shock at time $s$")
-
-	#generate TFP shock paths with different persistence
-	ρ_vals = [0.3,0.5,0.7,0.8,0.9]
-
-	in_levels = false
-	
-	for ρ in ρ_vals
-		if in_levels	
-			dZs = 0.01 .* ρ.^(0:(T-1)) 
-		else # in logs
-			dZs = get_dZ(0.01, Z_ss, ρ, T)[1]
 		end
-		lines!(ax1, 100 * (G * dZs)[1:T_plot], label = L"ρ = %$ρ")
 	end
-
-	axislegend(ax1)
-	
-	for s ∈ [5, 10, 15, 20, 25]
-		lines!(ax2, G[1:T_plot,s], label = L"s = %$s")
-	end
-
-	axislegend(ax2)
-	
-	fig
 end
 
-# ╔═╡ 37b9c4a3-d0b3-455e-819d-36531376c2cc
+# ╔═╡ 13173588-b32f-48cd-8234-6a45673bfd01
+function _solve_backward_vfi_(par, statespace; price_paths, t_born, j_init)
+	(; y, β, m, J) = par
+
+	(; rs, ws) = price_paths
+	(; dims) = statespace
+	
+	# j_dim
+	j_dim = Dim{:j}(j_init:J)
+	dims_j = (dims..., j_dim)
+	
+	value       = zeros(     dims_j, name = :value)
+	policy      = zeros(Int, dims_j, name = :policy)
+
+	policy_plus = DimArray(Array{PPT()}(undef, size(policy)), dims_j, name = :policy_plus)
+	
+	value[j = At(J)] .= 0.0
+	
+	for j ∈ reverse(j_dim)
+		t = t_born + j
+		
+		v_curr = @view value[j = At(j)]
+		if j == J
+			v_next = 0.0 * v_curr
+		else
+			v_next = @view value[j = At(j+1)]
+		end
+
+		policy_curr      = @view      policy[j = At(j)]
+
+		policy_plus_curr = @view policy_plus[j = At(j)]
+		
+		out = iterate_back!(
+			v_curr, policy_curr, policy_plus_curr,
+			statespace, par, v_next; 
+			m=m[j = At(j)],
+			y=y[j = At(j)],
+			w=ws[t = At(t)],
+			r=rs[t = At(t)], j, t)
+	end
+
+	(; value, policy, policy_plus)
+	
+	#outs
+end
+
+# ╔═╡ faeed655-cf82-427f-b4c3-758ae2ebf049
+function solve_backward(::VFI, par, statespace; price_paths, t_born, j_init)
+
+	(; policy_plus) = _solve_backward_vfi_(par, statespace; price_paths, t_born, j_init)
+
+	sol_backward = let
+		a_next = DimArray(
+			getproperty.(policy_plus, :a_next),
+			name = :a_next
+		)
+
+		#new_size = (size(a_next)..., 1)
+		#new_dims = (DD.dims(a_next)..., Dim{:y}([1.0]))
+	
+		#a_next = DimArray(reshape(a_next, new_size), new_dims, name = :a_next)
+		(; a_next)
+	end
+
+	sol_backward
+end
+
+# ╔═╡ 417ba086-c9eb-4800-8826-cc675b49a825
+function debug_vfi(par, statespace, price_paths; π_init = simple_initial_distribution(statespace))
+	
+	j_init = 0
+	t_born = 0
+	
+	(; policy, policy_plus) = _solve_backward_vfi_(par, statespace; price_paths, t_born, j_init)
+
+	a_next = getproperty.(policy_plus, :a_next)
+	#=sol_backward = let
+		a_next = getproperty.(policy_plus, :a_next)
+
+		new_size = (size(a_next)..., 1)
+		new_dims = (DD.dims(a_next)..., Dim{:y}([1.0]))
+	
+		a_next = DimArray(reshape(a_next, new_size), new_dims, name = :a_next)
+		(; a_next)
+	end
+	
+	## SOLVE FORWARD
+	sol_forward = solve_forward(sol_backward, statespace, par; π_init, j_init)
+
+	sim_df = DataFrame(DimStack(sol_backward..., sol_forward...))
+	
+	return (; sim_df, sol_backward, sol_forward)=#
+end
+
+# ╔═╡ dd7c5948-b335-44ea-909d-bcfd8be6b40e
 md"""
-We get something that looks like Figure 1 in ABRS and can declare victory! It seems ABRS specify TFP to follow a an AR(1) in levels, the figures look slightly different when using a process in logs. 
+### Endogenous grid method
 """
 
-# ╔═╡ 6dcbe44e-4329-47f8-b817-1913aad8fbd0
+# ╔═╡ 64055da7-95a9-4920-abcb-c88f2add29c1
+c_J(a, y, (; r, w)) = (1 + r) * a + w * y
+
+# ╔═╡ 072d96b3-75b3-4291-9220-219bdd6fe34f
+a_next(c; a, w, y, r, m) = m == 1 ? 0.0 : ((1+r) * a + y * w - c)/(1-m)
+
+# ╔═╡ 23f7eab4-70e7-4c35-8124-4cfb85095f95
+c_curr(a, a_next; w, y, r, m) = (1+r) * a + y * w - (1-m) * a_next
+
+# ╔═╡ 1fd2c215-37dd-42bb-81a5-a4e229a50580
+c_prev(c, r, (; β, γ)) = c / (β * (1 + r))^(1/γ)
+
+# ╔═╡ ee932ecb-1537-4bd2-a8c8-7b16c42e73e2
+a_prev(c_prev, a; w_prev, y_prev, r_prev, m_prev) = (a * (1-m_prev) + c_prev - w_prev * y_prev)/(1+r_prev)
+
+# ╔═╡ 16e4f838-00cc-46dc-b211-f2f492b67285
+function a_prev_c_prev(cⱼ, aⱼ, par; r, r_prev, y_prev, w_prev, m_prev)
+	cⱼ₋₁ = c_prev(cⱼ, r, par)
+	aⱼ₋₁ = a_prev(cⱼ₋₁, aⱼ; y_prev, 
+				w_prev, r_prev, m_prev)
+		
+	(; cⱼ₋₁, aⱼ₋₁)
+end
+
+# ╔═╡ aa142887-9807-44d5-a97d-9e97b916e984
+function solve_backward(::EGM, par, statespace; price_paths, j_init, t_born)
+	(; J, y, m, a̲) = par
+	(; rs, ws) = price_paths
+
+	(; dims, a_grid) = statespace
+	grid = a_grid
+	j_dim = Dim{:j}(j_init:J)
+	
+	c      = zeros(dims..., j_dim, name = :c)
+	a_next = zeros(dims..., j_dim, name = :a_next)
+
+	c₁ = @view c[y = At(1)]
+	a_next₁ = @view a_next[y = At(1)]
+	## SOLVE BACKWARDS
+	t_J = t_born + J
+	prices_J = (; r = rs[t=At(t_J)], w = ws[t = At(t_J)])
+	
+	c₁[j = At(J)] .= c_J.(grid, Ref(y[j = At(J)]), Ref(prices_J))
+	
+	for j ∈ J:-1:(j_init + 1)
+		t = t_born + j
+		
+		cⱼ   = c₁[j = At(j)]
+
+		cⱼ₋₁_aⱼ₋₁_df = a_prev_c_prev.(cⱼ, grid, Ref(par); 
+				r = rs[t = At(t)], r_prev=rs[t = At(t-1)], w_prev=ws[t = At(t-1)],
+				y_prev=y[j = At(j-1)], m_prev=m[j = At(j-1)]) |> DataFrame
+
+		df₀ = cⱼ₋₁_aⱼ₋₁_df
+
+		(; cⱼ₋₁, aⱼ₋₁) = df₀
+
+		aⱼ_itp = LinearInterpolation(
+				aⱼ₋₁, 
+				grid,
+				extrapolation_bc = Line()
+		)
+		a_grid = DimVector(grid, Dim{:a}(grid))
+		
+		_a_next_ = max.(aⱼ_itp.(a_grid), a̲)
+
+		a_next₁[j = At(j-1)] .= _a_next_
+		     c₁[j = At(j-1)] = c_curr.(a_grid, _a_next_; y = y[j = At(j-1)], r = rs[t = At(t-1)], w = ws[t = At(t-1)], m = m[j = At(j-1)])
+	end
+	
+	sol_backward = (; c, a_next)
+end
+
+# ╔═╡ 2caa6111-33bf-4e90-b801-7b4655020444
 md"""
 # Appendix
 """
 
-# ╔═╡ c763fb8e-bee0-44ff-9184-10e600bfc929
+# ╔═╡ effbbcc1-8b35-4a3c-a9a2-311afca1b718
+fonts = (; regular = Makie.MathTeXEngine.texfont(:regular), bold = Makie.MathTeXEngine.texfont(:regular))
+
+# ╔═╡ d6356c7d-3086-418c-afb3-0f47d3ba9ce0
+figure(size = (350, 250); figure_padding = 2, kwargs...) = (; size, fonts, figure_padding, kwargs...)
+
+# ╔═╡ f63bb47d-2c7e-4c9a-af44-f58ca6dc2bb3
+let
+	fig = Figure(; figure((400, 150))...)
+
+	lines(fig[1,1], simple_income_profile(100, 50), axis = (; title = "Simplest income profile"))
+	lines(fig[1,2], income_profile(120, 41), axis = (; title = "Simple income profile"))
+	fig
+end
+
+# ╔═╡ c45dcd06-b3a1-4045-89d4-b5632b988cf8
 TableOfContents()
 
-# ╔═╡ b5f699f9-e3c5-4e48-86d7-edbf384031c3
-md"""
-## Loading some packages
-"""
+# ╔═╡ fbd9c561-24c8-4f76-9235-f59593cc298a
+criterion(a, b) = (a - b)/(1 + max(abs(a), abs(b)))
 
-# ╔═╡ af371420-fde7-4eb8-9fa0-0c1415eb51a1
-md"""
-Lets start with loading some Julia packages that will be useful below
+# ╔═╡ 03d38330-6f14-46b5-86fd-620072ff102d
+const DD = DimensionalData
 
-For transparency, I only load specific functions from a package (`using CoolPackage: cool_function`), for prototyping you could have used `using CoolPackage` to load all functions from that package.
-"""
+# ╔═╡ 68c038ec-c197-4044-8b3a-26974f284e8b
+function Statespace(; amin, amax, na, y_chain = no_income_risk(), exponential = true)
+	if exponential
+		a_grid = exponential_grid(amin, amax, na)
+	else
+		a_grid = range(amin, amax, length=na)
+	end
+	y_grid = y_chain.state_values
+	
+	a_dim = Dim{:a}(a_grid)
+	y_dim = Dim{:y}(y_grid)
+	dims = (a_dim, y_dim)
+
+	P = let
+		P_dims = (DD.dims(dims, :y), DD.dims(dims, :y))
+		DimArray(y_chain.p, P_dims)
+	end
+	
+	(; a_grid = DimVector(a_grid, a_dim, name = :a),
+	   y_grid = DimVector(y_grid, y_dim, name = :y), y_chain, dims, P)
+end
+
+# ╔═╡ b8543ee6-4eb2-4002-8b2b-a5bd6bc5d0ec
+let
+	statespace = Statespace(; amin = 0.0, amax = 100.0, na = 100, y_chain = default_income_process())
+
+	(; a_grid) = statespace
+	a = 1.0
+	@assert a ∉ a_grid
+
+	weighted_neighbours(a, a_grid)
+end
+
+# ╔═╡ ce46e63f-d07b-43f3-af0c-ae33cbba5289
+get_states(da) = NamedTuple{name.(DD.dims(da))}.(DimPoints(da))
+
+# ╔═╡ 17136258-5135-4920-978b-1d811291dcfe
+function solve_forward(sol_backward, statespace, (; m); π_init, j_init)
+	
+	(; a_next) = sol_backward
+	
+	dims_j = DD.dims(a_next)
+	j₀, J = extrema(DD.dims(a_next, :j))
+
+	# initialize distribution and fill initial distribution
+	π = zeros(dims_j, name = :π)
+
+	π[j = At(j_init)] .= π_init
+
+	states = get_states(π[j = At(j₀)]) ## move to statespace ???
+
+	(; y_chain, y_grid) = statespace
+	P = DimArray(y_chain.p, (Dim{:from}(y_grid), Dim{:y}(y_grid)))
+
+	for j ∈ j_init:(J-1)
+		# find all states with positive mass
+		positive_mass = findall(π[j = At(j)] .> 0)
+	
+		for ind ∈ positive_mass
+			# for each such state ...
+			
+			## 1. find optimal policy
+			(; a, y) = states[ind]
+			a_n = a_next[j = At(j), a = At(a), y = At(y)]
+
+			## 2. find closest points on grid
+			(; high, low) = weighted_neighbours(a_n, statespace.a_grid)
+
+			## 3. compute probability mass for states in j + 1
+			π_base = π[j = At(j)][ind] * (1 - m[j = At(j)])
+			π[j = At(j+1), a = At(high.x)] .+= π_base .* high.weight .* P[from = At(y)]
+			π[j = At(j+1), a = At(low.x)]  .+= π_base .* low.weight .* P[from = At(y)]
+		end
+	end
+
+	(; π)
+end
+
+# ╔═╡ aa370e6c-8ad3-496f-8b11-5767c5c1f29a
+function solve_backward(::Risky, par, statespace; price_paths, t_born, j_init)
+	
+	(; J, y, m, a̲) = par
+	(; rs, ws) = price_paths
+
+	#a_dim = statespace.dims
+	(; a_grid, y_grid, dims) = statespace
+	grid = a_grid
+	a_min = 0.0
+	
+	j_dim = Dim{:j}(j_init:J)
+	
+	c      = zeros(dims..., j_dim, name = :c)
+	a_next = zeros(dims..., j_dim, name = :a_next)
+	income = zeros(DD.dims(dims, :y), j_dim, name = :income)
+	
+	## SOLVE BACKWARDS ("solve policy functions")
+	t_J = t_born + J
+	prices_J = (; r = rs[t=At(t_J)], w = ws[t = At(t_J)])
+	inc_J   = (y_grid .* y[j = At(J)])
+	c_J_tmp = @d c_J.(a_grid, inc_J, Ref(prices_J))
+	
+	     c[j = At(J)] .= c_J_tmp # CHECK CORRECT DIMENSIONS ???
+
+	income[j = At(J)] .= inc_J
+	a_next[j = At(J)] .= 0.0
+	
+	P_dims = (DD.dims(dims, :y), DD.dims(dims, :y))
+	P = DimArray(statespace.y_chain.p, P_dims)
+
+	for j ∈ J:-1:(j_init + 1)
+		t = t_born + j
+		cⱼ   = c[j = At(j)]
+
+		prices      = (; r = rs[t=At(t)],   w = ws[t = At(t)],   m = m[j = At(j)])
+		prices_prev = (; r_prev = rs[t = At(t-1)], 
+					   	 w_prev = ws[t = At(t-1)],
+					     m_prev =  m[j = At(j-1)]
+					  )
+		
+		cⱼ₋₁ = let
+			(; γ, β) = par
+			(; r) = prices
+	
+			𝔼u′ = cⱼ .^ (-γ) * P'
+		    
+		    cⱼ₋₁ =  𝔼u′.^(-1/γ) * (β*(1+r)).^(-1/γ)
+			cⱼ₋₁ = DimArray(cⱼ₋₁, name = :cⱼ₋₁)
+		end
+
+		incⱼ₋₁ = y_grid .* y[j = At(j-1)]
+		income[j = At(j-1)] .= incⱼ₋₁
+		
+		aⱼ₋₁ = @d a_prev_risk.(cⱼ₋₁, a_grid, incⱼ₋₁, Ref(prices_prev))
+	
+		for y ∈ DD.dims(dims, :y)
+	
+			cⱼ₋₁_itp = LinearInterpolation(
+				aⱼ₋₁[y = At(y)], 
+				cⱼ₋₁[y = At(y)],
+				extrapolation_bc = Line()
+			)
+
+			aⱼ_itp = LinearInterpolation(
+				aⱼ₋₁[y = At(y)], 
+				parent(a_grid),
+				extrapolation_bc = Line()
+			)
+	
+			a_next[j = At(j-1), y = At(y)] .= max.(aⱼ_itp.(a_grid), a_min)
+		end
+
+		## incⱼ₋₁ or j - 1 ????
+		c[j = At(j-1)] = @d c_curr_risk.(a_grid, a_next[j = At(j-1)], incⱼ₋₁, Ref((; r = prices_prev.r_prev, w = prices_prev.w_prev, m = prices_prev.m_prev)))
+	end
+	
+	sol_backward = (; c, income, a_next)
+end
+
+# ╔═╡ 1748ac1d-5f4b-417b-9b11-d5bbbcb2c072
+function solve_backward_forward(M, par, statespace; r, w, π_init)
+	(; J) = par
+	
+	rs = DimArray(fill(r, J+1), Dim{:t}(0:J))
+	ws = DimArray(fill(w, J+1), Dim{:t}(0:J))
+
+	price_paths = (; rs, ws)
+
+	j_init = 0
+	t_born = 0
+	
+	sol_backward = solve_backward(M, par, statespace; price_paths, j_init, t_born)
+	
+	## SOLVE FORWARD
+	sol_forward = solve_forward(sol_backward, statespace, par; π_init, j_init)
+
+	sim_df = DataFrame(DimStack(sol_backward..., sol_forward...))
+	
+	return (; sim_df, sol_backward, sol_forward)
+end
+
+# ╔═╡ ae0252ca-4a39-4581-9fd4-b99f635a6ca8
+function partial_equilibrium(par, statespace, (; K_guess, r, w);
+								  details = true,
+								  π_init = simple_initial_distribution(statespace),
+								  solution_method = EGM()
+								 )
+	
+
+	sol = solve_backward_forward(
+		solution_method, par, statespace; r, w, π_init
+	)
+
+	(; sim_df) = sol
+
+	agg_nt = aggregate(sim_df)
+
+	GDP = output(K_guess, par)
+
+	(; bonds2GDP) = par
+	B₀ = bonds2GDP * GDP
+	
+	K_hh = agg_nt.a
+	
+	K_supply = K_hh - B₀
+	ζ = K_supply - K_guess
+
+	if details
+		
+		return (; ζ, K_guess, r, w, K_hh, K_supply, B₀, par, sol)
+	else
+		return ζ
+	end
+
+end
+
+# ╔═╡ 0a4360fe-88a8-4b4a-bb60-dea0d975b8d1
+function general_equilibrium(
+			par, statespace; 
+			K_bracket = (1e-1, 10 * inverse_interest_rate(par.r , par)), 
+			kwargs...
+		)
+		
+	function objective(K_guess; details = false)
+		r = interest_rate(K_guess, par)
+		w = wage(K_guess, par)
+
+		partial_equilibrium(par, statespace, (; K_guess, r, w); details, kwargs...)
+	end
+
+	K_opt = find_zero(objective, K_bracket)
+	
+	objective(K_opt; details=true)
+	
+end
+
+# ╔═╡ 4e6216db-e6fe-4bdc-9bd4-d22e9edc532a
+function get_par(; 
+		demo = :perpetual_youth,
+		mm = 1/45,
+		y,
+		γ = 2.0,
+		J = length(y) - 1,
+		β = 0.995,
+		ρ = 1/β - 1,
+		r = ρ,
+        α = 0.33,
+		δ = 0.1,
+ 		a̲ = -Inf,
+		bonds2GDP = 1.0
+	)
+	m = mortality(demo; J, m=mm)
+	J = maximum(DD.dims(m, :j))
+
+	u(c) = c > 0 ? c^(1-γ)/(1-γ) : -Inf
+		
+	(; δ, α, Θ = 1, L = 1, β, ρ, r, bonds2GDP, 
+		m, J, γ, a̲,
+		y, u,
+		w = 1.0)
+end
+
+# ╔═╡ 017a9f3f-49eb-4847-978a-682a8ebb209c
+par_no_risk = let
+	y = income_profile(120, 41)
+	
+	par = get_par(; demo = :lifecycle, y, a̲ = 0.0)
+
+	statespace = Statespace(; amin = 0.0, amax = 12.0, na = 600, y_chain = no_income_risk(), exponential = false)
+	
+	K_guess = 4.522301994771901
+	r = interest_rate(K_guess, par) 
+	w = wage(K_guess, par)
+
+	
+	(; par, statespace, prices = (; K_guess, r, w), π_init = trivial_initial_distribution(statespace, a_ind = 1))
+
+end
+
+# ╔═╡ 1885479c-bc25-47c9-ab2a-7fa19b71f7d7
+risky_out_safe = let
+	(; statespace, prices, par, π_init) = par_no_risk
+	
+	out = partial_equilibrium(par, statespace, prices; π_init, solution_method = Risky())
+
+	@info (; out.K_supply, out.ζ, out.r, out.K_hh)
+
+	out
+end;
+
+# ╔═╡ aa422178-329a-4bc4-ba84-a45f5fbe6a65
+out_vfi = let
+	(; statespace, prices, par, π_init) = par_no_risk
+	
+	out = partial_equilibrium(par, statespace, prices; π_init, solution_method = VFI())
+
+	@info (; out.K_supply, out.ζ, out.r, out.K_hh)
+
+	out
+end;
+
+# ╔═╡ 67196d11-9bcc-4512-a707-189ab3f3104b
+out_safe = let
+	(; statespace, prices, par, π_init) = par_no_risk
+	
+	out = partial_equilibrium(par, statespace, prices; π_init, solution_method = EGM())
+	
+	(; sol, K_hh) = out
+
+	@info @test abs(out.K_supply - 4.5218422030236365) < 1e-2
+	@info @test abs(out.ζ        - -0.0004597917482644931) < 1e-2
+	@info @test abs(out.r        - 0.020066827133991508) < 1e-2
+	@info @test abs(out.K_hh     - 6.167231451066009) < 1e-2
+
+	@info (; out.K_supply, out.ζ, out.r, out.K_hh)	
+	
+	#out_ge = general_equilibrium(par, statespace, solution_method = EGM())
+
+	#=
+	out_egm.ζ
+	@info @test abs(criterion(out_egm.K_supply, out.K_supply)) < 5e-4
+	@info @test abs(criterion(out_egm.r,        out.r))        < 5e-6
+	@info @test abs(out_egm.ζ) < 1e-11
+
+	=#
+	#out_ge
+
+	out
+
+end;
+
+# ╔═╡ 3790074d-69d8-4fe6-ad66-8e8b21070758
+let
+	vars = [:a_next, #=:a, :c,=#]
+	
+	df = vcat(
+		select(risky_out_safe.sol.sim_df, vars..., :π, :j, :y),
+		select(out_safe.sol.sim_df,       vars..., :π, :j, :y),
+		select(out_vfi.sol.sim_df,        vars..., :π, :j, :y),
+		
+		source = :method => ["egm 1", "egm 2", "vfi"]
+	)
+
+	@chain df begin
+		stack(vars, [:π, :j, :method])
+		@groupby(:variable, :j, :method)
+		@combine(
+			:q = [0.2, 0.5, 0.8],
+			:value = quantile(:value, weights(:π), [0.2, 0.5, 0.8]))
+		#@subset(:variable == "a")
+		data(_) * mapping(:j, :value, 
+						  group = :q => nonnumeric, color = :method,
+						  linestyle = :method,
+						  layout = :variable
+						 ) * visual(Lines)
+		draw(; facet = (; linkyaxes = false), figure = figure())
+	end
+end
+
+# ╔═╡ 42b5357a-1595-40bc-b208-7090005365fd
+par_with_risk = let
+	y = income_profile(120, 41)
+	
+	par = get_par(; demo = :lifecycle, y, a̲ = 0.0)
+
+	statespace = Statespace(; amin = 0.0, amax = 25.0, na = 2000, y_chain = simple_income_risk(), exponential = true)
+
+	(; prices, price_paths) = let
+		K_guess = 4.522301994771901
+		r = interest_rate(K_guess, par) 
+		w = wage(K_guess, par)
+
+		(; J) = par
+	
+		rs = DimArray(fill(r, J+1), Dim{:t}(0:J))
+		ws = DimArray(fill(w, J+1), Dim{:t}(0:J))
+
+		(;  prices = (; K_guess, r, w),
+			price_paths = (; rs, ws)
+		)
+	end
+			
+	(; par, statespace, prices, price_paths)
+
+end
+
+# ╔═╡ 46964708-1e84-4e05-bf2d-440efa54efe8
+risky_out = let
+	(; par, statespace, prices) = par_with_risk
+	
+	out = partial_equilibrium(par, statespace, prices; solution_method = Risky())
+end;
+
+# ╔═╡ 7df1a518-ece7-4a98-a430-278c1700b564
+let
+	(; sol) = risky_out
+	
+	#(; π) = out
+
+	@chain sol.sim_df begin
+		#DataFrame
+		@subset(:a > 0.1)
+		@groupby(:a)
+		@combine(:π = sum(:π))
+#		@subset(:π > 0)
+		data(_) * mapping(:a, :π) * visual(Lines)
+		draw(figure = figure())
+	end
+		
+end
+
+# ╔═╡ 6f26ed4d-e827-4bcb-8fd9-b99cb96e88ff
+@chain risky_out.sol.sim_df begin
+	@groupby(:j)
+	@combine(
+		:q = [0.25, 0.75],
+		:income = quantile(:income, weights(:π), [0.25, 0.75]))
+	data(_) * mapping(:j, :income, color = :q => nonnumeric) * visual(Lines)
+	draw(; figure = figure())
+end
+
+# ╔═╡ 17e397d2-cdd4-4335-bfba-557bbe2615e5
+let
+	@chain risky_out.sol.sim_df begin
+	#	DataFrame
+		#@transform(:Δ = :c_x - :c)
+		@subset(:j < 10, :a < 5)
+		data(_) * mapping(
+				:a, :c,
+				group = :j => nonnumeric, color = :j,
+				layout = :y => nonnumeric
+		) * visual(Lines)
+		draw(facet = (; linkyaxes = false), figure = figure((400, 180)))
+	end
+end
+
+# ╔═╡ 24966791-16d4-40aa-8d25-7d0e9708621f
+risky_vfi_out = let
+	(; par, statespace, prices) = par_with_risk
+	
+	out = partial_equilibrium(par, statespace, prices; solution_method = VFI())
+end
+
+# ╔═╡ 3f276967-aa16-4123-bbce-351bc865be4f
+let
+	vars = [:a_next, #=:a, :c,=#]
+	
+	df = vcat(
+		select(risky_out.sol.sim_df, vars..., :π, :j, :y),
+		select(risky_vfi_out.sol.sim_df,       vars..., :π, :j, :y),
+		#select(out_vfi.sol.sim_df,        vars..., :π, :j, :y),
+		
+		source = :method => ["egm", "vfi"]
+	)
+
+	@chain df begin
+		stack(vars, [:π, :j, :method])
+		@groupby(:variable, :j, :method)
+		@combine(
+			:q = [0.2, 0.5, 0.8],
+			:value = quantile(:value, weights(:π), [0.2, 0.5, 0.8]))
+		#@subset(:variable == "a")
+		data(_) * mapping(:j, :value, 
+						  group = :q => nonnumeric, color = :method,
+						  linestyle = :method,
+						  layout = :variable
+						 ) * visual(Lines)
+		draw(; facet = (; linkyaxes = false), figure = figure())
+	end
+end
+
+# ╔═╡ c523b23b-c982-4b97-ba66-de491141e762
+let
+	(; par, statespace, prices, price_paths) = par_with_risk
+
+	debug_vfi(par, statespace, price_paths)
+	#solve_backward_forward(VFI(), par, statespace; prices..., π_init = simple_initial_distribution(statespace) )
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
-BasicInterpolators = "26cce99e-4866-4b6d-ab74-862489e035e0"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 QuantEcon = "fcd29c91-0bd7-5a09-975d-7ac3f643a60c"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
-SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-AlgebraOfGraphics = "~0.6.18"
-BasicInterpolators = "~0.7.1"
-CairoMakie = "~0.11.10"
+AlgebraOfGraphics = "~0.10.8"
+CairoMakie = "~0.13.10"
 Chain = "~0.6.0"
 DataFrameMacros = "~0.4.1"
-DataFrames = "~1.6.1"
-ForwardDiff = "~0.10.36"
-PlutoUI = "~0.7.58"
+DataFrames = "~1.7.0"
+DimensionalData = "~0.29.17"
+Interpolations = "~0.15.1"
+PlutoTest = "~0.2.2"
+PlutoUI = "~0.7.63"
 QuantEcon = "~0.16.6"
-Roots = "~2.1.5"
-Setfield = "~1.1.1"
+Roots = "~2.2.7"
+StatsBase = "~0.34.5"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -938,7 +1083,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "0c75260e4e739f3abf844b512b4fcc360b29941d"
+project_hash = "3895ea017024d9abe126e5d50ff5df835189b806"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -1018,10 +1163,18 @@ uuid = "35492f91-a3bd-45ad-95db-fcad7dcfedb7"
 version = "1.2.0"
 
 [[deps.AlgebraOfGraphics]]
-deps = ["Colors", "Dates", "Dictionaries", "FileIO", "GLM", "GeoInterface", "GeometryBasics", "GridLayoutBase", "KernelDensity", "Loess", "Makie", "PlotUtils", "PooledArrays", "PrecompileTools", "RelocatableFolders", "StatsBase", "StructArrays", "Tables"]
-git-tree-sha1 = "215a2dc9a286831bdad694475357619a9d99698d"
+deps = ["Accessors", "Colors", "DataAPI", "Dates", "Dictionaries", "FileIO", "GLM", "GeoInterface", "GeometryBasics", "GridLayoutBase", "Isoband", "KernelDensity", "Loess", "Makie", "NaturalSort", "PlotUtils", "PolygonOps", "PooledArrays", "PrecompileTools", "RelocatableFolders", "StatsBase", "StructArrays", "Tables"]
+git-tree-sha1 = "ccb66b5053b5870398e13eba7033a115f52ecde8"
 uuid = "cbdf2221-f076-402e-a563-3d30da359d67"
-version = "0.6.20"
+version = "0.10.8"
+
+    [deps.AlgebraOfGraphics.extensions]
+    AlgebraOfGraphicsDynamicQuantitiesExt = "DynamicQuantities"
+    AlgebraOfGraphicsUnitfulExt = "Unitful"
+
+    [deps.AlgebraOfGraphics.weakdeps]
+    DynamicQuantities = "06fc5a27-2a28-4c7c-a15d-362465fb6821"
+    Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -1108,12 +1261,6 @@ git-tree-sha1 = "03fea4a4efe25d2069c2d5685155005fc251c0a1"
 uuid = "18cc8868-cbac-4acf-b575-c8ff214dc66f"
 version = "1.3.0"
 
-[[deps.BasicInterpolators]]
-deps = ["LinearAlgebra", "Memoize", "Random"]
-git-tree-sha1 = "3f7be532673fc4a22825e7884e9e0e876236b12a"
-uuid = "26cce99e-4866-4b6d-ab74-862489e035e0"
-version = "0.7.1"
-
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "1b96ea4a01afe0ea4090c5c8039690672dd13f2e"
@@ -1148,10 +1295,10 @@ uuid = "159f3aea-2a34-519c-b102-8c37f9878175"
 version = "1.1.1"
 
 [[deps.CairoMakie]]
-deps = ["CRC32c", "Cairo", "Colors", "FileIO", "FreeType", "GeometryBasics", "LinearAlgebra", "Makie", "PrecompileTools"]
-git-tree-sha1 = "d69c7593fe9d7d617973adcbe4762028c6899b2c"
+deps = ["CRC32c", "Cairo", "Cairo_jll", "Colors", "FileIO", "FreeType", "GeometryBasics", "LinearAlgebra", "Makie", "PrecompileTools"]
+git-tree-sha1 = "9bd45574379e50579a78774334f4a1f1238c0af5"
 uuid = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
-version = "0.11.11"
+version = "0.13.10"
 
 [[deps.Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -1166,9 +1313,9 @@ version = "0.6.0"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra"]
-git-tree-sha1 = "1713c74e00545bfe14605d2a2be1712de8fbcb58"
+git-tree-sha1 = "06ee8d1aa558d2833aa799f6f0b31b30cada405f"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.25.1"
+version = "1.25.2"
 weakdeps = ["SparseArrays"]
 
     [deps.ChainRulesCore.extensions]
@@ -1204,9 +1351,9 @@ weakdeps = ["SpecialFunctions"]
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
-git-tree-sha1 = "362a287c3aa50601b0bc359053d5c2468f0e7ce0"
+git-tree-sha1 = "37ea44092930b1811e666c3bc38065d7d87fcc74"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.12.11"
+version = "0.13.1"
 
 [[deps.CommonSolve]]
 git-tree-sha1 = "0eee5eb66b1cf62cd6ad1b460238e60e4b09400c"
@@ -1282,10 +1429,10 @@ uuid = "75880514-38bc-4a95-a458-c2aea5a3a702"
 version = "0.4.1"
 
 [[deps.DataFrames]]
-deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "REPL", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "04c738083f29f86e62c8afc341f0967d8717bdb8"
+deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
+git-tree-sha1 = "fb61b4812c49343d7ef0b533ba982c46021938a6"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.6.1"
+version = "1.7.0"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -1376,6 +1523,30 @@ version = "0.7.1"
     Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
     Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
     Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
+[[deps.DimensionalData]]
+deps = ["Adapt", "ArrayInterface", "ConstructionBase", "DataAPI", "Dates", "Extents", "Interfaces", "IntervalSets", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "PrecompileTools", "Random", "RecipesBase", "SparseArrays", "Statistics", "TableTraits", "Tables"]
+git-tree-sha1 = "b628bd06173897d44ab5cb5122e4a31509997c5a"
+uuid = "0703355e-b756-11e9-17c0-8b28908087d0"
+version = "0.29.17"
+
+    [deps.DimensionalData.extensions]
+    DimensionalDataAlgebraOfGraphicsExt = "AlgebraOfGraphics"
+    DimensionalDataCategoricalArraysExt = "CategoricalArrays"
+    DimensionalDataDiskArraysExt = "DiskArrays"
+    DimensionalDataMakie = "Makie"
+    DimensionalDataNearestNeighborsExt = "NearestNeighbors"
+    DimensionalDataPythonCall = "PythonCall"
+    DimensionalDataStatsBase = "StatsBase"
+
+    [deps.DimensionalData.weakdeps]
+    AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
+    CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+    DiskArrays = "3c3547ce-8d99-4f5e-a174-61eb10b00ae3"
+    Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+    NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
+    PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+    StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [[deps.Distances]]
 deps = ["LinearAlgebra", "Statistics", "StatsAPI"]
@@ -1547,9 +1718,9 @@ version = "1.3.7"
 
 [[deps.ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "a2df1b776752e3f344e5116c06d75a10436ab853"
+git-tree-sha1 = "910febccb28d493032495b7009dce7d7f7aee554"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.38"
+version = "1.0.1"
 weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
@@ -1602,10 +1773,10 @@ uuid = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
 version = "1.4.1"
 
 [[deps.GeometryBasics]]
-deps = ["EarCut_jll", "Extents", "GeoInterface", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
-git-tree-sha1 = "b62f2b2d76cee0d61a2ef2b3118cd2a3215d3134"
+deps = ["EarCut_jll", "Extents", "GeoInterface", "IterTools", "LinearAlgebra", "PrecompileTools", "Random", "StaticArrays"]
+git-tree-sha1 = "2670cf32dcf0229c9893b895a9afe725edb23545"
 uuid = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
-version = "0.4.11"
+version = "0.5.9"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -1645,9 +1816,9 @@ version = "1.13.0"
 
 [[deps.GridLayoutBase]]
 deps = ["GeometryBasics", "InteractiveUtils", "Observables"]
-git-tree-sha1 = "6f93a83ca11346771a93bbde2bdad2f65b61498f"
+git-tree-sha1 = "dc6bed05c15523624909b3953686c5f5ffa10adc"
 uuid = "3955a311-db13-416c-9275-1d80ed98e5e9"
-version = "0.10.2"
+version = "0.11.1"
 
 [[deps.Grisu]]
 git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
@@ -1764,32 +1935,44 @@ deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 version = "1.11.0"
 
+[[deps.Interfaces]]
+git-tree-sha1 = "331ff37738aea1a3cf841ddf085442f31b84324f"
+uuid = "85a1e053-f937-4924-92a5-1367d23b7b87"
+version = "0.3.2"
+
 [[deps.Interpolations]]
 deps = ["Adapt", "AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
 git-tree-sha1 = "88a101217d7cb38a7b481ccd50d21876e1d1b0e0"
 uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 version = "0.15.1"
+weakdeps = ["Unitful"]
 
     [deps.Interpolations.extensions]
     InterpolationsUnitfulExt = "Unitful"
 
-    [deps.Interpolations.weakdeps]
-    Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
-
 [[deps.IntervalArithmetic]]
 deps = ["CRlibm", "MacroTools", "OpenBLASConsistentFPCSR_jll", "Random", "RoundingEmulator"]
-git-tree-sha1 = "694c52705f8b23dc5b39eeac629dc3059a168a40"
+git-tree-sha1 = "79342df41c3c24664e5bf29395cfdf2f2a599412"
 uuid = "d1acc4aa-44c8-5952-acd4-ba5d80a2a253"
-version = "0.22.35"
-weakdeps = ["DiffRules", "ForwardDiff", "IntervalSets", "LinearAlgebra", "RecipesBase", "SparseArrays"]
+version = "0.22.36"
 
     [deps.IntervalArithmetic.extensions]
+    IntervalArithmeticArblibExt = "Arblib"
     IntervalArithmeticDiffRulesExt = "DiffRules"
     IntervalArithmeticForwardDiffExt = "ForwardDiff"
     IntervalArithmeticIntervalSetsExt = "IntervalSets"
     IntervalArithmeticLinearAlgebraExt = "LinearAlgebra"
     IntervalArithmeticRecipesBaseExt = "RecipesBase"
     IntervalArithmeticSparseArraysExt = "SparseArrays"
+
+    [deps.IntervalArithmetic.weakdeps]
+    Arblib = "fb37089c-8514-4489-9461-98f9c8763369"
+    DiffRules = "b552c78f-8df3-52c6-915a-8e097449b14b"
+    ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+    IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
+    LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+    RecipesBase = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+    SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.IntervalSets]]
 git-tree-sha1 = "5fbb102dcb8b1a858111ae81d56682376130517d"
@@ -2026,16 +2209,16 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.16"
 
 [[deps.Makie]]
-deps = ["Animations", "Base64", "CRC32c", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "DelaunayTriangulation", "Distributions", "DocStringExtensions", "Downloads", "FFMPEG_jll", "FileIO", "FilePaths", "FixedPointNumbers", "Format", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "GridLayoutBase", "ImageIO", "InteractiveUtils", "IntervalSets", "Isoband", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "MacroTools", "MakieCore", "Markdown", "MathTeXEngine", "Observables", "OffsetArrays", "Packing", "PlotUtils", "PolygonOps", "PrecompileTools", "Printf", "REPL", "Random", "RelocatableFolders", "Scratch", "ShaderAbstractions", "Showoff", "SignedDistanceFields", "SparseArrays", "Statistics", "StatsBase", "StatsFuns", "StructArrays", "TriplotBase", "UnicodeFun"]
-git-tree-sha1 = "4d49c9ee830eec99d3e8de2425ff433ece7cc1bc"
+deps = ["Animations", "Base64", "CRC32c", "ColorBrewer", "ColorSchemes", "ColorTypes", "Colors", "Contour", "Dates", "DelaunayTriangulation", "Distributions", "DocStringExtensions", "Downloads", "FFMPEG_jll", "FileIO", "FilePaths", "FixedPointNumbers", "Format", "FreeType", "FreeTypeAbstraction", "GeometryBasics", "GridLayoutBase", "ImageBase", "ImageIO", "InteractiveUtils", "Interpolations", "IntervalSets", "InverseFunctions", "Isoband", "KernelDensity", "LaTeXStrings", "LinearAlgebra", "MacroTools", "MakieCore", "Markdown", "MathTeXEngine", "Observables", "OffsetArrays", "PNGFiles", "Packing", "PlotUtils", "PolygonOps", "PrecompileTools", "Printf", "REPL", "Random", "RelocatableFolders", "Scratch", "ShaderAbstractions", "Showoff", "SignedDistanceFields", "SparseArrays", "Statistics", "StatsBase", "StatsFuns", "StructArrays", "TriplotBase", "UnicodeFun", "Unitful"]
+git-tree-sha1 = "1d7d16f0e02ec063becd7a140f619b2ffe5f2b11"
 uuid = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-version = "0.20.10"
+version = "0.22.10"
 
 [[deps.MakieCore]]
-deps = ["Observables", "REPL"]
-git-tree-sha1 = "248b7a4be0f92b497f7a331aed02c1e9a878f46b"
+deps = ["ColorTypes", "GeometryBasics", "IntervalSets", "Observables"]
+git-tree-sha1 = "c3159eb1e3aa3e409edbb71f4035ed8b1fc16e23"
 uuid = "20f20a25-4f0e-4fdf-b5d1-57303727442b"
-version = "0.7.3"
+version = "0.9.5"
 
 [[deps.MappedArrays]]
 git-tree-sha1 = "2dab0221fe2b0f2cb6754eaa743cc266339f527e"
@@ -2049,20 +2232,14 @@ version = "1.11.0"
 
 [[deps.MathTeXEngine]]
 deps = ["AbstractTrees", "Automa", "DataStructures", "FreeTypeAbstraction", "GeometryBasics", "LaTeXStrings", "REPL", "RelocatableFolders", "UnicodeFun"]
-git-tree-sha1 = "96ca8a313eb6437db5ffe946c457a401bbb8ce1d"
+git-tree-sha1 = "6e64d2321257cc52f47e193407d0659ea1b2b431"
 uuid = "0a4f8689-d25c-4efe-a92b-7142dfc1aa53"
-version = "0.5.7"
+version = "0.6.5"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 version = "2.28.6+0"
-
-[[deps.Memoize]]
-deps = ["MacroTools"]
-git-tree-sha1 = "2b1dfcba103de714d31c033b5dacc2e4a12c7caa"
-uuid = "c03570c3-d221-55d1-a50c-7939bbd78826"
-version = "0.4.4"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -2113,6 +2290,11 @@ deps = ["OpenLibm_jll"]
 git-tree-sha1 = "9b8215b1ee9e78a293f99797cd31375471b2bcae"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.1.3"
+
+[[deps.NaturalSort]]
+git-tree-sha1 = "eda490d06b9f7c00752ee81cfa451efe55521e21"
+uuid = "c020b1a1-e9b0-503a-9c33-f039bfc54a85"
+version = "1.0.0"
 
 [[deps.Netpbm]]
 deps = ["FileIO", "ImageCore", "ImageMetadata"]
@@ -2281,6 +2463,12 @@ git-tree-sha1 = "3ca9a356cd2e113c420f2c13bea19f8d3fb1cb18"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.3"
 
+[[deps.PlutoTest]]
+deps = ["HypertextLiteral", "InteractiveUtils", "Markdown", "Test"]
+git-tree-sha1 = "17aa9b81106e661cffa1c4c36c17ee1c50a86eda"
+uuid = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
+version = "0.2.2"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "3876f0ab0390136ae0b5e3f064a109b87fa1e56e"
@@ -2447,18 +2635,20 @@ uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
 version = "0.5.1+0"
 
 [[deps.Roots]]
-deps = ["Accessors", "ChainRulesCore", "CommonSolve", "Printf"]
-git-tree-sha1 = "48a7925c1d971b03bb81183b99d82c1dc7a3562f"
+deps = ["Accessors", "CommonSolve", "Printf"]
+git-tree-sha1 = "3ac13765751ffc81e3531223782d9512f6023f71"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "2.1.8"
+version = "2.2.7"
 
     [deps.Roots.extensions]
+    RootsChainRulesCoreExt = "ChainRulesCore"
     RootsForwardDiffExt = "ForwardDiff"
     RootsIntervalRootFindingExt = "IntervalRootFinding"
     RootsSymPyExt = "SymPy"
     RootsSymPyPythonCallExt = "SymPyPythonCall"
 
     [deps.Roots.weakdeps]
+    ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
     ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
     IntervalRootFinding = "d2bf35a9-74e0-55ec-b149-d360ff49b807"
     SymPy = "24249f21-da20-56a4-8eb1-6a02cf4ae2e6"
@@ -2481,9 +2671,9 @@ version = "3.7.1"
 
 [[deps.Scratch]]
 deps = ["Dates"]
-git-tree-sha1 = "3bac05bc7e74a75fd9cba4295cde4045d9fe2386"
+git-tree-sha1 = "9b81b8393e50b7d4e6d0a9f14e192294d3b7c109"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
-version = "1.2.1"
+version = "1.3.0"
 
 [[deps.SentinelArrays]]
 deps = ["Dates", "Random"]
@@ -2502,10 +2692,10 @@ uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 version = "1.1.2"
 
 [[deps.ShaderAbstractions]]
-deps = ["ColorTypes", "FixedPointNumbers", "GeometryBasics", "LinearAlgebra", "Observables", "StaticArrays", "StructArrays", "Tables"]
-git-tree-sha1 = "79123bc60c5507f035e6d1d9e563bb2971954ec8"
+deps = ["ColorTypes", "FixedPointNumbers", "GeometryBasics", "LinearAlgebra", "Observables", "StaticArrays"]
+git-tree-sha1 = "818554664a2e01fc3784becb2eb3a82326a604b6"
 uuid = "65257c39-d410-5151-9873-9b3e5be5013e"
-version = "0.4.1"
+version = "0.5.0"
 
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
@@ -2641,9 +2831,9 @@ version = "0.4.1"
 
 [[deps.StructArrays]]
 deps = ["ConstructionBase", "DataAPI", "Tables"]
-git-tree-sha1 = "9537ef82c42cdd8c5d443cbc359110cbb36bae10"
+git-tree-sha1 = "8ad2e38cbb812e29348719cc63580ec1dfeb9de4"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-version = "0.6.21"
+version = "0.7.1"
 
     [deps.StructArrays.extensions]
     StructArraysAdaptExt = "Adapt"
@@ -2728,9 +2918,9 @@ uuid = "981d1d27-644d-49a2-9326-4793e63143c3"
 version = "0.1.0"
 
 [[deps.URIs]]
-git-tree-sha1 = "cbbebadbcc76c5ca1cc4b4f3b0614b3e603b5000"
+git-tree-sha1 = "24c1c558881564e2217dcf7840a8b2e10caeb0f9"
 uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
-version = "1.5.2"
+version = "1.6.0"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
@@ -2751,6 +2941,19 @@ deps = ["REPL"]
 git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
+
+[[deps.Unitful]]
+deps = ["Dates", "LinearAlgebra", "Random"]
+git-tree-sha1 = "d2282232f8a4d71f79e85dc4dd45e5b12a6297fb"
+uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
+version = "1.23.1"
+weakdeps = ["ConstructionBase", "ForwardDiff", "InverseFunctions", "Printf"]
+
+    [deps.Unitful.extensions]
+    ConstructionBaseUnitfulExt = "ConstructionBase"
+    ForwardDiffExt = "ForwardDiff"
+    InverseFunctionsUnitfulExt = "InverseFunctions"
+    PrintfExt = "Printf"
 
 [[deps.WebP]]
 deps = ["CEnum", "ColorTypes", "FileIO", "FixedPointNumbers", "ImageCore", "libwebp_jll"]
@@ -2860,9 +3063,9 @@ version = "2.0.3+0"
 
 [[deps.libpng_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
-git-tree-sha1 = "002748401f7b520273e2b506f61cab95d4701ccf"
+git-tree-sha1 = "cd155272a3738da6db765745b89e466fa64d0830"
 uuid = "b53b4c65-9356-5827-b1ea-8c7a1a84506f"
-version = "1.6.48+0"
+version = "1.6.49+0"
 
 [[deps.libsixel_jll]]
 deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "Libdl", "libpng_jll"]
@@ -2912,66 +3115,98 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─fde84d77-ca84-4389-a89d-8a3ad41641fe
-# ╟─8b8b913e-9758-11ee-07bc-cb7712eed09d
-# ╟─c68eabcf-5846-484e-8945-bde27002cc60
-# ╠═fbccf6ee-5cd2-43ba-ba6a-f09fe219d803
-# ╟─58332b84-63a4-4b9d-8d7a-34d5a8d5b4c9
-# ╠═1cae17bd-4ee4-43af-bc79-5889740c1289
-# ╟─611a1c93-86fe-46db-9dd7-1882923d6ce3
-# ╠═1a7de3ab-15f3-4ce4-9ae7-5851e2fcade9
-# ╟─f21c5612-cc36-4c38-88a3-2c52d80f1e11
-# ╠═eedf7b40-aa00-4df2-a750-a5f6edddf627
-# ╠═37213ced-a460-40ee-9bd5-fd23d127c8f5
-# ╟─0ea09255-d6bf-4157-a4f4-f014894f96fe
-# ╠═f9d864a1-df93-4acb-b9a1-dcae9f650594
-# ╟─39444ee9-13ec-4788-8bb2-02c49f7a2416
-# ╠═1fb98a85-34f5-43ed-9047-40e156d2e87e
-# ╠═84c86387-7c0b-4a54-b2ee-3bd369b33e5e
-# ╟─adb024cf-37d9-48bd-a8b6-5974aa23c8db
-# ╠═762af298-c4bc-400d-b8c6-7bbd135d2ffa
-# ╟─a65afbc3-15f0-40cb-9032-e249caf3176a
-# ╠═108071dd-fb5b-4c25-a062-62a00b58e55f
-# ╟─197230d2-3323-44ea-87a0-16063711ee7a
-# ╟─f2191b50-b9f7-4657-85fc-5798264873d6
-# ╠═e6172cbd-a77f-4e00-b40f-596fa15caaeb
-# ╠═8e296503-bde8-4d4f-b18f-53a34e3fe8c8
-# ╟─ce219259-f7a8-43e6-89d9-de8787644046
-# ╠═229f1996-3a93-43d2-8a65-b2e80ce6b12c
-# ╟─487056aa-2c18-45a6-b343-d7c467db7a68
-# ╠═9cd6427d-fe38-4dc3-ab38-7b04c4118548
-# ╟─132054ba-478c-4429-81f5-d8846f842e2f
-# ╠═b085ffea-fb4e-4f61-a081-b546b44fbdcc
-# ╟─c76e1c3c-ded9-4fcc-971b-fd011178acae
-# ╠═08e8a1b7-181a-4b14-960f-511de6a94b13
-# ╠═b6a0da97-2907-4bd1-9b9a-3469734a9013
-# ╟─f30878da-9b59-4364-a8e4-8bc7ba25d42a
-# ╠═1ec7f486-5949-4762-acb6-228e09f6676d
-# ╠═8842ee9f-d3f2-4d97-a9be-fe11cabd5536
-# ╟─1ae74070-56d4-447e-8800-e233bf3759b8
-# ╠═9d4f0265-273a-4c00-8bb6-28c2b9ce2663
-# ╟─c33342e3-662a-4d33-b096-85afd7ac651c
-# ╠═75e7d7a1-3000-420f-a097-bdcdecb2a6b8
-# ╠═35da88ec-c411-44a7-8001-4608b2a1e5d5
-# ╠═0beed15f-e850-46a2-9f17-0fc410271f5a
-# ╠═b8c50ea0-c08f-48ae-bb0a-5286d61c7ff2
-# ╟─37b9c4a3-d0b3-455e-819d-36531376c2cc
-# ╟─6dcbe44e-4329-47f8-b817-1913aad8fbd0
-# ╠═c763fb8e-bee0-44ff-9184-10e600bfc929
-# ╟─b5f699f9-e3c5-4e48-86d7-edbf384031c3
-# ╟─af371420-fde7-4eb8-9fa0-0c1415eb51a1
-# ╠═d16f7d1b-b994-4950-bd57-e8b65265b445
-# ╠═17c3ce8a-f6ce-4877-80e5-bcc7d5cb241f
-# ╠═e1f5de7f-2f79-4347-a5c1-5fefbca387c0
-# ╠═51910340-cd95-42d4-a86f-698524419dc1
-# ╠═289a93b3-35ef-4202-a842-8347bc75527e
-# ╠═4e059acd-8ef1-448f-84ec-068ebb8adb89
-# ╠═ead31806-1c52-4aab-848e-10fdf2459b0a
-# ╠═6367fa56-1118-4ff7-98c1-a065ee82addd
-# ╠═f298f640-073e-46bc-9bde-b2eb066cd274
-# ╠═bba8b62a-a68a-4d04-ad06-a61e2ae88a19
-# ╠═69d08f00-1bb2-4f93-a8ab-f7ac00a63f34
-# ╠═1f61e4a1-b3a2-430f-8089-06b0714a9ba7
-# ╠═bab8326e-5e8f-4a8d-8efa-f4a5ec1ceea3
+# ╟─254ef9ca-038e-4bf3-bca6-46560561e602
+# ╠═50a9974a-85f6-45f8-b337-8032502cd0a1
+# ╠═a8b5361c-27c5-46c2-8011-d4157c6f7d3e
+# ╠═a2b8696d-ff6c-42e2-9c76-5dd45a882487
+# ╠═68c038ec-c197-4044-8b3a-26974f284e8b
+# ╠═46170d0a-d23b-4e7e-bf34-bb181db8dd20
+# ╠═85eca6cf-30ec-4c78-8a77-c17faf7b8d24
+# ╠═969a11f3-a32b-41a7-a1c3-12a6e53c26a4
+# ╠═70fc73c5-4154-4a04-99fa-ce084d42ea93
+# ╠═d82f2dcd-6e81-459b-bd53-a31194176b7b
+# ╟─b0b70488-c50e-46fc-92c4-042b4b59da95
+# ╠═3790074d-69d8-4fe6-ad66-8e8b21070758
+# ╠═017a9f3f-49eb-4847-978a-682a8ebb209c
+# ╠═1885479c-bc25-47c9-ab2a-7fa19b71f7d7
+# ╠═aa422178-329a-4bc4-ba84-a45f5fbe6a65
+# ╠═67196d11-9bcc-4512-a707-189ab3f3104b
+# ╟─4404bdd9-35f8-4c79-9224-286e356599d5
+# ╠═42b5357a-1595-40bc-b208-7090005365fd
+# ╠═7df1a518-ece7-4a98-a430-278c1700b564
+# ╟─6f26ed4d-e827-4bcb-8fd9-b99cb96e88ff
+# ╠═46964708-1e84-4e05-bf2d-440efa54efe8
+# ╠═17e397d2-cdd4-4335-bfba-557bbe2615e5
+# ╟─3f276967-aa16-4123-bbce-351bc865be4f
+# ╠═24966791-16d4-40aa-8d25-7d0e9708621f
+# ╟─b461ef85-6ed3-479e-b127-e803e55cb374
+# ╟─d5c68b87-8d39-4486-b1bc-6a9bf6d6745e
+# ╠═b45d3033-3a14-4c3a-9eeb-62baa71dab3d
+# ╠═ae0252ca-4a39-4581-9fd4-b99f635a6ca8
+# ╠═0a4360fe-88a8-4b4a-bb60-dea0d975b8d1
+# ╠═46068b3b-fad4-4ba7-97bb-8c0e43589a96
+# ╠═42ca4fde-502d-489f-979b-1213584bb72d
+# ╠═fd045d53-7d11-4dac-824c-0e382b80d4f5
+# ╠═94c3c00a-389a-4cc8-97aa-c51339a3ef37
+# ╟─2e383465-5496-43ed-bcec-5607a84a1e26
+# ╠═1748ac1d-5f4b-417b-9b11-d5bbbcb2c072
+# ╟─86e800fc-97f8-4a79-bc5c-bacfa9f2a6c0
+# ╠═17136258-5135-4920-978b-1d811291dcfe
+# ╠═ce46e63f-d07b-43f3-af0c-ae33cbba5289
+# ╠═f4681d7c-e81e-4298-a0f8-ec3b5da96011
+# ╠═b8543ee6-4eb2-4002-8b2b-a5bd6bc5d0ec
+# ╟─e87157e7-1aef-4ce6-8230-aa2e598d198f
+# ╟─4687e30b-6b98-4e85-baed-dfdf2639609a
+# ╠═aa370e6c-8ad3-496f-8b11-5767c5c1f29a
+# ╠═aa142887-9807-44d5-a97d-9e97b916e984
+# ╟─bf2cc89f-a272-4539-a172-c0c9b179bea9
+# ╠═cac697fa-cde9-4b45-ae7a-e582388e491c
+# ╠═7ff370ce-53e4-40d8-90e0-6712c844dc41
+# ╠═66bc077a-8843-448d-b883-03619b21d6ff
+# ╠═c09a6bd6-9e5f-4265-9a52-71ea586a385d
+# ╟─14c512b8-2f0e-4831-a1b4-4e66f3e061f5
+# ╠═91bbe376-ced2-4b88-b564-b72d7bf0900f
+# ╠═db4b45b9-fc4a-457e-bfa2-9778d2002413
+# ╠═4e6216db-e6fe-4bdc-9bd4-d22e9edc532a
+# ╠═d37ead9d-23e3-4492-863e-17c39c068f1c
+# ╠═ba2cd4ef-3acf-4d87-a7db-27c1bdf0994e
+# ╠═44dde0b2-ad39-4558-b260-41590796b2a7
+# ╠═046d2a75-c05f-4c27-95c7-e960cb14f494
+# ╠═0e58d89d-0ce7-4ec4-b89d-e4db8fb03b3f
+# ╟─857e9793-6cc8-4c29-935c-493d88cc5da7
+# ╠═09c2d6c5-1268-44f7-89af-628ecba011a5
+# ╠═4c27296c-aa27-4a48-816e-5d10ecceecf8
+# ╟─f63bb47d-2c7e-4c9a-af44-f58ca6dc2bb3
+# ╟─df140406-28a5-49cc-b5c1-ecc53819802c
+# ╠═4e661c4d-41df-4b63-b188-2a52aa62be2d
+# ╠═faeed655-cf82-427f-b4c3-758ae2ebf049
+# ╠═13173588-b32f-48cd-8234-6a45673bfd01
+# ╠═c523b23b-c982-4b97-ba66-de491141e762
+# ╠═417ba086-c9eb-4800-8826-cc675b49a825
+# ╟─dd7c5948-b335-44ea-909d-bcfd8be6b40e
+# ╠═64055da7-95a9-4920-abcb-c88f2add29c1
+# ╠═072d96b3-75b3-4291-9220-219bdd6fe34f
+# ╠═23f7eab4-70e7-4c35-8124-4cfb85095f95
+# ╠═1fd2c215-37dd-42bb-81a5-a4e229a50580
+# ╠═ee932ecb-1537-4bd2-a8c8-7b16c42e73e2
+# ╠═16e4f838-00cc-46dc-b211-f2f492b67285
+# ╟─2caa6111-33bf-4e90-b801-7b4655020444
+# ╠═d6356c7d-3086-418c-afb3-0f47d3ba9ce0
+# ╠═effbbcc1-8b35-4a3c-a9a2-311afca1b718
+# ╠═c9da52e2-098a-46c4-acbf-173fce6965d8
+# ╠═c45dcd06-b3a1-4045-89d4-b5632b988cf8
+# ╠═fbd9c561-24c8-4f76-9235-f59593cc298a
+# ╠═acd91d10-53a9-44f2-8e91-ce058a30535b
+# ╠═33b42231-663b-4e3f-ba4c-18f0a1ce24ea
+# ╠═4741eb11-c44c-4141-bb02-269ff2b78ad2
+# ╠═5c1537af-7d35-4231-84a4-3aef4e998e31
+# ╠═d7bd570b-3e14-476c-8337-7edbab49980a
+# ╠═91ddd974-9d67-4cd3-b4f8-60521c37baaa
+# ╠═2db71af0-fcc7-4822-a6cc-bbcf07107182
+# ╠═fd369634-4ddb-40cf-a1a0-e7e6282b7595
+# ╠═03d38330-6f14-46b5-86fd-620072ff102d
+# ╠═8daf8548-2245-4271-80f7-d8a352687260
+# ╠═45caaf75-c1bb-40d0-b4e7-5039d1ba3ba4
+# ╠═3128e1c7-2e13-4bd5-b6b7-9d3b90a126b3
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
