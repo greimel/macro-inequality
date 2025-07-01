@@ -40,6 +40,13 @@ using Statistics: mean
 # ╔═╡ 3128e1c7-2e13-4bd5-b6b7-9d3b90a126b3
 using StatsBase: weights
 
+# ╔═╡ 2dcb6637-aa78-45f1-a445-cad7cc83cac2
+md"""
+# Todos, bugs to fix
+
+* fix the spike in just before death
+"""
+
 # ╔═╡ 254ef9ca-038e-4bf3-bca6-46560561e602
 md"""
 # Setup
@@ -129,6 +136,28 @@ md"""
 # Compare methods: with risk
 """
 
+# ╔═╡ 8abff936-a11b-4e73-a8cf-0aab3f583038
+function dimarray_of_nts_to_dimstack(da)
+	names = keys(first(da))
+
+	DimStack((DimArray(getproperty.(da, name); name) for name ∈ names)...)
+end
+
+# ╔═╡ 153f5f60-bbb2-422b-b927-846b8d567520
+function dimarray_of_nts_to_nt_of_dimarrays(da)
+	names = keys(first(da))
+
+	NamedTuple{names}(tuple((DimArray(getproperty.(da, name); name) for name ∈ names)...))
+end
+
+# ╔═╡ bc167050-c41f-4cf8-9805-d576ffb08cc9
+let
+	da = DimArray([(; c = 1.0, a_next = 3.0), (; c = 1.4, a_next = 3.4)], Dim{:xx}(1:2))
+
+	dimarray_of_nts_to_nt_of_dimarrays(da)
+	
+end
+
 # ╔═╡ b461ef85-6ed3-479e-b127-e803e55cb374
 md"""
 # General functionality
@@ -195,6 +224,28 @@ md"""
 # Method dependent functionality
 """
 
+# ╔═╡ f97f0307-daef-4022-add5-1b70844f384e
+function last_choices(a, y, (; r), par)
+	(; u′, u, v′, v) = par
+	
+	wealth = y + (1+r) * a
+	_a_next_(c) = wealth - c
+
+	if par.ν₀ == 0.0
+		c = wealth
+	else
+		obj(c) = u′(c) - v′(_a_next_(c))
+	
+		cₘᵢₙ = 0.0001
+		cₘₐₓ = _a_next_(cₘᵢₙ)
+	
+		c = find_zero(obj, [cₘᵢₙ, cₘₐₓ])
+	end
+
+	a_next = _a_next_(c)
+	return (; c, next_state = a_next, stuff = (; c, a_next, income = y))
+end
+
 # ╔═╡ 4687e30b-6b98-4e85-baed-dfdf2639609a
 md"""
 ### Solving backward
@@ -205,14 +256,21 @@ md"""
 ### Model related
 """
 
+# ╔═╡ 66bc077a-8843-448d-b883-03619b21d6ff
+c_curr_risk(a, a_next, y, (; w, r, m)) = (1+r) * a + y * w - (1-m) * a_next
+
+# ╔═╡ b6d55a94-7933-48c1-8ab6-c5cffc4681e8
+function current_choices(a, a_next, y, (; w, r, m))
+	c = c_curr_risk(a, a_next, y, (; w, r, m))
+
+	(; c, a_next, income=y)
+end
+
 # ╔═╡ cac697fa-cde9-4b45-ae7a-e582388e491c
 c_prev_risk(c, r, (; β, γ)) = c / (β * (1 + r))^(1/γ)
 
 # ╔═╡ 7ff370ce-53e4-40d8-90e0-6712c844dc41
 a_prev_risk(c_prev, a, y_prev, (; w_prev, r_prev, m_prev)) = (a * (1-m_prev) + c_prev - w_prev * y_prev)/(1+r_prev)
-
-# ╔═╡ 66bc077a-8843-448d-b883-03619b21d6ff
-c_curr_risk(a, a_next, y, (; w, r, m)) = (1+r) * a + y * w - (1-m) * a_next
 
 # ╔═╡ c09a6bd6-9e5f-4265-9a52-71ea586a385d
 # ╠═╡ disabled = true
@@ -331,7 +389,7 @@ md"""
 function iterate_back!(v_curr, policy_curr, policy_plus_curr, 
 					   statespace, par, v_next;
 						m, y, r, w, j, t)
-	(; β, u) = par
+	(; β, u, v) = par
 	(; a_grid, P, y_grid) = statespace
 
 	for (y_i, yy) ∈ enumerate(y_grid)
@@ -342,7 +400,7 @@ function iterate_back!(v_curr, policy_curr, policy_plus_curr,
 			# for a given grid point a, find optimal choice
 			inc = y * yy
 			(v_opt, a_i_opt) = findmax(
-						(u ∘ c).(a, a_grid; m, y=inc, r, w) + β * (1-m) .* 𝔼v
+						(u ∘ c).(a, a_grid; m, y=inc, r, w) + β * (1-m) .* 𝔼v .+ m .* v.(a_grid)
 					)
 	
 			# save interesting output
@@ -417,7 +475,7 @@ function solve_backward(::VFI, par, statespace; price_paths, t_born, j_init)
 	(; policy_plus) = _solve_backward_vfi_(par, statespace; price_paths, t_born, j_init)
 
 	sol_backward = let
-		a_next = DimArray(
+		next_state = DimArray(
 			getproperty.(policy_plus, :a_next),
 			name = :a_next
 		)
@@ -426,7 +484,7 @@ function solve_backward(::VFI, par, statespace; price_paths, t_born, j_init)
 		#new_dims = (DD.dims(a_next)..., Dim{:y}([1.0]))
 	
 		#a_next = DimArray(reshape(a_next, new_size), new_dims, name = :a_next)
-		(; a_next)
+		(; next_state)
 	end
 
 	sol_backward
@@ -465,7 +523,7 @@ md"""
 """
 
 # ╔═╡ 64055da7-95a9-4920-abcb-c88f2add29c1
-c_J(a, y, (; r, w)) = (1 + r) * a + w * y
+
 
 # ╔═╡ 072d96b3-75b3-4291-9220-219bdd6fe34f
 a_next(c; a, w, y, r, m) = m == 1 ? 0.0 : ((1+r) * a + y * w - c)/(1-m)
@@ -504,9 +562,13 @@ function solve_backward(::EGM, par, statespace; price_paths, j_init, t_born)
 	a_next₁ = @view a_next[y = At(1)]
 	## SOLVE BACKWARDS
 	t_J = t_born + J
-	prices_J = (; r = rs[t=At(t_J)], w = ws[t = At(t_J)])
 	
-	c₁[j = At(J)] .= c_J.(grid, Ref(y[j = At(J)]), Ref(prices_J))
+	prices_J = (; r = rs[t=At(t_J)], w = ws[t = At(t_J)])
+
+	out = @d last_choices.(a_grid, Ref(y[j = At(J)]), Ref(prices_J), Ref(par))
+
+	     c₁[j = At(J)] .= getproperty.(out, :c)
+	a_next₁[j = At(J)] .= getproperty.(out, :next_state)
 	
 	for j ∈ J:-1:(j_init + 1)
 		t = t_born + j
@@ -534,7 +596,7 @@ function solve_backward(::EGM, par, statespace; price_paths, j_init, t_born)
 		     c₁[j = At(j-1)] = c_curr.(a_grid, _a_next_; y = y[j = At(j-1)], r = rs[t = At(t-1)], w = ws[t = At(t-1)], m = m[j = At(j-1)])
 	end
 	
-	sol_backward = (; c, a_next)
+	sol_backward = (; c, next_state = a_next)
 end
 
 # ╔═╡ 2caa6111-33bf-4e90-b801-7b4655020444
@@ -599,16 +661,48 @@ let
 	weighted_neighbours(a, a_grid)
 end
 
+# ╔═╡ b3b748fb-24be-47eb-a486-5a4496b5ce11
+function c_prev_risk_new(cⱼ, par, prices_prev, P, statespace)
+	(; u′, u′⁻¹, β, v′) = par
+	
+	(; r_prev, m_prev) = prices_prev
+
+	(; a_grid, y_grid) = statespace
+	
+	cⱼ₋₁ = zeros(DD.dims(cⱼ), name = :cⱼ₋₁)
+
+	# suppose we are in state yⱼ₋₁ today
+	# suppose we know our optimal choices tomorrow cⱼ(yⱼ) 
+	#  (which will depend on tomorrow's consumption level)
+	#  then we know 𝔼[u′(cⱼ)| yⱼ₋₁], 
+	#  which means we can compute cⱼ₋₁(yⱼ₋₁)
+	
+	for (aⱼ_i, aⱼ) ∈ enumerate(a_grid)
+		c_curr = cⱼ[a = aⱼ_i]
+		a_next = aⱼ
+		
+		for (yⱼ₋₁_i, _) ∈ enumerate(y_grid)
+		
+			𝔼u′ = dot(u′.(c_curr), P[yⱼ₋₁_i, :])
+			#m_prev = clamp(m_prev * 1.0001, 0, 1)
+		    cⱼ₋₁[a = aⱼ_i, y = yⱼ₋₁_i] = u′⁻¹(𝔼u′ * (β * (1+r_prev)) + (m_prev/(1-m_prev)) * v′(a_next))
+		end
+
+	end
+
+	return cⱼ₋₁
+end
+
 # ╔═╡ ce46e63f-d07b-43f3-af0c-ae33cbba5289
 get_states(da) = NamedTuple{name.(DD.dims(da))}.(DimPoints(da))
 
 # ╔═╡ 17136258-5135-4920-978b-1d811291dcfe
 function solve_forward(sol_backward, statespace, (; m); π_init, j_init)
 	
-	(; a_next) = sol_backward
+	(; next_state) = sol_backward
 	
-	dims_j = DD.dims(a_next)
-	j₀, J = extrema(DD.dims(a_next, :j))
+	dims_j = DD.dims(next_state)
+	j₀, J = extrema(DD.dims(next_state, :j))
 
 	# initialize distribution and fill initial distribution
 	π = zeros(dims_j, name = :π)
@@ -629,7 +723,7 @@ function solve_forward(sol_backward, statespace, (; m); π_init, j_init)
 			
 			## 1. find optimal policy
 			(; a, y) = states[ind]
-			a_n = a_next[j = At(j), a = At(a), y = At(y)]
+			a_n = next_state[j = At(j), a = At(a), y = At(y)]
 
 			## 2. find closest points on grid
 			(; high, low) = weighted_neighbours(a_n, statespace.a_grid)
@@ -650,78 +744,71 @@ function solve_backward(::Risky, par, statespace; price_paths, t_born, j_init)
 	(; J, y, m, a̲) = par
 	(; rs, ws) = price_paths
 
-	#a_dim = statespace.dims
-	(; a_grid, y_grid, dims) = statespace
-	grid = a_grid
+	(; y_grid, dims) = statespace
+	grid = statespace.a_grid
 	a_min = 0.0
-	
+
 	j_dim = Dim{:j}(j_init:J)
+	dims_j = (dims..., j_dim)
 	
-	c      = zeros(dims..., j_dim, name = :c)
-	a_next = zeros(dims..., j_dim, name = :a_next)
-	income = zeros(DD.dims(dims, :y), j_dim, name = :income)
+	c       = zeros(dims_j, name = :c)
+	next_state = zeros(dims_j, name = :next_state)
 	
 	## SOLVE BACKWARDS ("solve policy functions")
 	t_J = t_born + J
 	prices_J = (; r = rs[t=At(t_J)], w = ws[t = At(t_J)])
 	inc_J   = (y_grid .* y[j = At(J)])
-	c_J_tmp = @d c_J.(a_grid, inc_J, Ref(prices_J))
-	
-	     c[j = At(J)] .= c_J_tmp # CHECK CORRECT DIMENSIONS ???
 
-	income[j = At(J)] .= inc_J
-	a_next[j = At(J)] .= 0.0
+	out = @d last_choices.(grid, inc_J, Ref(prices_J), Ref(par))
+
+	         c[j = At(J)] .= getproperty.(out, :c)
+	next_state[j = At(J)] .= getproperty.(out, :next_state)
+
+	stuff = let
+		stuff_J = getproperty.(out, :stuff)
+		T = typeof(first(stuff_J))
+
+		stuff = DimArray(Array{T}(undef, size(dims_j)), dims_j, name = :stuff)
+		stuff[j = At(J)] .= stuff_J
+		stuff
+	end
 	
 	P_dims = (DD.dims(dims, :y), DD.dims(dims, :y))
 	P = DimArray(statespace.y_chain.p, P_dims)
 
 	for j ∈ J:-1:(j_init + 1)
 		t = t_born + j
-		cⱼ   = c[j = At(j)]
-
+		cⱼ = c[j = At(j)]
+	
 		prices      = (; r = rs[t=At(t)],   w = ws[t = At(t)],   m = m[j = At(j)])
 		prices_prev = (; r_prev = rs[t = At(t-1)], 
 					   	 w_prev = ws[t = At(t-1)],
-					     m_prev =  m[j = At(j-1)]
+					     m_prev =  m[j = At(max(0,j-1))]
 					  )
-		
-		cⱼ₋₁ = let
-			(; γ, β) = par
-			(; r) = prices
-	
-			𝔼u′ = cⱼ .^ (-γ) * P'
-		    
-		    cⱼ₋₁ =  𝔼u′.^(-1/γ) * (β*(1+r)).^(-1/γ)
-			cⱼ₋₁ = DimArray(cⱼ₋₁, name = :cⱼ₋₁)
-		end
+
+		cⱼ₋₁ = c_prev_risk_new(cⱼ, par, prices_prev, P, statespace)
 
 		incⱼ₋₁ = y_grid .* y[j = At(j-1)]
-		income[j = At(j-1)] .= incⱼ₋₁
 		
-		aⱼ₋₁ = @d a_prev_risk.(cⱼ₋₁, a_grid, incⱼ₋₁, Ref(prices_prev))
+		stateⱼ₋₁ = @d a_prev_risk.(cⱼ₋₁, grid, incⱼ₋₁, Ref(prices_prev))
 	
 		for y ∈ DD.dims(dims, :y)
-	
-			cⱼ₋₁_itp = LinearInterpolation(
-				aⱼ₋₁[y = At(y)], 
-				cⱼ₋₁[y = At(y)],
-				extrapolation_bc = Line()
-			)
 
-			aⱼ_itp = LinearInterpolation(
-				aⱼ₋₁[y = At(y)], 
-				parent(a_grid),
+			stateⱼ_itp = LinearInterpolation(
+				stateⱼ₋₁[y = At(y)], 
+				parent(grid),
 				extrapolation_bc = Line()
 			)
 	
-			a_next[j = At(j-1), y = At(y)] .= max.(aⱼ_itp.(a_grid), a_min)
+			next_state[j = At(j-1), y = At(y)] .= max.(stateⱼ_itp.(grid), a_min)
 		end
 
-		## incⱼ₋₁ or j - 1 ????
-		c[j = At(j-1)] = @d c_curr_risk.(a_grid, a_next[j = At(j-1)], incⱼ₋₁, Ref((; r = prices_prev.r_prev, w = prices_prev.w_prev, m = prices_prev.m_prev)))
+		_prices_ = (; r = prices_prev.r_prev, w = prices_prev.w_prev, m = prices_prev.m_prev)
+		c[j = At(j-1)] = @d c_curr_risk.(grid, next_state[j = At(j-1)], incⱼ₋₁, Ref(_prices_))
+		stuff[j = At(j-1)] = @d current_choices.(grid, next_state[j = At(j-1)], incⱼ₋₁, Ref(_prices_))
 	end
-	
-	sol_backward = (; c, income, a_next)
+
+	sol_backward = (; next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)...)
 end
 
 # ╔═╡ 1748ac1d-5f4b-417b-9b11-d5bbbcb2c072
@@ -814,16 +901,22 @@ function get_par(;
         α = 0.33,
 		δ = 0.1,
  		a̲ = -Inf,
+		ν₀ = 1.92, # ν
+		ν₁ = 78.5, # Y
 		bonds2GDP = 1.0
 	)
 	m = mortality(demo; J, m=mm)
 	J = maximum(DD.dims(m, :j))
 
 	u(c) = c > 0 ? c^(1-γ)/(1-γ) : -Inf
-		
+	u′(c) = c^(-γ)
+	u′⁻¹(x) = x^(-1/γ)
+	v(a)  = ν₀ == 0.0 ? 0.0 : a ≥ 0 ? ν₀ * a^(1-ν₁)/(1-ν₁) : -Inf
+	v′(a) = ν₀ == 0.0 ? 0.0 : ν₀ * a^(-ν₁)
+	
 	(; δ, α, Θ = 1, L = 1, β, ρ, r, bonds2GDP, 
 		m, J, γ, a̲,
-		y, u,
+		y, u, u′, u′⁻¹, v, v′, ν₀, ν₁,
 		w = 1.0)
 end
 
@@ -909,6 +1002,7 @@ let
 	)
 
 	@chain df begin
+		@subset(:method ≠ "egm 2")
 		stack(vars, [:π, :j, :method])
 		@groupby(:variable, :j, :method)
 		@combine(
@@ -930,7 +1024,7 @@ par_with_risk = let
 	
 	par = get_par(; demo = :lifecycle, y, a̲ = 0.0)
 
-	statespace = Statespace(; amin = 0.0, amax = 25.0, na = 2000, y_chain = simple_income_risk(), exponential = true)
+	statespace = Statespace(; amin = 0.0, amax = 25.0, na = 600, y_chain = simple_income_risk(), exponential = true)
 
 	(; prices, price_paths) = let
 		K_guess = 4.522301994771901
@@ -1022,6 +1116,7 @@ let
 
 	@chain df begin
 		stack(vars, [:π, :j, :method])
+		@subset(:j > 100)
 		@groupby(:variable, :j, :method)
 		@combine(
 			:q = [0.2, 0.5, 0.8],
@@ -1031,10 +1126,25 @@ let
 						  group = :q => nonnumeric, color = :method,
 						  linestyle = :method,
 						  layout = :variable
-						 ) * visual(Lines)
+						 ) * visual(ScatterLines)
 		draw(; facet = (; linkyaxes = false), figure = figure())
 	end
 end
+
+# ╔═╡ 7b97e998-7bec-47ec-9c35-16bedd7808dc
+let
+	(; par, statespace) = par_with_risk
+
+	state_J = (; a = 0.5, y = 2.1)
+	prices_J = (; r = 0.05)
+
+	out = @d last_choices.(statespace.a_grid, statespace.y_grid, Ref(prices_J), Ref(par))
+
+	c_J = getproperty.(out, :c)
+	a_J = getproperty.(out, :next_state)
+	
+end
+	
 
 # ╔═╡ c523b23b-c982-4b97-ba66-de491141e762
 let
@@ -3115,6 +3225,7 @@ version = "3.6.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═2dcb6637-aa78-45f1-a445-cad7cc83cac2
 # ╟─254ef9ca-038e-4bf3-bca6-46560561e602
 # ╠═50a9974a-85f6-45f8-b337-8032502cd0a1
 # ╠═a8b5361c-27c5-46c2-8011-d4157c6f7d3e
@@ -3134,10 +3245,14 @@ version = "3.6.0+0"
 # ╟─4404bdd9-35f8-4c79-9224-286e356599d5
 # ╠═42b5357a-1595-40bc-b208-7090005365fd
 # ╠═7df1a518-ece7-4a98-a430-278c1700b564
+# ╠═8abff936-a11b-4e73-a8cf-0aab3f583038
+# ╠═153f5f60-bbb2-422b-b927-846b8d567520
+# ╠═bc167050-c41f-4cf8-9805-d576ffb08cc9
 # ╟─6f26ed4d-e827-4bcb-8fd9-b99cb96e88ff
 # ╠═46964708-1e84-4e05-bf2d-440efa54efe8
 # ╠═17e397d2-cdd4-4335-bfba-557bbe2615e5
-# ╟─3f276967-aa16-4123-bbce-351bc865be4f
+# ╠═3f276967-aa16-4123-bbce-351bc865be4f
+# ╠═b3b748fb-24be-47eb-a486-5a4496b5ce11
 # ╠═24966791-16d4-40aa-8d25-7d0e9708621f
 # ╟─b461ef85-6ed3-479e-b127-e803e55cb374
 # ╟─d5c68b87-8d39-4486-b1bc-6a9bf6d6745e
@@ -3156,13 +3271,16 @@ version = "3.6.0+0"
 # ╠═f4681d7c-e81e-4298-a0f8-ec3b5da96011
 # ╠═b8543ee6-4eb2-4002-8b2b-a5bd6bc5d0ec
 # ╟─e87157e7-1aef-4ce6-8230-aa2e598d198f
+# ╠═7b97e998-7bec-47ec-9c35-16bedd7808dc
+# ╠═f97f0307-daef-4022-add5-1b70844f384e
 # ╟─4687e30b-6b98-4e85-baed-dfdf2639609a
 # ╠═aa370e6c-8ad3-496f-8b11-5767c5c1f29a
 # ╠═aa142887-9807-44d5-a97d-9e97b916e984
 # ╟─bf2cc89f-a272-4539-a172-c0c9b179bea9
+# ╠═b6d55a94-7933-48c1-8ab6-c5cffc4681e8
+# ╠═66bc077a-8843-448d-b883-03619b21d6ff
 # ╠═cac697fa-cde9-4b45-ae7a-e582388e491c
 # ╠═7ff370ce-53e4-40d8-90e0-6712c844dc41
-# ╠═66bc077a-8843-448d-b883-03619b21d6ff
 # ╠═c09a6bd6-9e5f-4265-9a52-71ea586a385d
 # ╟─14c512b8-2f0e-4831-a1b4-4e66f3e061f5
 # ╠═91bbe376-ced2-4b88-b564-b72d7bf0900f
