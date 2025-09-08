@@ -1,8 +1,11 @@
 ### A Pluto.jl notebook ###
-# v0.20.16
+# v0.20.17
 
 using Markdown
 using InteractiveUtils
+
+# ╔═╡ 6db36cc8-de6b-490d-b796-0dae17ecfb42
+using SparseArrays
 
 # ╔═╡ e51238ae-eea3-4956-b22a-59fb42f4a9e7
 using PlutoUI
@@ -36,6 +39,17 @@ using QuantEcon: QuantEcon, rouwenhorst, MarkovChain, stationary_distributions
 
 # ╔═╡ bacf8ffa-cb2b-4e0e-989d-c4c84b4d8d2c
 using Statistics: mean
+
+# ╔═╡ adb79a2d-cf1e-42a4-a821-d9afd37b73bf
+md"""
+## To do
+
+* assets of the dead (case distinction)
+* initial assets during the transition
+* interpolate using pchip
+* compute value ex-post at different ages
+* specify multiple transitions (as in the slides)
+"""
 
 # ╔═╡ d271fb80-8c93-11f0-3406-ab394e785ceb
 md"""
@@ -107,6 +121,102 @@ function dimstack_from_nt(nt, dim)
 	end |> DimStack
 end
 
+# ╔═╡ c176b6b1-75aa-479d-a34c-22ecc4823e27
+md"""
+# Bequests
+"""
+
+# ╔═╡ c94759d1-b5b0-4320-8f42-c57d3bf6ca2a
+function get_bequests_θ(sim_df, statespace)
+	(; perm_dim) = statespace
+	
+	@chain sim_df begin
+		@transform(:π = @bycol :π ./ sum(:π))
+		@groupby(:permanent)
+		@combine(
+			:π = sum(:π),
+			:bequests = mean(:bequests, weights(:π))
+		)
+		DimVector(_.bequests, perm_dim, name = :bequests)
+	end
+end
+
+# ╔═╡ b6976a71-69c5-4016-9bf1-859b3208485f
+function get_bequests_θt((; sim_df, T̃, GE₀), statespace)
+	(; perm_dim) = statespace
+	t_dim = Dim{:t}(-1:T̃)
+
+	bequests₋₁_df = @chain get_bequests_θ(GE₀.sim_df, statespace) begin
+		DataFrame
+		@select(:t = -1, :permanent = (; θ = :θ), :bequests)
+	end
+
+	out = @chain sim_df begin
+		@transform(:t = :born + :j)
+		@subset(0 ≤ :t ≤ T̃)
+		#@select(:j, :t, :born, :state, :ε, :π)		
+		@subset(:π > 0)
+		@groupby(:t, :permanent)
+		@combine(:bequests = mean(:bequests, weights(:π)))
+		[_; bequests₋₁_df]
+		sort([:permanent, :t])
+		@groupby(:permanent)
+		@combine(
+			:bequests = Ref(DimVector(:bequests, t_dim, name = :bequests))
+		)
+		stack(_.bequests)
+		DimArray((t_dim, only(perm_dim)), name = :bequests)
+	end
+	
+end
+
+# ╔═╡ 9a2c36bb-d5ba-4667-b4a1-e73510e460fa
+
+
+# ╔═╡ 815c5b9f-e329-4a2e-b0fe-667d2052d980
+# ╠═╡ disabled = true
+#=╠═╡
+function get_inheritances_θtj(inheritances_θt, (; par, sim_df))
+	π_age = get_age_distribution((; sim_df))
+	
+	inheritances_θj = 
+		DimArray(@d(inheritances_θ .* F ./ π_age), name = :inheritances)
+end
+  ╠═╡ =#
+
+# ╔═╡ 98646cf5-76cc-49d8-9b8d-d6e84ee64aa7
+# ╠═╡ disabled = true
+#=╠═╡
+function get_π_jtθ_df2((; sim_df, T̃))
+	@chain sim_df begin
+		@groupby(:j, :t = :j + :born, :permanent)
+		@combine(:π = sum(:π))
+		@subset(0 ≤ :t ≤ T̃)
+	end
+end
+  ╠═╡ =#
+
+# ╔═╡ 2b94e65a-b3f5-4062-b603-a83ab62b9b65
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	(; demographics, GE₀, T̃, statespace, sim_df) = out_18.out
+	
+	π_jt = get_π_jtθ_df((; demographics, GE₀, T̃), statespace)
+
+	π_jt2 = get_π_jtθ_df2((; sim_df, T̃))
+
+	
+	@chain π_jt2 begin
+		rename(:π => :π_test)
+		leftjoin(π_jt, _, on = [:j, :t, :permanent])
+		@transform(:Δ = :π - :π_test)
+		extrema(_.Δ)
+	end	
+end
+	
+  ╠═╡ =#
+
 # ╔═╡ 133e1e40-4b84-4c9d-803f-22c2884e81f5
 md"""
 # General functionality
@@ -130,56 +240,6 @@ end
 
 # ╔═╡ 00c2612f-8f1c-4412-a159-e4325af0c62f
 drop_m_h(; h, m, ρ_SS, kwargs...) = (; kwargs...)
-
-# ╔═╡ f6ab987d-e70c-45d3-a815-9b665829370c
-md"""
-### Bequests
-"""
-
-# ╔═╡ 34b213ed-e895-4be6-a51e-bdcbe02bc673
-function get_age_distribution((; sim_df))
-	@chain sim_df begin
-		@transform(
-			:π = @bycol(:π ./ sum(:π)),
-		)
-		@groupby(:j)
-		@combine(:mass = sum(:π))
-		@aside begin
-			j₀, J = extrema(_.j)
-			@assert (_.j == j₀:J)
-			j_dim = Dim{:j}(j₀:J)
-		end
-		DimVector(_.mass, j_dim, name = :mass_by_age)
-	end
-end
-
-# ╔═╡ c94759d1-b5b0-4320-8f42-c57d3bf6ca2a
-function get_bequests_by_type((; sim_df), statespace)
-	(; perm_dim) = statespace
-	
-	@chain sim_df begin
-		@transform(
-			:π = @bycol(:π ./ sum(:π)),
-			:left_behind = :z_next * :m
-		)
-		@groupby(:permanent)
-		@combine(
-			:mass = sum(:π),
-			:avg_left_behind = mean(:left_behind, weights(:π))
-		)
-		DimVector(_.avg_left_behind, perm_dim, name = :avg_left_behind)
-	end
-end
-
-# ╔═╡ 815c5b9f-e329-4a2e-b0fe-667d2052d980
-function get_inheritances(inheritances_by_type, F, π_age)
-	F_adjusted = F #./ π_age
-	#F_adjusted ./= sum(F_adjusted)
-
-	#@assert sum(F_adjusted) ≈ 1.0
-	
-	DimArray(@d(inheritances_by_type .* F_adjusted ./ π_age), name = :inheritances)
-end
 
 # ╔═╡ 3de09148-706d-40ed-90b2-39a71e9d25ed
 md"""
@@ -254,6 +314,9 @@ weighted_neighbours(5.5, -10:5)
 md"""
 ## Solving backward
 """
+
+# ╔═╡ 9e05ea7c-bc7a-4dbd-8199-298c53447d7c
+global COUNTER = 0
 
 # ╔═╡ cfb2d2e9-f101-464f-915f-b0f6a38744e5
 function dimarray_of_nts_to_nt_of_dimarrays(da)
@@ -332,7 +395,7 @@ function income_plus_inheritances(ε, (; τ, d̄), (; θ), (; prices_etcⱼ₋�
 	ℓ_effⱼ₋₁ = θ * ε * hⱼ₋₁
 	yⱼ₋₁   = @. (1-ρⱼ₋₁) * (1-τ) * ℓ_effⱼ₋₁ + ρⱼ₋₁ * d̄ * θ
 	incⱼ₋₁ = yⱼ₋₁ .* ⱼ₋₁.w
-	inc_plus_inhⱼ₋₁ = @d incⱼ₋₁ .+ inhⱼ₋₁
+	inc_plus_inhⱼ₋₁ = @d incⱼ₋₁ .+ (inhⱼ₋₁ .* (1 + ⱼ₋₁.r))
 
 	(; inhⱼ₋₁, incⱼ₋₁, inc_plus_inhⱼ₋₁, ℓ_effⱼ₋₁)
 end
@@ -432,8 +495,29 @@ function get_κⱼ(pₜ₍ⱼ₎, pₜ₍ⱼ₊₁₎, rₜ₍ⱼ₊₁₎, (; �
 	
 end
 
+# ╔═╡ 26bce906-16cf-4dd8-a9e8-a09d5270a6fd
+function hⱼ₋₁_from_cⱼ₋₁(cⱼ₋₁, par, (; prices_etcⱼ₋₁, prices_etcⱼ); j)
+	ⱼ₋₁ = prices_etcⱼ₋₁
+	ⱼ   = prices_etcⱼ
+	ξ = par.ξ[j = At(j)]
+	if ξ > 0
+		hⱼ₋₁ = cⱼ₋₁ ./ get_κⱼ(ⱼ₋₁.p, ⱼ.p, ⱼ.r, par, j-1)
+	else
+		hⱼ₋₁ = 0 .* cⱼ₋₁
+	end
+end
+
+# ╔═╡ 5b07590c-b6f9-489e-8c8f-1757ede48cbc
+function uu(c, h, (; ξ, σ))
+	if ξ ≠ 0
+		c = c^(1-ξ) * h^ξ
+	end
+
+	return c^(1-σ)/(1-σ)
+end
+
 # ╔═╡ 6b991515-29e8-4fba-a473-6dd1f8cb9d03
-function choicesⱼ₋₁(::HousingModel, stateⱼ₋₁, stateⱼ, constrainedⱼ₋₁, εⱼ₋₁,
+function choicesⱼ₋₁(::HousingModel, stateⱼ₋₁, stateⱼ, 𝔼vⱼ, constrainedⱼ₋₁, εⱼ₋₁,
 	par_all, par_cohort, permanent, (; prices_etcⱼ₋₁, prices_etcⱼ), statespace, j)
 	par = (; par_all..., par_cohort...)
 	(; δ, θ, a̲, annuities) = par
@@ -450,7 +534,14 @@ function choicesⱼ₋₁(::HousingModel, stateⱼ₋₁, stateⱼ, constrained�
 	(; inhⱼ₋₁, incⱼ₋₁, inc_plus_inhⱼ₋₁, ℓ_effⱼ₋₁) = income_plus_inheritances(εⱼ₋₁, par_all, permanent, (; prices_etcⱼ₋₁))
 
 	ξ = par.ξ[j = At(j)]
-	
+
+	if length(par.β) == 1
+		βⱼ_over_βⱼ₋₁ = par.β
+	else
+		βⱼ₋₁, βⱼ = par.β[j = At(j-1:j)]
+		βⱼ_over_βⱼ₋₁ = βⱼ / βⱼ₋₁ 
+	end
+	 
 	if ξ ≠ 0
 		κⱼ₋₁ = get_κⱼ(ⱼ₋₁.p, ⱼ.p, ⱼ.r, par, j-1)
 	end
@@ -492,22 +583,18 @@ function choicesⱼ₋₁(::HousingModel, stateⱼ₋₁, stateⱼ, constrained�
 		(; cⱼ₋₁, aⱼ, hⱼ₋₁) = choices_NC
 		constr2 = 0.0
 	end
-	
-	stuff = (; c=cⱼ₋₁, ho=hⱼ₋₁, a_next=aⱼ, z_next=zⱼ, ℓ_eff = ℓ_effⱼ₋₁, inheritance = inhⱼ₋₁, income = incⱼ₋₁, z = zⱼ₋₁, ⱼ₋₁.m, constrained = constr2)
 
-	(; stuff.c, stuff)
-end
+	uⱼ₋₁ = uu(cⱼ₋₁, hⱼ₋₁, (; ξ, par.σ))
+	vⱼ₋₁ = uⱼ₋₁ + βⱼ_over_βⱼ₋₁ * (1 - ⱼ₋₁.m) * 𝔼vⱼ
+	a_next = aⱼ
+	m = ⱼ₋₁.m
+	stuff = (; co=cⱼ₋₁, ho=hⱼ₋₁, 
+			 a_next, 
+			 a_next_surv = a_next * (1 - m), 
+			 bequests = zⱼ * m, ### changed !!!
+			 z_next=zⱼ, ℓ_eff = ℓ_effⱼ₋₁, inheritance = inhⱼ₋₁, income = incⱼ₋₁, z = zⱼ₋₁, ⱼ₋₁.m, #=h_lc = ⱼ₋₁.h,=# value = vⱼ₋₁, next_value =  𝔼vⱼ,  utility = uⱼ₋₁, β_over_β = βⱼ_over_βⱼ₋₁, constrained = constr2)
 
-# ╔═╡ 26bce906-16cf-4dd8-a9e8-a09d5270a6fd
-function hⱼ₋₁_from_cⱼ₋₁(cⱼ₋₁, par, (; prices_etcⱼ₋₁, prices_etcⱼ); j)
-	ⱼ₋₁ = prices_etcⱼ₋₁
-	ⱼ   = prices_etcⱼ
-	ξ = par.ξ[j = At(j)]
-	if ξ > 0
-		hⱼ₋₁ = cⱼ₋₁ ./ get_κⱼ(ⱼ₋₁.p, ⱼ.p, ⱼ.r, par, j-1)
-	else
-		hⱼ₋₁ = 0 .* cⱼ₋₁
-	end
+	(; c = stuff.co, v=vⱼ₋₁, stuff)
 end
 
 # ╔═╡ 97fc998b-83cc-4d35-b78a-0c9b9bc3cfad
@@ -559,8 +646,12 @@ function last_choices(::HousingModel, zⱼ, ℓ_effⱼ, yⱼ, (; prices_etcⱼ, 
 	a_next = wealth_J - c - ph
 	ω_next = a_next * (1+rₜ₊₁) + (1-δ) * phₜ₊₁
 	z_next = ω_next / (1+rₜ₊₁)
+
+	vⱼ = uu(c, h, (; ξ, σ))
 	
-	return (; c, next_state = ω_next, stuff = (; c, ho=h, a_next, z_next, ℓ_eff = ℓ_effⱼ, inheritance = inheritance_J, income = inc_J, z = zⱼ, m, constrained = float(false)))
+	return (; c, v=vⱼ, next_state = ω_next, stuff = (; co=c, ho=h, a_next, a_next_surv = a_next * (1 - m), 
+													 bequests = z_next * m, # changed !!!
+													 z_next, ℓ_eff = ℓ_effⱼ, inheritance = inheritance_J, income = inc_J, z = zⱼ, m, #= h_lc = 99.0,=# value = vⱼ, next_value = 0.0, utility = vⱼ, β_over_β = 0.0, constrained = float(false)))
 end
 
 # ╔═╡ 9276b022-d863-473e-978a-67a614d7ee31
@@ -588,6 +679,8 @@ function initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price
 	
 	c           = zeros(dims_j, name = :c)
 	next_state  = zeros(dims_j, name = :next_state)
+	value       = zeros(dims_j, name = :value)
+	next_value       = zeros(dims_j, name = :next_value)
 	constrained = zeros(dims_j, name = :constrained)
 	
 	T = get_type_of_stuff(Mo, par_all, par_cohort, permanent, statespace; price_paths, inherit)
@@ -596,7 +689,7 @@ function initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price
 	# initialize distribution and fill initial distribution
 	π = zeros(dims_j, name = :π)
 
-	(; c, next_state, constrained, stuff, π)
+	(; c, next_state, value, next_value, constrained, stuff, π)
 end
 
 # ╔═╡ 4a7ee470-4496-471c-86a0-c36d3b6c5a7f
@@ -611,6 +704,8 @@ function initialize_cohorts(Mo, par_all, par_cohort, permanent, statespace, t_bo
 	
 	c           = zeros(dims_X, name = :c)
 	next_state  = zeros(dims_X, name = :next_state)
+	value       = zeros(dims_X, name = :value)
+	next_value  = zeros(dims_X, name = :next_value)
 	constrained = zeros(dims_X, name = :constrained)
 
 	T = get_type_of_stuff(Mo, par_all, par_cohort, permanent, statespace; price_paths, inherit)
@@ -620,7 +715,7 @@ function initialize_cohorts(Mo, par_all, par_cohort, permanent, statespace, t_bo
 	# initialize distribution and fill initial distribution
 	π = zeros(dims_X, name = :π)
 
-	(; c, next_state, constrained, stuff, π)
+	(; c, next_state, value, next_value, constrained, stuff, π)
 end
 
 # ╔═╡ ce1c7b3f-cc7d-4aca-afd1-cee741df6f2a
@@ -700,12 +795,6 @@ function get_π_initXX(::HousingModel, sol₀, price_paths, j_init, (; δ))
 	end
 end
 
-# ╔═╡ f3a24cb4-705d-460f-8912-64753ef59a6b
-function get_π_init(_, GE_sol_perm, _, j_init, _)
-	GE_sol_perm.sol.sol_forward.π[j = At(j_init)]
-	
-end
-
 # ╔═╡ 36bde726-ac0f-4e38-baec-b507ecb0b9d1
 md"""
 # Helpers
@@ -747,6 +836,75 @@ function pmf(m; births = nothing)
 
 	return pmf
 
+end
+
+# ╔═╡ a17f0114-55f6-4d43-9b05-6bcd9601b98b
+function get_inheritances_θj(inheritances_θ, par, π_age = pmf(par.m))
+	
+	inheritances_θj = 
+		DimArray(@d(inheritances_θ .* par.F ./ π_age), name = :inheritances)
+end
+
+# ╔═╡ 1db3ec0d-ade2-4541-926e-6beed0620784
+function get_π_t((; demographics, GE₀, T̃), statespace)
+	
+	pmf₀ = pmf(GE₀.par.m)
+	births = pmf₀[j = At(0)]
+
+	π_t = @chain demographics begin
+		DataFrame
+		leftjoin(_, rename(DataFrame(GE₀.par.m), :value => :m_baseline), on = :j)
+		@transform(:t = :j + :born)
+		@transform(:m_final = :t < 0 ? :m_baseline : :m)
+		@groupby(:born)
+		@transform(:π = @bycol cumprod([births; 1 .- :m_final])[begin:end-1])
+		@subset(0 ≤ :t ≤ T̃)
+		@groupby(:t)
+		@combine(:π = sum(:π))
+		DimVector([1.0; _.π], Dim{:t}(-1:T̃), name = :π_t)
+	end
+end
+
+# ╔═╡ b1a39cb3-b02d-449c-8983-0cd204e52c3e
+function get_π_jt_df((; demographics, GE₀, T̃), statespace)
+	
+	pmf₀ = pmf(GE₀.par.m)
+	births = pmf₀[j = At(0)]
+
+	π_jt = @chain demographics begin
+		DataFrame
+		leftjoin(_, rename(DataFrame(GE₀.par.m), :value => :m_baseline), on = :j)
+		@transform(:t = :j + :born)
+		@transform(:m_final = :t < 0 ? :m_baseline : :m)
+		@groupby(:born)
+		@transform(:π = @bycol cumprod([births; 1 .- :m_final])[begin:end-1])
+		@subset(0 ≤ :t ≤ T̃)
+		@groupby(:t) # new
+		@transform(:π = @bycol :π ./ sum(:π)) # new
+		
+		#@transform(:θ = collect(only(statespace.perm_dim)), :π_θ = statespace.π_permanent)
+		#flatten([:θ, :π_θ])
+		#@transform(:permanent = (; θ = :θ))
+		#@transform(:π = :π * :π_θ)
+		@select(:j, :born, :t, :π)#, :permanent)
+	end
+end
+
+# ╔═╡ fbdca2ef-d605-4203-a0e3-f22f3ed670d3
+function get_π_jt((; demographics, GE₀, T̃), (; J), statespace)
+	
+	t_dim = Dim{:t}(0:T̃)
+	j_dim = Dim{:j}(0:J)
+	(; perm_dim) = statespace
+	
+	df = get_π_jt_df((; demographics, GE₀, T̃), statespace)
+
+	@chain df begin
+		sparse(_.j .+ 1, _.t .+ 1, _.π)
+		Matrix
+		DimArray(_, (j_dim, t_dim), name = :π_jt)
+	end
+	
 end
 
 # ╔═╡ 742da011-57db-41b0-8f64-9fcecd4c0324
@@ -958,7 +1116,7 @@ no_permanent_states() = get_permanent_states(no_income_risk(), :θ)
 # ╔═╡ 3ecb48cc-32c3-49f5-96bf-aad651d81e30
 function permanent_states_AMMR(args...; kwargs...)
 	mc_permanent = θ_chain_AMMR(args...; kwargs...)
-	get_permanent_states(mc, permanent)
+	get_permanent_states(mc_permanent)
 end
 
 # ╔═╡ 47232117-6797-4188-a0e6-8a2e2a245e66
@@ -993,6 +1151,15 @@ Effective labor supply ``\iff`` productivity
 ``\ell_{\text{eff}} := \theta \varepsilon \bar h``
 """
 
+# ╔═╡ a8da0aea-9b8d-455a-a87e-afa846fa771d
+function sprint_dimstack(ds)
+	string = ""
+	for (key, val) ∈ pairs(ds)
+		string *= "  DimVector([\n    " * join(repr.(val), ", ") * "\n  ], Dim{:t}(0:$(length(val)-1)), name = :$key),\n"
+	end
+	"DimStack(\n" * string * ")" |> Base.Text
+end
+
 # ╔═╡ 32faac51-9b53-49a8-87da-61860d3f227a
 md"""
 # Tests
@@ -1003,10 +1170,250 @@ md"""
 ## Stationary equilibrium – no risk
 """
 
+# ╔═╡ adce8682-ef5a-42ea-a59b-15df0cf1685f
+# ╠═╡ disabled = true
+# ╠═╡ skip_as_script = true
+#=╠═╡
+out_test = let
+	# equivalent to BaselineModel() in models_reduced.jl
+	(; par, statespace, π_init) = get_cali_test(amax = 15, na = 100)
+
+	Mo = HousingModel()
+
+	K_guess = 3.5832334751343167
+	guesses = (; K_supply = K_guess, H_hh = 8.55e-8, L_eff = 1.0)
+
+	prices = let
+		r = interest_rate(K_guess, 1.0, par) 
+		w = wage(K_guess, 1.0, par)
+		(; r, w, p = 1.2)
+	end
+
+	#######################
+	# Partial equilibrium #
+	#######################
+	
+	out = stationary_PE(Mo, (; prices.r, par...), statespace, 
+						guesses, prices; 
+						π_init) # j_last XXX
+
+	(; aggregates, prices) = out
+	(; K_supply) = aggregates.updated
+	(; K_hh, ζ) = aggregates.aggregates
+	(; state, c, ℓ_eff, a_next) = out.raw_aggregates
+	(; r) = prices  
+
+	@info @test state  ≈ 5.10668547068924
+	@info @test a_next ≈ 5.168198036558206
+	@info @test c      ≈ 1.721938385022462
+	@info @test ℓ_eff  ≈ 1.5451965545805213
+
+	#######################
+	# General equilibrium #
+	#######################
+	
+	out = stationary_GE(Mo, (; prices.r, par...), statespace, 
+						#=guesses, prices=#; 
+						π_init,
+					    tol = 1e-8, λ = 0.25, details = 10) # j_last XXX
+
+	(; aggregates, prices) = out
+	(; K_supply) = aggregates.updated
+	(; K_hh, ζ) = aggregates.aggregates
+	(; state, c, ℓ_eff, a_next) = out.raw_aggregates
+	(; r) = prices  
+
+	@info @test state  ≈ 7.274069538405238
+	@info @test a_next ≈ 7.375175510982203
+	@info @test c      ≈ 1.7859332121683014
+	@info @test ℓ_eff  ≈ 1.5451965545805213
+
+	out
+end
+  ╠═╡ =#
+
+# ╔═╡ bf8c5f3d-a91c-44c5-9dc0-0ea70c91a52a
+
+
+# ╔═╡ ce458e11-8612-4c39-9f16-0413edc16586
+#=╠═╡
+visualize_stationary(out_test)
+  ╠═╡ =#
+
 # ╔═╡ 3edf748d-e2fc-4148-82f4-dfcd541d5901
 md"""
 ## Transition path – no risk (reduce mortality)
 """
+
+# ╔═╡ 0d4205f1-e578-4d9b-9260-0a174d89fc45
+# ╠═╡ disabled = true
+# ╠═╡ skip_as_script = true
+#=╠═╡
+out_auclert_trans0 = let
+	(; par, statespace, prices, π_init) = get_cali_auclert(; ξ = 0.0, risk = false)
+
+	model = HousingModel()
+
+	guesses = (; K_supply = 20.75270574911025, H_hh = 0.0, L_eff = 2.2591478197110324)
+	(; prices) = prices_from_guesses_nt(model, guesses, par)
+
+	#par = (; prices.r, par...)
+	GE₀ = stationary_PE(model, par, statespace, guesses, prices; π_init) 
+#	GE₀ = stationary_GE(model, par, statespace; guesses, #=prices,=# π_init) 
+	
+	
+	T̃ = 300
+
+	###########################
+	## TEST 1: CONSTANT PATH ##
+	GE₁ = GE₀
+	GEs = (; GE₀, GE₁, statespace, j_last = par.J)
+	
+	guess = GE₀.aggregates.updated
+	guessed_path = dimstack_from_nt(guess, Dim{:t}(0:T̃))
+
+	demographics = let
+		m₀ = par.m
+		j_dim = DD.dims(m₀, :j)
+		J = maximum(j_dim)
+	
+		borns = -J:1:T̃
+		born_dim = Dim{:born}(borns)
+		ms = cat(fill(m₀, born_dim)..., dims = born_dim)
+
+		demo = DimStack(ms, )
+	end
+	###########################
+	
+#	setup = (; guessed_path, T̃, demographics, GEs, statespace, model)
+
+	inheritances = no_inheritances(par, statespace)
+
+#	price_paths = get_price_paths(model, paths_in, par; GE₀)
+#	(; π_permanent, state_dim, perm_dim) = statespace
+
+	out = transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed_path;
+						normalize_population = false, inheritances, details = 1, maxiter = 3)
+	
+
+end
+  ╠═╡ =#
+
+# ╔═╡ 139b6f9a-4073-40a3-b587-6af681e47069
+# ╠═╡ disabled = true
+# ╠═╡ skip_as_script = true
+#=╠═╡
+out_auclert_trans2 = let
+	#(; par, statespace, π_init) = get_cali_test()
+	(; par, statespace, prices, π_init) = get_cali_auclert(ξ = 0.15, risk = false)
+
+	model = HousingModel()
+
+	guesses = (; K_supply = 19.8058, H_hh = 2.7714, L_eff = 2.2591478197110324)
+	prices = let
+		r = interest_rate(guesses.K_supply, guesses.L_eff, par) 
+		w = wage(guesses.K_supply, guesses.L_eff, par)
+		p = house_price(par.δ * guesses.H_hh, par)
+		(; r, w, p)
+	end
+
+	GE₀ = stationary_GE(model, par, statespace#=, guesses, prices=#; guesses, π_init, tol = 1e-4) 
+	
+	#@info GE₀.aggregates
+	#@info GE₀.prices
+	
+	T̃ = 100
+
+	#####################################
+	## TEST 2: REDUCE MORTALITY BY 10% ##
+	
+	
+
+	#guessed_path = guess_auclert_trans
+	
+	demographics = let
+		m₀ = par.m
+		m₁ = 0.9 * par.m
+		
+		j_dim = DD.dims(m₀, :j)
+		J = maximum(j_dim)
+	
+		borns = -J:1:T̃
+		born_dim = Dim{:born}(borns)
+		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
+
+		
+		demo = DimStack(ms, )
+	end
+	###########################
+	
+	inheritances = no_inheritances(par, statespace)
+
+	guess = GE₀.aggregates.updated
+	guessed_path₀ = dimstack_from_nt(guess, Dim{:t}(0:T̃))
+	
+	if false
+		guessed_path = guessed_path₀
+	elseif false
+		#guess = GE₀.aggregates.updated
+		#guessed_path₀ = dimstack_from_nt(guess, Dim{:t}(0:T̃))
+		
+		# initial run for guess
+		out = transition_PE(model, T̃, par, statespace, demographics, GE₀, guessed_path₀;
+							normalize_population = false, inheritances,
+							#details = 1, λ = 0.001, maxiter = 200
+							)
+		mass_terminal = out.raw_aggregate_paths.population[end]
+		
+		par₁ = deepcopy(par)
+		par₁.m .*= 0.9
+	
+		GE₁ = stationary_GE(model, par₁, statespace#=, guesses, prices=#; guesses, π_init, tol = 1e-4, total_mass = mass_terminal) 
+	
+		init = GE₀.aggregates.updated
+		term = GE₁.aggregates.updated
+	
+		@info (; init, term)
+		
+		L_guess = copy(out.aggregate_paths.updated.L_eff)
+	
+		pattern = L_guess .- L_guess[begin]
+		pattern = pattern ./ pattern[end]
+	
+		#@info lines(pattern)
+	
+		K_guess = DimVector(
+			pattern .* (term.K_supply - init.K_supply) .+ init.K_supply,
+			name = :K_supply
+		)
+		H_guess = DimVector(
+			pattern .* (term.H_hh - init.H_hh) .+ init.H_hh,
+			name = :H_hh
+		)
+		
+		guessed_path = DimStack(K_guess, H_guess, L_guess)
+	else
+		guessed_path = updated_paths_auclert_trans2 # ξ = 0.15, risk = false
+#		guessed_path = current_paths_auclert_trans2#[t = At(0:T̃)]
+	end
+
+	out = transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed_path;
+						normalize_population = false, inheritances,
+						details = 1, λ = 0.001, maxiter = 3, tol = 5e-3
+						)
+end
+  ╠═╡ =#
+
+# ╔═╡ 37c98a61-3350-4eb4-a3fe-8cd8c2b5eab5
+# ╠═╡ disabled = true
+#=╠═╡
+@chain out_auclert_trans2.price_paths begin
+	DataFrame
+	stack(Not(:t))
+	data(_) * mapping(:t, :value, layout = :variable) * visual(ScatterLines)
+	draw(; facet = (; linkyaxes = false ))
+end
+  ╠═╡ =#
 
 # ╔═╡ 52df027a-b50a-4a3a-99dc-80bce86c77cc
 h̄_marcelo = [ 
@@ -1129,6 +1536,422 @@ updated_paths_auclert_trans2 = DimStack(
   ], Dim{:t}(0:100), name = :L_eff),
 )
 
+# ╔═╡ f103ea34-ad3c-49e1-9e6f-d94d4b3574e6
+md"""
+## Stationary equilibrium – with risk
+"""
+
+# ╔═╡ 3303493e-6502-479f-b383-82ffd1ab17bf
+# ╠═╡ disabled = true
+# ╠═╡ skip_as_script = true
+#=╠═╡
+out_auclert_GE_risk = let
+	#(; par, statespace, π_init) = get_cali_test()
+	(; par, statespace, prices, π_init) = get_cali_auclert(ξ = 0.15, risk = true, na = 100)
+
+	model = HousingModel()
+
+	#guesses = (; K_supply = 26.9834, H_hh = 6.09351, L_eff = 2.54539)
+	guesses = (; K_supply = 5.9834, H_hh = 6.09351, L_eff = 2.54539)
+	(; prices) = prices_from_guesses_nt(model, guesses, par)
+
+	GE₀ = stationary_GE(model, par, statespace#=, guesses, prices=#; guesses, π_init, tol = 1e-4) 
+	
+	@info GE₀.aggregates
+	@info GE₀.prices
+
+	GE₀
+end
+  ╠═╡ =#
+
+# ╔═╡ 765cfe47-b191-4228-b419-ffb6cd2bd9f4
+
+
+# ╔═╡ 9c050921-f2cc-4e94-a366-6a519d7f4116
+15.2 / 68.6 - 1
+
+# ╔═╡ 208efe14-68dc-4389-bb9b-8bd996bf4749
+#=╠═╡
+visualize_stationary(out_auclert_GE_risk, [0.5, 0.9, 0.99, 0.999, 1.0])
+  ╠═╡ =#
+
+# ╔═╡ 32dd3921-c58a-41cb-9f11-8d4efa9f7641
+md"""
+## Transition path – with risk
+"""
+
+# ╔═╡ 32b95f4a-180c-4a61-b899-6b604d911926
+# ╠═╡ disabled = true
+#=╠═╡
+@chain out_auclert_trans3.GE₀.sim_df begin
+	#@subset(:born ∈ [-20, -10, 0, 10])
+	@groupby(:j)
+	@combine(:c = mean(:c, weights(:π)))
+	data(_) * mapping(:j, :c
+					  #, color = :born => nonnumeric
+					  ) * visual(Lines)
+	draw
+end
+  ╠═╡ =#
+
+# ╔═╡ 9b706ccd-bc47-4cc8-b315-fc17375cbd93
+let
+	P = [0.25 0.75;
+		0.5 0.5]
+
+	i_z = [
+		1 1
+		2 2
+		3 3
+		4 4
+	]
+
+	i_ε = [
+		1 2
+		1 2
+		1 2
+		1 2
+	]
+	
+	z_next = [
+		0.1 0.2;
+		0.2 0.3
+		0.5 0.6
+		0.2 0.7
+	] # z x ε
+	
+	π = [
+	 0.9  0.1
+	 0.8  0.2
+	 0.7  0.3
+	 0.5  0.5
+	]
+
+	π_next = π * P
+
+	df_check = DataFrame(; i_z = vec(i_z), i_ε = vec(i_ε), z_next = vec(z_next), π = vec(π), π_next = vec(π_next))
+
+	df = @chain df_check begin
+		#select(Not(:π_next))
+		@groupby(:i_z)
+		@transform(
+			:π_next_2 =  @bycol P' * :π
+		)
+	end
+
+end
+
+# ╔═╡ 48443da6-0ffc-4ae2-9ebe-c4d0461ecfca
+# 100: 0.01063
+# 200: 
+
+# ╔═╡ 998cb794-525c-4b2d-88c7-80d711e06d3b
+md"""
+let
+	out = out_auclert_trans3
+	
+	(; GE₀, price_paths, statespace) = out
+	prc_GE    = GE₀.prices
+	prc_shock = price_paths[t = At(0)]
+
+	next_state(h, a_next, (; p, r), (; δ)) = p * h * (1-δ)/(1+r) + a_next
+		# p ... p_next; r ... r_next
+
+	statespace
+	
+	tmp = @chain GE₀.sim_df begin
+		#@transform(
+			#:z_next_test = :ho * (1-GE₀.par.δ)/(1+prc_GE.r) * prc_GE.p + :a_next,
+			#:next_state_test  = next_state(:ho, :a_next, prc_GE, GE₀.par),
+			#:next_state_shock = next_state(:ho, :a_next, prc_shock, GE₀.par)
+		#)
+
+		# s
+
+	 # slight deviations
+		@groupby(:state, :j, :permanent)
+		@transform(:π_new = @bycol statespace.P' * :π)
+		@groupby(:j)#, :permanent)
+		@combine(
+			:state = mean(:state, weights(:π)),
+			:next_state = mean(:next_state, weights(:π_new)),
+		)
+		maximum(abs.(_.state[2:end] ./ _.next_state[1:end-1] .- 1))
+	# =#
+
+	#=
+		@groupby(:j, :ε, :permanent)
+		#@transform(:π_new = @bycol statespace.P' * :π)
+		#@groupby(:j)#, :permanent)
+		@combine(
+			:state = mean(:state, weights(:π)),
+			:next_state = mean(:next_state, weights(:π)),
+		)
+		
+		#@groupby(:j, :permanent)
+		#@transform(:π_new = @bycol statespace.P' * :π)
+		
+		
+		@groupby(:j, :permanent)
+		@combine(
+			:state,
+			:next_state,
+			#:π = :π / sum(:π),
+			:next_state_2 = vec(:next_state' * statespace.P ), #.* (:π ./ sum(:π))),
+			#:next_state_3 = vec(:next_state' * statespace.P')
+		)
+		# =#
+		
+		#=
+		@aside @chain _ begin
+			@transform(:next_state_shifted = @bycol [missing; :next_state_test[begin:end-1]])
+			@subset(!ismissing(:next_state_shifted))
+			#@info @test _.next_state_shifted ≈ _.state
+		end
+
+		@select(:j, :next_state_shock, :permanent, :ε, :π)
+		@groupby(:j, :permanent)
+		#@combine(
+		#	:next_state_shock = Ref(DimVector(:next_state_shock, Dim{Symbol("ε")}(:ε))),
+		#	:ε = Ref(DimVector(:ε, Dim{Symbol("ε")}(:ε))),
+		#	#:π = Ref(DimVector(:π, Dim{Symbol("ε")}(:ε)))
+		
+	end
+end
+"""
+
+# ╔═╡ b3219d9d-2bfe-445f-8f3a-4ccfa95673ed
+function test_initial_state_of_transition(out)
+
+	# check initial state during transition
+	initial_df_transition = @chain out.sim_df begin
+		@subset(:j + :born == 0)
+		@groupby(:j, :permanent, :ε)
+		@combine(
+			:state = mean(:state, weights(:π)),
+		) 
+	end
+
+	@chain initial_df_transition begin
+		@subset(:j == 1)
+		@info _
+	end
+	
+	(; GE₀, price_paths, statespace) = out
+	prc_GE    = GE₀.prices
+	prc_shock = price_paths[t = At(0)]
+
+	next_state(h, a_next, (; p, r), (; δ)) = p * h * (1-δ)/(1+r) + a_next
+		# p ... p_next; r ... r_next
+
+	statespace
+	
+	tmp = @chain GE₀.sim_df begin
+		@transform(
+			#:z_next_test = :ho * (1-GE₀.par.δ)/(1+prc_GE.r) * prc_GE.p + :a_next,
+			:next_state_test  = next_state(:ho, :a_next, prc_GE, GE₀.par),
+			:next_state_shock = next_state(:ho, :a_next, prc_shock, GE₀.par)
+			
+		)
+		
+		@aside @chain _ begin
+			@subset(@bycol :j .< maximum(:j))
+			@info @test _.next_state_test ≈ _.next_state
+		end
+		
+		@groupby(:j, :permanent, :ε)
+		@combine(
+			:m = only(unique(:m)),
+			:state = mean(:state, weights(:π)),
+			:next_state = mean(:next_state, weights(:π)),
+			:next_state_test = mean(:next_state_test, weights(:π)),
+			:next_state_shock = mean(:next_state_shock, weights(:π)),
+			:π = sum(:π)
+				)
+		
+
+		@aside @chain _ begin
+			@transform(:next_state_shifted = @bycol [missing; :next_state_test[begin:end-1]])
+			@subset(!ismissing(:next_state_shifted))
+			#@info @test _.next_state_shifted ≈ _.state
+		end
+
+		@select(:j, :next_state_shock, :permanent, :ε, :π)
+		@groupby(:j, :permanent)
+		@combine(
+			:next_state_shock = Ref(DimVector(:next_state_shock, Dim{Symbol("ε")}(:ε))),
+			:ε = Ref(DimVector(:ε, Dim{Symbol("ε")}(:ε))),
+			#:π = Ref(DimVector(:π, Dim{Symbol("ε")}(:ε)))
+		)
+#		@transform(:next_state_shock = :next_state_shock' * parent(statespace.P))
+#		flatten([:next_state_shock, :ε])
+#		#unstack(:ε, :next_state_shock)
+#		@select(:j = :j + 1, :state_shock = :next_state_shock, :permanent, :ε)
+#		innerjoin(_, initial_df_transition, on = [:j, :permanent, :ε])
+		#@transform(:test = :state / :state_shock .- 1)
+		@subset(:j == 0)
+		first
+		#@
+		#_.next_state_shock
+	end
+
+	choice = tmp.next_state_shock
+	curr_ε = tmp.ε
+
+	statespace.P[1,:]
+
+	curr_i_ε = 3
+	choice, mean(choice, weights(statespace.P[curr_i_ε,:]))
+	# =#
+end
+
+# ╔═╡ ed3bf636-176a-422a-812d-07bc3be8fef4
+#=╠═╡
+test_initial_state_of_transition(out_auclert_trans3)
+  ╠═╡ =#
+
+# ╔═╡ d05e5a31-5a8b-4cad-85c5-5d6c89c67ad2
+# ╠═╡ disabled = true
+#=╠═╡
+initial_df_transition = @chain out_auclert_trans3.sim_df begin
+	@subset(:j + :born == 0)
+	@groupby(:j)
+	@combine(
+		:state = mean(:state, weights(:π)),
+	) 
+end
+  ╠═╡ =#
+
+# ╔═╡ 4df66cbd-3c0d-40db-8b5b-65b26ffc4c79
+#=╠═╡
+(; r, p) = out_auclert_trans3.price_paths[t = At(0)]
+
+  ╠═╡ =#
+
+# ╔═╡ 31a39f30-740f-4a30-b3f5-e1fef2502138
+# ╠═╡ disabled = true
+#=╠═╡
+@chain out_auclert_trans3.sim_df begin
+	@subset(:born ∈ [-20, -10, 0, 5, 1, 60, 65])
+	@groupby(:j, :born)
+	@combine(:c = mean(:c, weights(:π)))
+	unstack(:born, :c)
+	@transform(
+		:test1 = {"0"} / {"5"} - 1,
+		:test2 = {"60"} / {"65"} - 1
+	)
+	
+	#data(_) * mapping(:j, :c
+	#				  , color = :born => nonnumeric
+	#				  ) * visual(Lines)
+	#draw
+end
+  ╠═╡ =#
+
+# ╔═╡ 360d9593-4c34-4bbe-bde6-a554803861f1
+#=╠═╡
+out_auclert_trans3.price_paths.p |> lines
+  ╠═╡ =#
+
+# ╔═╡ 77d631d8-6da6-4ec3-a8d2-ebb71f9c474c
+# ╠═╡ disabled = true
+# ╠═╡ skip_as_script = true
+#=╠═╡
+out_auclert_trans3 = let
+	#(; par, statespace, π_init) = get_cali_test()
+	(; par, statespace, prices, π_init) = get_cali_auclert(ξ = 0.15, risk = true, na = 200)
+
+	model = HousingModel()
+
+	guesses = (; K_supply = 26.9834, H_hh = 6.09351, L_eff = 2.54539)
+	(; prices) = prices_from_guesses_nt(model, guesses, par)
+
+	GE₀ = stationary_GE(model, par, statespace#=, guesses, prices=#; guesses, π_init, tol = 1e-4)
+	
+	@info GE₀.aggregates
+	@info GE₀.prices
+	
+	T̃ = 100
+
+	#####################################
+	## TEST 2: REDUCE MORTALITY BY 10% ##
+	
+	
+
+	#guessed_path = guess_auclert_trans
+	
+	demographics = let
+		m₀ = par.m
+		m₁ = 0.9 * par.m
+		
+		j_dim = DD.dims(m₀, :j)
+		J = maximum(j_dim)
+	
+		borns = -J:1:T̃
+		born_dim = Dim{:born}(borns)
+		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
+
+		
+		demo = DimStack(ms, )
+	end
+	###########################
+	
+	inheritances = no_inheritances(par, statespace)
+
+	#if true
+		guess = GE₀.aggregates.updated
+		guessed_path₀ = dimstack_from_nt(guess, Dim{:t}(0:T̃))
+		
+		# initial run for guess
+		out = transition_PE(model, T̃, par, statespace, demographics, GE₀, guessed_path₀;
+							normalize_population = false, inheritances,
+							#details = 1, λ = 0.001, maxiter = 200
+							)
+		mass_terminal = out.raw_aggregate_paths.population[end]
+
+		out
+
+		
+	#	par₁ = deepcopy(par)
+	#	par₁.m .*= 0.9
+	
+	#	GE₁ = stationary_GE(model, par₁, statespace#=, guesses, prices=#; guesses, π_init, tol = 1e-4, total_mass = mass_terminal) 
+	
+	#	init = GE₀.aggregates.updated
+	#	term = GE₁.aggregates.updated
+	
+	#	@info (; init, term)
+		
+	#	L_guess = copy(out.aggregate_paths.updated.L_eff)
+	
+	#	pattern = L_guess .- L_guess[begin]
+	#	pattern = pattern ./ pattern[end]
+	
+		#@info lines(pattern)
+	
+	#	K_guess = DimVector(
+	#		pattern .* (term.K_supply - init.K_supply) .+ init.K_supply,
+	#		name = :K_supply
+	#	)
+	#	H_guess = DimVector(
+	#		pattern .* (term.H_hh - init.H_hh) .+ init.H_hh,
+	#		name = :H_hh
+	#	)
+		
+	#	guessed_path = DimStack(K_guess, H_guess, L_guess)
+	#else
+	#	guessed_path = guessed_paths_auclert_trans2#[t = At(0:T̃)]
+	#end
+#
+	#out = transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed_path;
+	#					normalize_population = false, inheritances,
+	#					details = 1, λ = 0.001, maxiter = 1
+	#					)
+	#
+		
+end
+  ╠═╡ =#
+
 # ╔═╡ e443249e-dc9f-49b6-bd56-693fa1e49242
 md"""
 ## Path with varying prices
@@ -1165,48 +1988,28 @@ let
 	fig
 end
 
+# ╔═╡ a2926b44-77ec-42fb-979e-b6d23a8e56b8
+function visualize_stationary((; sim_df), quantiles = [0.2, 0.5, 0.8])
+	vars = [:z_next, :a_next, :ho, :c, :income, :m]
+
+	df = select(sim_df, vars..., :π, :j, :ε)
+	
+	@chain df begin
+		stack(vars, [:π, :j])
+		@groupby(:variable, :j)
+		@combine(
+			:q = quantiles,
+			:value = quantile(:value, weights(:π), quantiles))
+		data(_) * mapping(:j, :value, 
+						  color = :q => nonnumeric,
+						  layout = :variable
+						 ) * visual(Lines)
+		draw(; facet = (; linkyaxes = false), figure = figure((500, 250)))
+	end
+end
+
 # ╔═╡ ee7e5f71-5182-4b8d-9e6f-aa651cb9c1ca
 criterion(a, b) = (a - b)/(1 + max(abs(a), abs(b)))
-
-# ╔═╡ 1b1e4b39-a845-4e77-b05c-fc6e173b27f0
-function loss_and_aggregates_t(M::HousingModel, par, paths_in, paths_out)
-	#(; H_guess) = guesses
-
-	H_out = paths_out.ho
-	K_hh = paths_out.a_next
-	L_out = paths_out.ℓ_eff
-	
-	H_in = copy(paths_in.H_hh)
-	K_in = copy(paths_in.K_supply)
-	L_in = copy(paths_in.L_eff)
-
-	(; bonds2GDP, NFA2GDP) = par
-	
-	GDP = DimVector(output.(K_in, L_in, Ref(par)), name = :GDP)
-	B₀ = DimVector(bonds2GDP .* GDP, name = :B₀)
-	NFA = DimVector(NFA2GDP .* GDP, name = :NFA)
-	
-	K_supply = K_hh .- B₀ .- NFA
-	ζ_K = DimVector(K_supply .- K_in, name = :ζ_K)
-	ℓ = criterion.(K_supply, K_in)
-	
-	#ζ_K = DimVector(K_in - K_out, name = :ζ_K)
-	ζ_H = DimVector(H_in - H_out, name = :ζ_H)
-	ζ_L = DimVector(L_in - L_out, name = :ζ_L)
-	
-	loss = DimStack(ζ_H, ζ_K, ζ_L)
-
-	aggregates = DataFrame(DimStack(H_in, H_out, K_in, ζ_H, ζ_K, GDP, B₀, NFA, K_supply, ℓ))
-	
-	updated = DimStack(
-		DimVector(H_out, name = :H_hh),
-		DimVector(K_supply, name = :K_supply),
-		DimVector(L_out, name = :L_eff)
-	)
-	
-	(; loss, updated, aggregates, H_hh = H_out, K_supply)
-	
-end
 
 # ╔═╡ c500744d-c0cd-4dc1-a04a-7dd3f1ce860c
 function _aggregates_(K_guess, par, K_hh, L_eff)
@@ -1233,7 +2036,9 @@ function loss_and_aggregates(::HousingModel, par, guesses, raw_aggregates)
 	K_guess = guesses.K_supply
 
 	H_hh = raw_aggregates.ho
-	K_hh = raw_aggregates.a_next
+	#K_hh = raw_aggregates.a_next_surv # this is correct if assets of dead are thrown away!
+	K_hh = raw_aggregates.a_next # this is correct if assets of dead are thrown away!
+	
 	L_eff = raw_aggregates.ℓ_eff
 	𝕀 = 0.0 #raw_aggregates.inherit 
 	
@@ -1255,6 +2060,75 @@ end
 # ╔═╡ 4659e2ae-38ca-411f-b180-9589c70c3afb
 const DD = DimensionalData
 
+# ╔═╡ 976144e3-de4b-471a-868b-96abc821ca84
+function iterate_cross_sectional_shock!(π₀, π₋₁, sol_backward, statespace, (; m), prices₀, par₀; π_init = π₋₁[j = At(0)])
+	# assume the economy was in steady state up until period -1
+	# in period 0 there is a probability-zero-shock
+	# πₜ are interpreted as cross-sectional distributions in periods t ∈ {-1, 0}
+
+	# the code is very similar to "solve_forward"
+	(; p, r) = prices₀
+	(; δ) = par₀
+
+	policy = DimStack(sol_backward...)
+	j₀, J = extrema(DD.dims(policy, :j))
+
+	(; states) = statespace
+	P = statespace.P_from
+
+	π₀[j = At(0)] .= π_init
+	
+	for j ∈ 0:(J-1)
+		# find all states with positive mass
+		positive_mass = findall(@view(π₋₁[j = At(j)]) .> 0)
+	
+		for ind ∈ positive_mass
+			# for each such state ...
+			
+			## 1. find optimal policy
+			(; state, ε) = states[ind]
+
+			#### ADAPTED ####
+			(; ho, a_next) = policy[j = At(j), state = At(state), ε = At(ε)]
+			state_n = a_next + (1-δ)/(1+r) * p * ho
+			#################
+			
+			## 2. find closest points on grid
+			(; high, low) = weighted_neighbours(state_n, statespace.grid)
+
+			## 3. compute probability mass for states in j + 1
+			π_base = π₋₁[j = At(j)][ind] * (1 - m[j = At(j)])
+			π₀[j = At(j+1), state = At(high.x)] .+= π_base .* high.weight .* P[from = At(ε)]
+			π₀[j = At(j+1), state = At(low.x)]  .+= π_base .* low.weight .* P[from = At(ε)]
+		end
+	end
+
+	π₀
+end
+
+# ╔═╡ 0c481dec-3a04-4a51-9c11-ef03dbab3683
+function get_π_init_all(GE_sol_perm, price_paths, par, statespace)
+	(; sol_backward, sol_forward) = GE_sol_perm.sol
+	(; π) = sol_forward
+	(; m) = par
+
+	π₋₁ = copy(π, name = :π₋₁)
+	π₀  = zeros(DD.dims(π₋₁), name = :π₀)
+
+	prices₀ = price_paths[t = At(0)]
+
+	iterate_cross_sectional_shock!(π₀, π₋₁, sol_backward, statespace, (; m), prices₀, par)
+
+	π₀
+end
+
+# ╔═╡ 2b26bf96-95e8-4e6e-8ba4-f1a4a7857464
+function get_π_init(_, GE_sol_perm, price_paths, j_init, par, statespace)
+	π₀ = get_π_init_all(GE_sol_perm, price_paths, par, statespace)
+
+	π₀[j = At(j_init)]
+end
+
 # ╔═╡ cda15204-1cd1-4bd1-b5b6-ac72ed154309
 function extend_path(path, (; J); X₋₁=first(path))
 	T̃ = maximum(DD.dims(path, :t))
@@ -1271,32 +2145,70 @@ function extend_path(path, (; J); X₋₁=first(path))
 end
 
 # ╔═╡ 6859961c-f24f-4ae3-bb5c-1bc639ec00a1
-function get_inheritances_by_type(bequests_by_type, statespace)
+function get_inheritances_θ(bequests_θ, statespace)
 	(; perm_dim, mc_permanent, π_permanent) = statespace
 	
 	θ_dim = DD.dims(perm_dim, :θ)
 	
 	P_θ_DD = DimArray(mc_permanent.p, (only(perm_dim), only(perm_dim)))
-	
-	inheritances_by_type = P_θ_DD' * bequests_by_type
+
+	_inheritances_θ_ = P_θ_DD' * (@d bequests_θ .* π_permanent)
+
 	# take into account mass of types	
-	inheritances_by_type #./ π_permanent
+	DimVector(
+		(@d _inheritances_θ_ ./ π_permanent),
+		name = :inheritances
+	)
 end
 
-# ╔═╡ 98e82ee2-bc10-418e-9e95-27092fa8d3be
-function update_inheritances_stationary!(inheritances_old, out_PE, statespace, F; λ)
-	# update inheritances
-	π_age = get_age_distribution(out_PE)
-	bequests_by_type = get_bequests_by_type(out_PE, statespace)
+# ╔═╡ 9291d566-bf4f-49ac-aba3-277170e5daed
+function inheritances_stationary((; sim_df), statespace)
+	#(; F) = par
+
+	# STEP 1: Computing bequests by type
+	bequests_θ = get_bequests_θ(sim_df, statespace)
 	# STEP 2: Computing inheritances by type
-	inheritances_by_type = get_inheritances_by_type(bequests_by_type, statespace)
+	inheritances_θ = get_inheritances_θ(bequests_θ, statespace)
 	# STEP 3: Compute inheritances by type and cohort
-	inheritances_new = get_inheritances(inheritances_by_type, F, π_age)
+	#inheritances_θj = get_inheritances_θj(inheritances_θ, par)
 
-	crit_inh = norm(inheritances_old - inheritances_new)
-	inheritances_old .= λ .* inheritances_new .+ (1-λ) .* inheritances_old
+	(; bequests_θ, inheritances_θ #=, inheritances_θj=#)
+end
 
-	(; crit_inh)
+# ╔═╡ f8919942-9ef9-476a-94eb-c46ec88fde94
+function get_inheritances_θt(bequests_θt, statespace, π_t)
+	(; perm_dim, mc_permanent, π_permanent) = statespace
+
+	t_dim = DD.dims(bequests_θt, :t)
+	T̃ = maximum(t_dim)
+	θ_dim = only(perm_dim)
+
+	P_θ_DD = DimArray(mc_permanent.p, (θ_dim, θ_dim))
+
+	π_θt = @d π_t .* π_permanent
+	
+	# available bequests: -1:T-1
+	# normalize available bequests by mass π_θt
+	inheritances_θt = DimArray(
+		((@d bequests_θt .* π_θt) * P_θ_DD)[t = At(-1:T̃-1)],
+		(Dim{:t}(0:T̃), θ_dim)
+	)
+	
+	# inheritances == bequests from last period
+	# divide across all agents of given type in a given time using π_θt
+	DimArray(
+		(@d inheritances_θt ./ π_θt[t = At(0:T̃)]),
+		name = :inheritances
+	)
+end
+
+# ╔═╡ 7d9ea25a-6f76-43a2-83ab-d81e6210bbc6
+function inheritances_transition(out, statespace, π_t)
+		
+	bequests_θt = get_bequests_θt(out, statespace)
+	inheritances_θt = get_inheritances_θt(bequests_θt, statespace, π_t)
+
+	(; bequests_θt, inheritances_θt)
 end
 
 # ╔═╡ f66ab91b-14d6-4981-b78e-ab6f55129220
@@ -1456,7 +2368,7 @@ function iterate_backward(::HousingModel, cⱼ, par_all, par_cohort, permanent, 
 end
 
 # ╔═╡ 0bfd4678-c05c-4e62-9f11-6a1d80f4f58a
-function solve_backward!(c, next_state, constrained, stuff, Mo, par_all, par_cohort, permanent, statespace; price_paths, t_born, j_init, 
+function solve_backward!(c, next_state, value, next_value, constrained, stuff, Mo, par_all, par_cohort, permanent, statespace; price_paths, t_born, j_init, 
 						 inherit # for a given permanent type θ
 						)
 
@@ -1464,7 +2376,7 @@ function solve_backward!(c, next_state, constrained, stuff, Mo, par_all, par_coh
 	(; J, a̲, τ, d̄, Z̲) = par_all
 	(; θ) = permanent
 	
-	(; ε_grid, grid, dims) = statespace
+	(; ε_grid, grid, dims, P) = statespace
 	
 	
 	## SOLVE BACKWARDS ("solve policy functions")
@@ -1480,6 +2392,7 @@ function solve_backward!(c, next_state, constrained, stuff, Mo, par_all, par_coh
 	out = @d last_choices.(Ref(Mo), grid, ℓ_eff_J, inc_J, Ref(priceses_J), Ref(par_all), Ref(J))
 
 	         c[j = At(J)] .= getproperty.(out, :c)
+	     value[j = At(J)] .= getproperty.(out, :v)
 	next_state[j = At(J)] .= getproperty.(out, :next_state)
 		 stuff[j = At(J)] .= getproperty.(out, :stuff)
 
@@ -1488,7 +2401,8 @@ function solve_backward!(c, next_state, constrained, stuff, Mo, par_all, par_coh
 
 	for j ∈ J:-1:(j_init + 1)
 		t = t_born + j
-		cⱼ = @view c[j = At(j)]
+		cⱼ     = @view     c[j = At(j)]
+		valueⱼ = @view value[j = At(j)]
 		
 		priceses = get_prices(Mo, price_paths, par_all, par_cohort, j; t_born, inherit)
 		
@@ -1518,20 +2432,45 @@ function solve_backward!(c, next_state, constrained, stuff, Mo, par_all, par_coh
 				constrainedⱼ₋₁[ε = At(ε)][ids],
 				extrapolation_bc = Line(),
 			)
-	
+
+			valueⱼ_itp = LinearInterpolation(
+				parent(grid),
+				valueⱼ[ε = At(ε)],
+				extrapolation_bc = Line(),
+			)
+
+			_next_state_ε_ = stateⱼ_itp.(grid)
+			#@info size(_next_state_ε_)
+			#@info size(valueⱼ_itp.(_next_state_ε_))
+			#@info size(next_value[j = At(j-1),  ε = At(ε)])
+			
 			  next_state[j = At(j-1), ε = At(ε)] .= #max.(
-				  stateⱼ_itp.(grid)#, Z̲)
+				  _next_state_ε_#, Z̲)
 			 constrained[j = At(j-1), ε = At(ε)] .= constrainedⱼ₋₁_itp.(grid)
+
+			 next_value[j = At(j-1),  ε = At(ε)] .= valueⱼ_itp.(_next_state_ε_)
 		end
 
 		let
 			stateⱼ₋₁       = grid
-			stateⱼ         =  next_state[j = At(j-1)]
+			# state(j) == next_state(j-1) (that is, state today was chosen yesterday)
+			stateⱼ         = next_state[j = At(j-1)]
+			valueⱼ         = next_value[j = At(j-1)]
 			constrainedⱼ₋₁ = constrained[j = At(j-1)]
 			
-			out = @d choicesⱼ₋₁.(Ref(Mo), stateⱼ₋₁, stateⱼ, constrainedⱼ₋₁, statespace.ε_grid, Ref(par_all), Ref(par_cohort), Ref(permanent), Ref(priceses), Ref(statespace), Ref(j))
+			#if size(P, 1) > 1
+			#	@info "XXXXX"
+			#	@info DD.dims(valueⱼ), DD.dims(P)
+			#	@info size(valueⱼ), size(P)
+			#end
+			
+			𝔼vⱼ = DimArray(parent(valueⱼ) * parent(P)', DD.dims(valueⱼ))
+			#𝔼vⱼ = valueⱼ * P'
+
+			out = @d choicesⱼ₋₁.(Ref(Mo), stateⱼ₋₁, stateⱼ, 𝔼vⱼ, constrainedⱼ₋₁, statespace.ε_grid, Ref(par_all), Ref(par_cohort), Ref(permanent), Ref(priceses), Ref(statespace), Ref(j))
 		
 		    	c[j = At(j-1)] = getproperty.(out, :c)
+			value[j = At(j-1)] = getproperty.(out, :v)
 			stuff[j = At(j-1)] = getproperty.(out, :stuff)
 		end
 	end
@@ -1544,11 +2483,11 @@ function solve_backward!(c, next_state, constrained, stuff, Mo, par_all, par_coh
 end
 
 # ╔═╡ 26bc0666-0405-466b-8dea-356d9d7c4e19
-function solve_backward_forward!(c, next_state, constrained, stuff, π, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0,
-								 inherit # for a given permanent type θ
+function solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0,
+								 inherit_j # inheritances for each age j of a given permanent type θ
 								)
 	
-	solve_backward!(c, next_state, constrained, stuff, Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit)
+	solve_backward!(c, next_state, value, next_value, constrained, stuff, Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
 	## SOLVE FORWARD
 	solve_forward!(π, (; next_state), statespace, par_cohort; π_init, j_init)
@@ -1557,21 +2496,28 @@ function solve_backward_forward!(c, next_state, constrained, stuff, π, Mo, par_
 end
 
 # ╔═╡ 3c2f3f62-f7b9-4d66-8598-be8bb6bd6356
-function simulate_cohorts(Mo, par, permanent, statespace, demographics, GE_sol_perm; price_paths, j_last = par.J, T̃, inherit)
+function simulate_cohorts(Mo, par, permanent, statespace, demographics, GE_sol_perm; price_paths, j_last = par.J, T̃, inheritances_tj)
 
 	j_dim = Dim{:j}(0:j_last)
 	t_borns = (-j_last):1:T̃
 
 	par_all = drop_m_h(; par...)
-	(; c, next_state, constrained, stuff, π) = let
+	(; c, next_state, value, next_value, constrained, stuff, π) = let
 		par_0 = let
 			m = demographics.m[born = At(0)]
 			par_cohort = (; par.h, par.ρ_SS, m)
 		end
 
+		inherit_j = map(j_dim) do j
+			inheritances_tj[j = At(j), t = At(j)]
+		end
+		
 	 	initialize_cohorts(Mo, par_all, par_0, permanent, statespace, t_borns;
-						   price_paths, j_init = 0, t_born = 0, inherit)
+						   price_paths, j_init = 0, t_born = 0, 
+						   inherit=inherit_j)
 	end
+
+	π_init_all = get_π_init_all(GE_sol_perm, price_paths, par, statespace)
 	
 	for t_born ∈ t_borns
 		m = demographics.m[born = At(t_born)]
@@ -1579,23 +2525,31 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics, GE_sol_p
 
 		cₜ          = @view 		  c[born = At(t_born)]
 		next_stateₜ = @view  next_state[born = At(t_born)]
+		valueₜ      = @view       value[born = At(t_born)]
+		next_valueₜ = @view  next_value[born = At(t_born)]
 		constrainedₜ= @view constrained[born = At(t_born)]
 		stuffₜ      = @view 	  stuff[born = At(t_born)]
 		πₜ          = @view 		  π[born = At(t_born)]
 
 		cₜ, next_stateₜ, stuffₜ, πₜ
 		j_init = max(0, -t_born)
-		π_init = get_π_init(Mo, GE_sol_perm, price_paths, j_init, par) # TODO
+		π_init = π_init_all[j = At(j_init)]
 
-		solve_backward_forward!(cₜ, next_stateₜ, constrainedₜ, stuffₜ, πₜ,
+		inherit_j = map(j_dim) do j
+			t = clamp(j + t_born, 0, T̃)
+			inheritances_tj[j = At(j), t = At(t)]
+		end
+
+		solve_backward_forward!(cₜ, next_stateₜ, valueₜ, next_valueₜ, 
+								constrainedₜ, stuffₜ, πₜ,
 								Mo, par_all, par_cohort, permanent, statespace; 
-								price_paths, π_init, j_init, t_born, inherit)
+								price_paths, π_init, j_init, t_born, inherit_j)
 	end
 
 	sol = (c, next_state, stuff, π)
 
 	sim_ds = DimStack(
-			c, next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)..., π
+			c, value, next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)..., π
 		)
 	
 	sim_df = DataFrame(sim_ds)
@@ -1615,14 +2569,14 @@ end
 
 # ╔═╡ 0ae74c43-bae4-406b-9e31-fd76a0a4a398
 function simulate_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0,
-								inherit # for a given permanent type θ
+								inherit_j # inheritances for each age of a given permanent type θ
 							   )
 	
-	(; c, next_state, constrained, stuff, π) = initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit)
+	(; c, next_state, value, next_value, constrained, stuff, π) = initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
-	solve_backward_forward!(c, next_state, constrained, stuff, π, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init, t_born, inherit)
+	solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init, t_born, inherit_j)
 
-	sol_backward = (; next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)...)
+	sol_backward = (; c, next_state, value, dimarray_of_nts_to_nt_of_dimarrays(stuff)...)
 
 	sol_forward = (; π)
 
@@ -1635,22 +2589,28 @@ end
 function stationary_PE(Mo, par, statespace, guesses, prices;
 								  details = true,
 								  π_init = simple_initial_distribution(statespace),
-							 	  inheritances = no_inheritances(par, statespace),
+							 	  inheritances_θ = zeros(only(statespace.perm_dim)),
 					   			total_mass = 1.0,
 								  #solution_method = EGM()
 								 )
 
 	(; π_permanent, state_dim, perm_dim) = statespace
 
+	
+	π_j = pmf(par.m)
+	
+	inheritances_θj = 
+		DimArray(@d(inheritances_θ .* par.F ./ π_j), name = :inheritances)
+		
 	par_cohort = (; par.h, par.ρ_SS, par.m)
 	par_x = drop_m_h(; par...)
 	
 	price_paths = constant_price_paths(par, prices)
 
 	sols = map(enumerate(zip(get_states(π_permanent), π_permanent))) do (i_perm, (permanent, π_perm))
-		inherit = @view inheritances[θ = i_perm]
+		inherit_j = @view inheritances_θj[θ = i_perm]
 		
-		sol = simulate_cohort(Mo, par_x, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0, inherit)
+		sol = simulate_cohort(Mo, par_x, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0, inherit_j)
 
 		sim_df = @transform(sol.sim_df, :π = :π * π_perm)
 		(; sol, sim_df, permanent)
@@ -1666,7 +2626,9 @@ function stationary_PE(Mo, par, statespace, guesses, prices;
 	aggregates = loss_and_aggregates(Mo, par_x, guesses, raw_aggregates)
 
 	if details
-		return (; aggregates, raw_aggregates, guesses, prices, par, sols, sim_df)
+		out_PE = (; aggregates, raw_aggregates, guesses, prices, par, sols, sim_df, inheritances_θj)
+		inheritances_etc = inheritances_stationary(out_PE, statespace)
+		return (; out_PE, inheritances_etc)
 	else
 		return aggregates
 	end
@@ -1674,42 +2636,116 @@ function stationary_PE(Mo, par, statespace, guesses, prices;
 end
 
 # ╔═╡ 1ba9f113-c2d5-4c34-ba9f-01d39ffc6f35
-function stationary_GE(Mo, par, statespace; F = zeros(par.j_dim),
-			guesses = guess(Mo, par), inheritances = no_inheritances(par, statespace),
+function stationary_GE(Mo, par, statespace;
+			guesses = guess(Mo, par), inheritances_θ_guess = nothing,
 					   total_mass = 1.0,
 			details = 0,
-			maxiter = 600, λ = 0.1, tol = 1e-14,
+			maxiter = 600, λ = 0.1, tol = 1e-14, λ_inherit = 1.0,
 			kwargs...
 		)
 	
 	_guesses_ = collect(guesses)
+
+	perm_dim = only(statespace.perm_dim)
+	
+	if isnothing(inheritances_θ_guess)
+		inheritances_θ = zeros(perm_dim)
+	else
+		inheritances_θ = DimVector(inheritances_θ_guess, statespace.perm_dim)
+	end
 	
 	for it ∈ 1:maxiter
 		(; prices, guesses) = prices_from_guesses(Mo, _guesses_, par)
 
-		out_PE = stationary_PE(Mo, par, statespace, guesses, prices; total_mass, 
-								  details=true, inheritances, kwargs...)
+		(; out_PE) = stationary_PE(Mo, par, statespace, guesses, prices; total_mass, 
+								  details=true, inheritances_θ, kwargs...)
 		out₀ = out_PE.aggregates
 		# update guesses
 		_guesses_ = (1-λ) * _guesses_ + λ * collect(out₀.updated)
-
-		(; crit_inh) = update_inheritances_stationary!(inheritances, out_PE, statespace, F; λ)
+		##########
 		
-		# print infos
-		if details > 0 && it % details == 0
-			@info "iteration $it, loss: $(out₀.loss), $prices, Δ_inh: $(round(crit_inh, digits = 5)), $((; out_PE.raw_aggregates.a_next, out_PE.raw_aggregates.inheritance,))"
-		end
-		if maximum(abs.(collect(out₀.loss))) < tol
-			@info "converged at $it, loss: $(out₀.loss)"
+		# update inheritances
+		inheritances_etc = inheritances_stationary(out_PE, statespace)
+		inheritances_θ_new = inheritances_etc.inheritances_θ
 
-			return out_PE
+		crit_inh = norm(inheritances_θ - inheritances_θ_new)
+		inheritances_θ .= 
+			λ_inherit .* inheritances_θ_new .+ (1-λ_inherit) .* inheritances_θ
+		#########
+		
+		converged = maximum(abs.(collect(out₀.loss))) < tol && abs(crit_inh) < tol
+		# print infos
+		if (details > 0 && it % details == 0) || converged		
+			@info """
+			iteration $it, loss: $(out₀.loss)
+			updated: $(out₀.updated)
+			bequests_θ: $(inheritances_etc.bequests_θ)
+			inheritances_θ: $(inheritances_etc.inheritances_θ)
+			
+			prices: $prices
+			Δ_inh: $crit_inh
+			$((; out_PE.raw_aggregates.a_next, out_PE.raw_aggregates.bequests, out_PE.raw_aggregates.inheritance,))
+			"""
+		end
+		if converged
+			return (; out_PE, inheritances_etc)
 		end	
 		if it == maxiter
 			@warn "Did not converge: loss: $(out₀.loss)"
 
-			return out_PE
+			return (; out_PE, inheritances_etc)
 		end
 	end
+end
+
+# ╔═╡ 1b1e4b39-a845-4e77-b05c-fc6e173b27f0
+function loss_and_aggregates_t(M::HousingModel, par, paths_in, paths_out, GE₀)
+	#(; H_guess) = guesses
+
+	t_dim = DD.dims(paths_out, :t)
+	T̲, T̄ = extrema(t_dim)
+	@assert T̲ == 0
+	
+	H_out = paths_out.ho
+
+	K_hh₀ = GE₀.raw_aggregates.a_next
+	K_hhₓ = paths_out.a_next[t = At(0:(T̄-1))] |> parent
+	K_hh = DimVector([K_hh₀; K_hhₓ], t_dim, name = :K_hh)
+	
+	L_out = paths_out.ℓ_eff
+	
+	
+	H_in = copy(paths_in.H_hh)
+	K_in = copy(paths_in.K_supply)
+	L_in = copy(paths_in.L_eff)
+
+	(; bonds2GDP, NFA2GDP) = par
+	
+	GDP = DimVector(output.(K_in, L_in, Ref(par)), name = :GDP)
+	B₀ = DimVector(bonds2GDP .* GDP, name = :B₀)
+	NFA = DimVector(NFA2GDP .* GDP, name = :NFA)
+	
+	K_supply = K_hh .- B₀ .- NFA
+	ζ_K = DimVector(K_supply .- K_in, name = :ζ_K)
+	ζ_H = DimVector(H_in - H_out, name = :ζ_H)
+	ζ_L = DimVector(L_in - L_out, name = :ζ_L)
+	
+	ℓ_K = DimVector(criterion.(K_supply, K_in), name = :ℓ_K)
+	ℓ_H = DimVector(criterion.(H_out, H_in), name = :ℓ_H)
+	ℓ_L = DimVector(criterion.(L_out, L_in), name = :ℓ_L)
+		
+	loss = DimStack(ℓ_H, ℓ_K, ℓ_L)
+
+	aggregates = DataFrame(DimStack(H_in, H_out, K_in, ζ_H, ζ_K, GDP, B₀, NFA, K_supply))
+	
+	updated = DimStack(
+		DimVector(H_out, name = :H_hh),
+		DimVector(K_supply, name = :K_supply),
+		DimVector(L_out, name = :L_eff)
+	)
+	
+	(; loss, updated, aggregates, H_hh = H_out, K_supply)
+	
 end
 
 # ╔═╡ af69b84f-e4f5-4f90-85a3-ef00d2288b83
@@ -1743,15 +2779,25 @@ end
 
 # ╔═╡ ca363b65-dd42-475c-9114-a259691c7913
 function transition_PE(model, T̃, par, statespace, demographics, GE₀, paths_in;
-					   j_last=par.J, normalize_population = false, inheritances)
+					   j_last=par.J, normalize_population = false,
+					   inheritances_tθ,
+					   π_jt = get_π_jt(
+						   (; demographics, GE₀, T̃), par, statespace
+					   )
+					  )
 	price_paths = get_price_paths(model, paths_in, par; GE₀)
+
+	# XXX FIXME - I think ./ π_jt must be replaced by something else
+	# pi_jt should sum to one in each t!!!
+	inheritances_θtj = DimArray(@d(inheritances_tθ .* par.F ./ π_jt), name = :inheritance)
 	
 	(; π_permanent, state_dim, perm_dim) = statespace
 
+	
 	sols = map(enumerate(zip(get_states(π_permanent), π_permanent, GE₀.sols))) do (i_perm, (permanent, π_perm, GE_sol_perm))
-		inherit = @view inheritances[θ = i_perm]
+		inheritances_θ = @view inheritances_θtj[θ = i_perm]
 		
-		sol = simulate_cohorts(model, par, permanent, statespace, demographics, GE_sol_perm; price_paths, j_last, T̃, inherit)
+		sol = simulate_cohorts(model, par, permanent, statespace, demographics, GE_sol_perm; price_paths, j_last, T̃, inheritances_tj = inheritances_θ)
 
 		sim_df = @transform(sol.sim_df, :π = :π * π_perm)
 		(; sim_df, permanent)
@@ -1763,15 +2809,16 @@ function transition_PE(model, T̃, par, statespace, demographics, GE₀, paths_i
 	)
 	
 	raw_aggregate_paths = aggregate_paths(sim_df; normalize_population)
-	_aggregate_paths_ = loss_and_aggregates_t(model, par, paths_in, raw_aggregate_paths)
+	_aggregate_paths_ = loss_and_aggregates_t(model, par, paths_in, raw_aggregate_paths, GE₀)
 
-	(; aggregate_paths=_aggregate_paths_, price_paths, guessed_paths=deepcopy(paths_in), raw_aggregate_paths, sim_df, demographics, GE₀)
+	out_PE = (; aggregate_paths=_aggregate_paths_, price_paths, guessed_paths=deepcopy(paths_in), raw_aggregate_paths, sim_df, demographics, statespace, GE₀, T̃, inheritances_θt=inheritances_tθ, inheritances_θtj, π_jt)
 end
 
 # ╔═╡ 880637f3-81f0-48f5-8918-c03dac35e6fc
 function transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed_path;
-					   j_last = par.J, normalize_population = false, inheritances,
-					   maxiter = 100, λ = 0.05, tol = 1e-4, details=1)
+					   j_last = par.J, normalize_population = false,   	   
+					   inheritances_θt_guess = nothing,
+					   maxiter = 100, λ = 0.05, tol = 1e-4, λ_inh = 1.0, details=1)
 
 	path_in = deepcopy(guessed_path)
 	
@@ -1779,29 +2826,43 @@ function transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed
 		λ = fill(λ, maxiter)
 	end
 	
-	F = 0.0
-
-	fig = Figure(size = (650, 250))
-	ax = Axis(fig[1,1], title = "K_supply")
-	ax2 = Axis(fig[1,2], title = "L_eff")
-	ax3 = Axis(fig[1,3], title = "H_hhf")
+	π_jt = get_π_jt((; demographics, GE₀, T̃), (; par.J), statespace)
+	π_t = get_π_t((; demographics, GE₀, T̃), statespace)
+	
+	perm_dim = only(statespace.perm_dim)
+	t_dim = Dim{:t}(0:T̃)
+	
+	if isnothing(inheritances_θt_guess)
+		inheritances_tθ = zeros((t_dim, perm_dim))
+	else
+		inheritances_tθ = DimArray(inheritances_θt_guess, (t_dim, perm_dim))
+	end
 	
 	for it ∈ 1:maxiter
 		
 		out_PE = transition_PE(model, T̃, par, statespace, demographics, GE₀, path_in;
-							   j_last, normalize_population, inheritances)
+							   j_last, normalize_population,
+							   inheritances_tθ, π_jt)
 
-		#update_inheritances_transition!(inheritances, out_PE, statespace, F)
-		
 		crit₀ = maximum(abs, out_PE.aggregate_paths.loss)
 		crit = maximum(crit₀)
+
+		inh_tθ_etc_new = inheritances_transition(out_PE, statespace, π_t)
+		inheritances_tθ_new = inh_tθ_etc_new.inheritances_θt
+			
+		#inheritances_tθ_new = compute_inheritance_θt(out_PE, statespace)
 		
-		if details > 0 && it % details == 0
-			@info (; it, crit₀, crit)
+		crit_inh = norm(@d inheritances_tθ_new .- inheritances_tθ)
+		
+		converged = abs(crit) < tol && abs(crit_inh) < tol
+		
+		if converged || (details > 0 && it % details == 0)
+			@info (; it, crit₀, crit, crit_inh)
 			fig = Figure(size = (650, 250))
 			ax = Axis(fig[1,1], title = "K_supply")
 			ax2 = Axis(fig[1,2], title = "L_eff")
 			ax3 = Axis(fig[1,3], title = "H_hhf")
+			ax4 = Axis(fig[1,4], title = "Bequests")
 
 			lines!(ax, path_in.K_supply)
 			lines!(ax2, path_in.L_eff)
@@ -1810,28 +2871,29 @@ function transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed
 			lines!(ax, out_PE.aggregate_paths.updated.K_supply)
 			lines!(ax2, out_PE.aggregate_paths.updated.L_eff)
 			lines!(ax3, out_PE.aggregate_paths.updated.H_hh)
+			lines!(ax4, out_PE.raw_aggregate_paths.bequests)
 			
 			@info fig
 		end
 			
 		path_out = out_PE.aggregate_paths.updated
-		
-		if crit < tol || it == maxiter
-			if crit < tol
-				@info "Transition converged after $it iterations. crit = $crit"
-			end
-			if it == maxiter
-				@warn "Did not converge after $it iterations. crit = $crit"
+
+		if converged || it == maxiter
+			if converged
+				@info "Transition converged after $it iterations. crit = $crit, crit_inh = $crit_inh"
+			else
+				@warn "Did not converge after $it iterations. rit = $crit, crit_inh = $crit_inh"
 			end
 			
-			return out_PE
+			return (; out_PE, inheritances_tθ, inh_tθ_etc_new)
 		end
 		
 		for key ∈ keys(path_in)
-			path_in[key] .= 
+			@d path_in[key] .= 
 				(1-λ[it]) * path_in[key] .+ λ[it] * path_out[key]
 		end
-		
+
+		@d inheritances_tθ .= (1-λ[it]) * inheritances_tθ + λ[it] * inheritances_tθ_new
 	end
 	
 end
@@ -1850,6 +2912,7 @@ function get_par₀(; m,
 		L̄ = 1.0,
 		p = 1.0,
 		ξ = 0.15,
+		F = nothing,
 		θ = 0.0,
 		ν₀ = 78.5, # scaling factor Y
 		ν₁ = 1.92, # CRRA exponent ν
@@ -1868,6 +2931,10 @@ function get_par₀(; m,
 	j_dim_h = DD.dims(h, :j)
 
 	@assert J == age_max - age_min
+
+	if isnothing(F)
+		F = zeros(j_dim, name = :F)
+	end
 	
 	if check_j_dim
 		@assert j_dim == j_dim_h
@@ -1904,7 +2971,7 @@ function get_par₀(; m,
 	
 	(; δ, α, Θ = 1, L = 1, β, #= ρ, r,=# bonds2GDP, NFA2GDP,
 		m, γ, σ, a̲, Z̲, θ,
-		h, u, u′, u′⁻¹, v, v′, ν₀, ν₁,
+		h, u, u′, u′⁻¹, v, v′, ν₀, ν₁, F,
 		w = 1.0, ρ_SS, d̄, τ,
 		ξ, α̃, L̄, p, j_dim, J, age_min, age_max, annuities)
 	
@@ -1982,7 +3049,7 @@ function Statespace(; amin, amax, na, ε_chain = no_income_risk(), exponential =
 end
 
 # ╔═╡ b94a5e80-7c96-4269-bc85-d66850b1b926
-function get_cali_auclert(; ξ = 0.0, risk = false)
+function get_cali_auclert(; ξ = 0.0, risk = false, na = 400)
 	
 	#J = length(dp_marcelo) - 1
 	j_dim = Dim{:j}(0:length(dp_marcelo)-2)
@@ -2001,7 +3068,7 @@ function get_cali_auclert(; ξ = 0.0, risk = false)
 	end
 	
 	statespace = Statespace(; 
-							amin = Z̲, amax = 1_000.0, na = 400, 
+							amin = Z̲, amax = 1_000.0, na, 
 							ε_chain,
 							permanent
 						   )
@@ -2019,162 +3086,10 @@ function get_cali_auclert(; ξ = 0.0, risk = false)
 	(; par, statespace, prices, π_init)
 end
 
-# ╔═╡ 0d4205f1-e578-4d9b-9260-0a174d89fc45
-# ╠═╡ skip_as_script = true
-#=╠═╡
-out_auclert_trans0 = let
-	(; par, statespace, prices, π_init) = get_cali_auclert(; ξ = 0.0, risk = false)
-
-	model = HousingModel()
-
-	guesses = (; K_supply = 20.75270574911025, H_hh = 0.0, L_eff = 2.2591478197110324)
-	(; prices) = prices_from_guesses_nt(model, guesses, par)
-
-	#par = (; prices.r, par...)
-	GE₀ = stationary_PE(model, par, statespace, guesses, prices; π_init) 
-#	GE₀ = stationary_GE(model, par, statespace; guesses, #=prices,=# π_init) 
-	
-	
-	T̃ = 300
-
-	###########################
-	## TEST 1: CONSTANT PATH ##
-	GE₁ = GE₀
-	GEs = (; GE₀, GE₁, statespace, j_last = par.J)
-	
-	guess = GE₀.aggregates.updated
-	guessed_path = dimstack_from_nt(guess, Dim{:t}(0:T̃))
-
-	demographics = let
-		m₀ = par.m
-		j_dim = DD.dims(m₀, :j)
-		J = maximum(j_dim)
-	
-		borns = -J:1:T̃
-		born_dim = Dim{:born}(borns)
-		ms = cat(fill(m₀, born_dim)..., dims = born_dim)
-
-		demo = DimStack(ms, )
-	end
-	###########################
-	
-#	setup = (; guessed_path, T̃, demographics, GEs, statespace, model)
-
-	inheritances = no_inheritances(par, statespace)
-
-#	price_paths = get_price_paths(model, paths_in, par; GE₀)
-#	(; π_permanent, state_dim, perm_dim) = statespace
-
-	out = transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed_path;
-						normalize_population = false, inheritances, details = 1, maxiter = 3)
-	
-
+# ╔═╡ a19c845c-c6a5-46c7-8703-a9fd973933ee
+let
+	(; par, statespace, prices, π_init) = get_cali_auclert(ξ = 0.15, risk = true)
 end
-  ╠═╡ =#
-
-# ╔═╡ 139b6f9a-4073-40a3-b587-6af681e47069
-# ╠═╡ skip_as_script = true
-#=╠═╡
-out_auclert_trans2 = let
-	#(; par, statespace, π_init) = get_cali_test()
-	(; par, statespace, prices, π_init) = get_cali_auclert(ξ = 0.15, risk = false)
-
-	model = HousingModel()
-
-	guesses = (; K_supply = 19.8058, H_hh = 2.7714, L_eff = 2.2591478197110324)
-	prices = let
-		r = interest_rate(guesses.K_supply, guesses.L_eff, par) 
-		w = wage(guesses.K_supply, guesses.L_eff, par)
-		p = house_price(par.δ * guesses.H_hh, par)
-		(; r, w, p)
-	end
-
-	GE₀ = stationary_GE(model, par, statespace#=, guesses, prices=#; guesses, π_init, tol = 1e-4) 
-	
-	#@info GE₀.aggregates
-	#@info GE₀.prices
-	
-	T̃ = 100
-
-	#####################################
-	## TEST 2: REDUCE MORTALITY BY 10% ##
-	
-	
-
-	#guessed_path = guess_auclert_trans
-	
-	demographics = let
-		m₀ = par.m
-		m₁ = 0.9 * par.m
-		
-		j_dim = DD.dims(m₀, :j)
-		J = maximum(j_dim)
-	
-		borns = -J:1:T̃
-		born_dim = Dim{:born}(borns)
-		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
-
-		
-		demo = DimStack(ms, )
-	end
-	###########################
-	
-	inheritances = no_inheritances(par, statespace)
-
-	guess = GE₀.aggregates.updated
-	guessed_path₀ = dimstack_from_nt(guess, Dim{:t}(0:T̃))
-	
-	if false
-		guessed_path = guessed_path₀
-	elseif false
-		#guess = GE₀.aggregates.updated
-		#guessed_path₀ = dimstack_from_nt(guess, Dim{:t}(0:T̃))
-		
-		# initial run for guess
-		out = transition_PE(model, T̃, par, statespace, demographics, GE₀, guessed_path₀;
-							normalize_population = false, inheritances,
-							#details = 1, λ = 0.001, maxiter = 200
-							)
-		mass_terminal = out.raw_aggregate_paths.population[end]
-		
-		par₁ = deepcopy(par)
-		par₁.m .*= 0.9
-	
-		GE₁ = stationary_GE(model, par₁, statespace#=, guesses, prices=#; guesses, π_init, tol = 1e-4, total_mass = mass_terminal) 
-	
-		init = GE₀.aggregates.updated
-		term = GE₁.aggregates.updated
-	
-		@info (; init, term)
-		
-		L_guess = copy(out.aggregate_paths.updated.L_eff)
-	
-		pattern = L_guess .- L_guess[begin]
-		pattern = pattern ./ pattern[end]
-	
-		#@info lines(pattern)
-	
-		K_guess = DimVector(
-			pattern .* (term.K_supply - init.K_supply) .+ init.K_supply,
-			name = :K_supply
-		)
-		H_guess = DimVector(
-			pattern .* (term.H_hh - init.H_hh) .+ init.H_hh,
-			name = :H_hh
-		)
-		
-		guessed_path = DimStack(K_guess, H_guess, L_guess)
-	else
-		guessed_path = updated_paths_auclert_trans2 # ξ = 0.15, risk = false
-#		guessed_path = current_paths_auclert_trans2#[t = At(0:T̃)]
-	end
-
-	out = transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed_path;
-						normalize_population = false, inheritances,
-						details = 1, λ = 0.001, maxiter = 3000, tol = 5e-3
-						)
-end
-  ╠═╡ =#
 
 # ╔═╡ 60cb0cba-cf3d-4a67-9b76-8476e4b7e630
 get_cali_test(; amax = 12.0, na = 500, exponential = false) = let
@@ -2202,93 +3117,6 @@ get_cali_test(; amax = 12.0, na = 500, exponential = false) = let
 	inheritances = no_inheritances(par, statespace)
 	(; par, statespace, π_init, inheritances)
 end
-
-# ╔═╡ adce8682-ef5a-42ea-a59b-15df0cf1685f
-# ╠═╡ skip_as_script = true
-#=╠═╡
-out_test = let
-	# equivalent to BaselineModel() in models_reduced.jl
-	(; par, statespace, π_init) = get_cali_test(amax = 15)
-
-	Mo = HousingModel()
-
-	K_guess = 3.5832334751343167
-	guesses = (; K_supply = K_guess, H_hh = 8.55e-8, L_eff = 1.0)
-
-	prices = let
-		r = interest_rate(K_guess, 1.0, par) 
-		w = wage(K_guess, 1.0, par)
-		(; r, w, p = 1.2)
-	end
-
-	#######################
-	# Partial equilibrium #
-	#######################
-	
-	out = stationary_PE(Mo, (; prices.r, par...), statespace, 
-						guesses, prices; 
-						π_init) # j_last XXX
-
-	(; aggregates, prices) = out
-	(; K_supply) = aggregates.updated
-	(; K_hh, ζ) = aggregates.aggregates
-	(; state, c, ℓ_eff, a_next) = out.raw_aggregates
-	(; r) = prices  
-
-	@info @test state  ≈ 5.10668547068924
-	@info @test a_next ≈ 5.168198036558206
-	@info @test c      ≈ 1.721938385022462
-	@info @test ℓ_eff  ≈ 1.5451965545805213
-
-	#######################
-	# General equilibrium #
-	#######################
-	
-	out = stationary_GE(Mo, (; prices.r, par...), statespace, 
-						#=guesses, prices=#; 
-						π_init,
-					    tol = 1e-8, λ = 0.25, details = 10) # j_last XXX
-
-	(; aggregates, prices) = out
-	(; K_supply) = aggregates.updated
-	(; K_hh, ζ) = aggregates.aggregates
-	(; state, c, ℓ_eff, a_next) = out.raw_aggregates
-	(; r) = prices  
-
-	@info @test state  ≈ 7.274069538405238
-	@info @test a_next ≈ 7.375175510982203
-	@info @test c      ≈ 1.7859332121683014
-	@info @test ℓ_eff  ≈ 1.5451965545805213
-
-	out
-end
-  ╠═╡ =#
-
-# ╔═╡ de8484a0-d7e0-43aa-b2db-bbb221fbad01
-#=╠═╡
-let
-	vars = [:z_next, :a_next, :ho, :c, :income, :m]
-
-	#df = select(out_safe.sim_df, vars..., :π, :j, :y)
-	df = select(out_test.sim_df, vars..., :π, :j, :ε)
-	
-	@chain df begin
-		@transform!(:method = "EGM")
-		stack(vars, [:π, :j, :method])
-		@groupby(:variable, :j, :method)
-		@combine(
-			:q = [0.2, 0.5, 0.8],
-			:value = quantile(:value, weights(:π), [0.2, 0.5, 0.8]))
-		#@subset(:variable == "a")
-		data(_) * mapping(:j, :value, 
-						  group = :q => nonnumeric, color = :method,
-						  linestyle = :method,
-						  layout = :variable
-						 ) * visual(Lines)
-		draw(; facet = (; linkyaxes = false), figure = figure((500, 250)))
-	end
-end
-  ╠═╡ =#
 
 # ╔═╡ 33587eca-6212-4ace-972c-90c119ddc001
 # ╠═╡ skip_as_script = true
@@ -2329,7 +3157,7 @@ let
 
 	(; π_permanent) = statespace
 	i_perm, permanent = first(enumerate(get_states(π_permanent)))
-	inherit = @view inheritances[θ = i_perm]
+	inherit_j = @view inheritances[θ = i_perm]
 		
 	fig = Figure(size = (400, 200))
 	ax = Axis(fig[1,1])
@@ -2338,7 +3166,7 @@ let
 		j_init = max(0, -t_born)
 		label = "born: $t_born"
 
-		out = simulate_cohort(HousingModel(), par_x, par_cohort, permanent, statespace; price_paths, π_init, inherit, j_init, t_born)
+		out = simulate_cohort(HousingModel(), par_x, par_cohort, permanent, statespace; price_paths, π_init, inherit_j, j_init, t_born)
 
 		#path = parent(out.state_path)
 		
@@ -2374,6 +3202,7 @@ PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 QuantEcon = "fcd29c91-0bd7-5a09-975d-7ac3f643a60c"
 Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
@@ -2382,7 +3211,7 @@ AlgebraOfGraphics = "~0.11.7"
 CairoMakie = "~0.15.6"
 Chain = "~1.0.0"
 DataFrameMacros = "~0.4.1"
-DataFrames = "~1.7.1"
+DataFrames = "~1.8.0"
 DimensionalData = "~0.29.23"
 Interpolations = "~0.16.2"
 PlutoTest = "~0.2.2"
@@ -2398,12 +3227,12 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.6"
 manifest_format = "2.0"
-project_hash = "17808a685c6f36ba8652c7e8e2d04e7b2b9f990c"
+project_hash = "3cc5362d7ba2a3cda6edc5c7b6acb21e57840acc"
 
 [[deps.ADTypes]]
-git-tree-sha1 = "60665b326b75db6517939d0e1875850bc4a54368"
+git-tree-sha1 = "27cecae79e5cc9935255f90c53bb831cc3c870d7"
 uuid = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
-version = "1.17.0"
+version = "1.18.0"
 
     [deps.ADTypes.extensions]
     ADTypesChainRulesCoreExt = "ChainRulesCore"
@@ -2463,9 +3292,9 @@ version = "0.1.42"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra", "Requires"]
-git-tree-sha1 = "f7817e2e585aa6d924fd714df1e2a84be7896c60"
+git-tree-sha1 = "7e35fca2bdfba44d797c53dfe63a51fabf39bfc0"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "4.3.0"
+version = "4.4.0"
 weakdeps = ["SparseArrays", "StaticArrays"]
 
     [deps.Adapt.extensions]
@@ -2565,9 +3394,9 @@ version = "1.1.0"
 
 [[deps.AxisArrays]]
 deps = ["Dates", "IntervalSets", "IterTools", "RangeArrays"]
-git-tree-sha1 = "16351be62963a67ac4083f748fdb3cca58bfd52f"
+git-tree-sha1 = "4126b08903b777c88edf1754288144a0492c05ad"
 uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
-version = "0.4.7"
+version = "0.4.8"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -2651,9 +3480,9 @@ version = "0.4.1"
 
 [[deps.ColorSchemes]]
 deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
-git-tree-sha1 = "a656525c8b46aa6a1c76891552ed5381bb32ae7b"
+git-tree-sha1 = "b0fd3f56fa442f81e0a47815c92245acfaaa4e34"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.30.0"
+version = "3.31.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -2694,9 +3523,9 @@ version = "0.3.1"
 
 [[deps.Compat]]
 deps = ["TOML", "UUIDs"]
-git-tree-sha1 = "0037835448781bb46feb39866934e243886d756a"
+git-tree-sha1 = "9d8a54ce4b17aa5bdce0ea5c34bc5e7c340d16ad"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "4.18.0"
+version = "4.18.1"
 weakdeps = ["Dates", "LinearAlgebra"]
 
     [deps.Compat.extensions]
@@ -2766,15 +3595,15 @@ version = "0.4.1"
 
 [[deps.DataFrames]]
 deps = ["Compat", "DataAPI", "DataStructures", "Future", "InlineStrings", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrecompileTools", "PrettyTables", "Printf", "Random", "Reexport", "SentinelArrays", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "a37ac0840a1196cd00317b57e39d6586bf0fd6f6"
+git-tree-sha1 = "c967271c27a95160e30432e011b58f42cd7501b5"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.7.1"
+version = "1.8.0"
 
 [[deps.DataStructures]]
-deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "4e1fe97fdaed23e9dc21d4d664bea76b65fc50a0"
+deps = ["OrderedCollections"]
+git-tree-sha1 = "6c72198e6a101cccdd4c9731d3985e904ba26037"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.22"
+version = "0.19.1"
 
 [[deps.DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -2812,9 +3641,9 @@ version = "1.15.1"
 
 [[deps.DifferentiationInterface]]
 deps = ["ADTypes", "LinearAlgebra"]
-git-tree-sha1 = "16946a4d305607c3a4af54ff35d56f0e9444ed0e"
+git-tree-sha1 = "cee1700673af54db57bd1c7fb834ad4ff31309a0"
 uuid = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
-version = "0.7.7"
+version = "0.7.8"
 
     [deps.DifferentiationInterface.extensions]
     DifferentiationInterfaceChainRulesCoreExt = "ChainRulesCore"
@@ -2906,9 +3735,9 @@ version = "1.11.0"
 
 [[deps.Distributions]]
 deps = ["AliasTables", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsAPI", "StatsBase", "StatsFuns"]
-git-tree-sha1 = "3e6d038b77f22791b8e3472b7c633acea1ecac06"
+git-tree-sha1 = "3bc002af51045ca3b47d2e1787d6ce02e68b943a"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.120"
+version = "0.25.122"
 
     [deps.Distributions.extensions]
     DistributionsChainRulesCoreExt = "ChainRulesCore"
@@ -2943,9 +3772,9 @@ version = "1.0.5"
 
 [[deps.ExactPredicates]]
 deps = ["IntervalArithmetic", "Random", "StaticArrays"]
-git-tree-sha1 = "b3f2ff58735b5f024c392fde763f29b057e4b025"
+git-tree-sha1 = "83231673ea4d3d6008ac74dc5079e77ab2209d8f"
 uuid = "429591f6-91af-11e9-00e2-59fbe8cec110"
-version = "2.2.8"
+version = "2.2.9"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -2965,10 +3794,10 @@ uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "6.1.3+0"
 
 [[deps.FFTW]]
-deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
-git-tree-sha1 = "797762812ed063b9b94f6cc7742bc8883bb5e69e"
+deps = ["AbstractFFTs", "FFTW_jll", "Libdl", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
+git-tree-sha1 = "97f08406df914023af55ade2f843c39e99c5d969"
 uuid = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
-version = "1.9.0"
+version = "1.10.0"
 
 [[deps.FFTW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -3011,9 +3840,9 @@ version = "1.11.0"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "6a70198746448456524cb442b8af316927ff3e1a"
+git-tree-sha1 = "173e4d8f14230a7523ae11b9a3fa9edb3e0efd78"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.13.0"
+version = "1.14.0"
 weakdeps = ["PDMats", "SparseArrays", "Statistics"]
 
     [deps.FillArrays.extensions]
@@ -3058,9 +3887,9 @@ version = "1.3.7"
 
 [[deps.ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "ce15956960057e9ff7f1f535400ffa14c92429a4"
+git-tree-sha1 = "dc41303865a16274ecb8450c220021ce1e0cf05f"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "1.1.0"
+version = "1.2.1"
 weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
@@ -3108,9 +3937,9 @@ version = "0.4.4"
 
 [[deps.GeoInterface]]
 deps = ["DataAPI", "Extents", "GeoFormatTypes"]
-git-tree-sha1 = "0f265264b9287a19715dc5d491dbe3aff00c1e71"
+git-tree-sha1 = "b7c5cdf45298877bb683bdda3f871ff7070985c4"
 uuid = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
-version = "1.5.0"
+version = "1.6.0"
 weakdeps = ["GeometryBasics", "Makie", "RecipesBase"]
 
     [deps.GeoInterface.extensions]
@@ -3141,9 +3970,9 @@ version = "5.2.3+0"
 
 [[deps.Glib_jll]]
 deps = ["Artifacts", "GettextRuntime_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Zlib_jll"]
-git-tree-sha1 = "35fbd0cefb04a516104b8e183ce0df11b70a3f1a"
+git-tree-sha1 = "50c11ffab2a3d50192a228c313f05b5b5dc5acb2"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.84.3+0"
+version = "2.86.0+0"
 
 [[deps.Graphics]]
 deps = ["Colors", "LinearAlgebra", "NaNMath"]
@@ -3301,10 +4130,10 @@ weakdeps = ["ForwardDiff", "Unitful"]
     InterpolationsUnitfulExt = "Unitful"
 
 [[deps.IntervalArithmetic]]
-deps = ["CRlibm", "MacroTools", "OpenBLASConsistentFPCSR_jll", "Random", "RoundingEmulator"]
-git-tree-sha1 = "79342df41c3c24664e5bf29395cfdf2f2a599412"
+deps = ["CRlibm", "MacroTools", "OpenBLASConsistentFPCSR_jll", "Printf", "Random", "RoundingEmulator"]
+git-tree-sha1 = "815e74f416953c348c9da1d1bc977bbc97c84e18"
 uuid = "d1acc4aa-44c8-5952-acd4-ba5d80a2a253"
-version = "0.22.36"
+version = "1.0.0"
 
     [deps.IntervalArithmetic.extensions]
     IntervalArithmeticArblibExt = "Arblib"
@@ -3391,9 +4220,9 @@ version = "0.1.6"
 
 [[deps.JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "e95866623950267c1e4878846f848d94810de475"
+git-tree-sha1 = "4255f0032eafd6451d707a51d5f0248b8a165e4d"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
-version = "3.1.2+0"
+version = "3.1.3+0"
 
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTW", "Interpolations", "StatsBase"]
@@ -3489,21 +4318,21 @@ version = "1.18.0+0"
 
 [[deps.Libmount_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "706dfd3c0dd56ca090e86884db6eda70fa7dd4af"
+git-tree-sha1 = "3acf07f130a76f87c041cfb2ff7d7284ca67b072"
 uuid = "4b2f31a3-9ecc-558c-b454-b3730dcb73e9"
-version = "2.41.1+0"
+version = "2.41.2+0"
 
 [[deps.Libtiff_jll]]
 deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "LERC_jll", "Libdl", "XZ_jll", "Zlib_jll", "Zstd_jll"]
-git-tree-sha1 = "4ab7581296671007fc33f07a721631b8855f4b1d"
+git-tree-sha1 = "f04133fe05eff1667d2054c53d59f9122383fe05"
 uuid = "89763e89-9b03-5906-acba-b20f662cd828"
-version = "4.7.1+0"
+version = "4.7.2+0"
 
 [[deps.Libuuid_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "d3c8af829abaeba27181db4acb485b18d15d89c6"
+git-tree-sha1 = "2a7a12fc0a4e7fb773450d17975322aa77142106"
 uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
-version = "2.41.1+0"
+version = "2.41.2+0"
 
 [[deps.LineSearches]]
 deps = ["LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "Printf"]
@@ -3700,9 +4529,9 @@ version = "0.8.5+0"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "2ae7d4ddec2e13ad3bddf5c0796f7547cf682391"
+git-tree-sha1 = "f19301ae653233bc88b1810ae908194f07f8db9d"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "3.5.2+0"
+version = "3.5.4+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
@@ -3764,9 +4593,9 @@ version = "0.5.12"
 
 [[deps.Pango_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "FriBidi_jll", "Glib_jll", "HarfBuzz_jll", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "275a9a6d85dc86c24d03d1837a0010226a96f540"
+git-tree-sha1 = "1f7f9bbd5f7a2e5a9f7d96e51c9754454ea7f60b"
 uuid = "36c8627f-9965-5494-a995-c6b170f724f3"
-version = "1.56.3+0"
+version = "1.56.4+0"
 
 [[deps.Parameters]]
 deps = ["OrderedCollections", "UnPack"]
@@ -3867,10 +4696,10 @@ uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.5.0"
 
 [[deps.PrettyTables]]
-deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "Reexport", "StringManipulation", "Tables"]
-git-tree-sha1 = "1101cd475833706e4d0e7b122218257178f48f34"
+deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "REPL", "Reexport", "StringManipulation", "Tables"]
+git-tree-sha1 = "5e9fe23c86d3ca630baa1efcad78575a27f158b2"
 uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
-version = "2.4.0"
+version = "3.0.11"
 
 [[deps.Primes]]
 deps = ["IntegerMathUtils"]
@@ -4011,9 +4840,9 @@ version = "0.7.0"
 
 [[deps.SIMD]]
 deps = ["PrecompileTools"]
-git-tree-sha1 = "fea870727142270bdf7624ad675901a1ee3b4c87"
+git-tree-sha1 = "e24dc23107d426a096d3eae6c165b921e74c18e4"
 uuid = "fdea26ae-647d-5447-a871-4b548cad5224"
-version = "3.7.1"
+version = "3.7.2"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -4094,9 +4923,9 @@ version = "1.11.0"
 
 [[deps.SpecialFunctions]]
 deps = ["IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "41852b8679f78c8d8961eeadc8f62cef861a52e3"
+git-tree-sha1 = "f2685b435df2613e25fc10ad8c26dddb8640f547"
 uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.5.1"
+version = "2.6.1"
 weakdeps = ["ChainRulesCore"]
 
     [deps.SpecialFunctions.extensions]
@@ -4165,9 +4994,9 @@ weakdeps = ["ChainRulesCore", "InverseFunctions"]
 
 [[deps.StatsModels]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsAPI", "StatsBase", "StatsFuns", "Tables"]
-git-tree-sha1 = "85a43f6fc30dd80c61342519ca2fc36dac912eae"
+git-tree-sha1 = "b117c1fe033a04126780c898e75c7980bf676df3"
 uuid = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
-version = "0.7.6"
+version = "0.7.7"
 
 [[deps.StringManipulation]]
 deps = ["PrecompileTools"]
@@ -4290,16 +5119,24 @@ version = "0.4.1"
 
 [[deps.Unitful]]
 deps = ["Dates", "LinearAlgebra", "Random"]
-git-tree-sha1 = "6258d453843c466d84c17a58732dda5deeb8d3af"
+git-tree-sha1 = "cec2df8cf14e0844a8c4d770d12347fda5931d72"
 uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
-version = "1.24.0"
-weakdeps = ["ConstructionBase", "ForwardDiff", "InverseFunctions", "Printf"]
+version = "1.25.0"
 
     [deps.Unitful.extensions]
     ConstructionBaseUnitfulExt = "ConstructionBase"
     ForwardDiffExt = "ForwardDiff"
     InverseFunctionsUnitfulExt = "InverseFunctions"
+    LatexifyExt = ["Latexify", "LaTeXStrings"]
     PrintfExt = "Printf"
+
+    [deps.Unitful.weakdeps]
+    ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
+    ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+    InverseFunctions = "3587e190-3f89-42d0-90ee-14403ec27112"
+    LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+    Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
+    Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[deps.WebP]]
 deps = ["CEnum", "ColorTypes", "FileIO", "FixedPointNumbers", "ImageCore", "libwebp_jll"]
@@ -4455,26 +5292,40 @@ version = "4.1.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═adb79a2d-cf1e-42a4-a821-d9afd37b73bf
 # ╠═d271fb80-8c93-11f0-3406-ab394e785ceb
 # ╟─91fcc5f6-0789-4fb4-9984-105922332395
 # ╠═880637f3-81f0-48f5-8918-c03dac35e6fc
 # ╠═ca363b65-dd42-475c-9114-a259691c7913
+# ╠═0c481dec-3a04-4a51-9c11-ef03dbab3683
+# ╠═976144e3-de4b-471a-868b-96abc821ca84
+# ╠═2b26bf96-95e8-4e6e-8ba4-f1a4a7857464
 # ╠═3c2f3f62-f7b9-4d66-8598-be8bb6bd6356
 # ╠═a44e51f9-3f90-4ec8-b890-e53e7b9549f6
 # ╠═cda15204-1cd1-4bd1-b5b6-ac72ed154309
 # ╠═35347fb7-2085-4d06-9d17-60757bd331c3
+# ╠═c176b6b1-75aa-479d-a34c-22ecc4823e27
+# ╠═9291d566-bf4f-49ac-aba3-277170e5daed
+# ╠═7d9ea25a-6f76-43a2-83ab-d81e6210bbc6
+# ╠═c94759d1-b5b0-4320-8f42-c57d3bf6ca2a
+# ╠═b6976a71-69c5-4016-9bf1-859b3208485f
+# ╠═6859961c-f24f-4ae3-bb5c-1bc639ec00a1
+# ╠═f8919942-9ef9-476a-94eb-c46ec88fde94
+# ╠═9a2c36bb-d5ba-4667-b4a1-e73510e460fa
+# ╠═a17f0114-55f6-4d43-9b05-6bcd9601b98b
+# ╠═815c5b9f-e329-4a2e-b0fe-667d2052d980
+# ╠═fbdca2ef-d605-4203-a0e3-f22f3ed670d3
+# ╠═6db36cc8-de6b-490d-b796-0dae17ecfb42
+# ╠═1db3ec0d-ade2-4541-926e-6beed0620784
+# ╠═b1a39cb3-b02d-449c-8983-0cd204e52c3e
+# ╠═98646cf5-76cc-49d8-9b8d-d6e84ee64aa7
+# ╠═2b94e65a-b3f5-4062-b603-a83ab62b9b65
 # ╠═133e1e40-4b84-4c9d-803f-22c2884e81f5
 # ╠═16ed251b-5ae9-4520-88fa-1e67987615db
 # ╠═917206f6-abd6-4ffb-a738-6c39024cbaaa
 # ╠═00c2612f-8f1c-4412-a159-e4325af0c62f
 # ╠═acb38371-e502-4b9c-80f4-314e9458edcc
 # ╠═1ba9f113-c2d5-4c34-ba9f-01d39ffc6f35
-# ╟─f6ab987d-e70c-45d3-a815-9b665829370c
-# ╠═98e82ee2-bc10-418e-9e95-27092fa8d3be
-# ╠═34b213ed-e895-4be6-a51e-bdcbe02bc673
-# ╠═c94759d1-b5b0-4320-8f42-c57d3bf6ca2a
-# ╠═6859961c-f24f-4ae3-bb5c-1bc639ec00a1
-# ╠═815c5b9f-e329-4a2e-b0fe-667d2052d980
 # ╠═3de09148-706d-40ed-90b2-39a71e9d25ed
 # ╠═b35bfc6e-6f39-461a-b5b4-ca2901c83da4
 # ╠═9276b022-d863-473e-978a-67a614d7ee31
@@ -4492,6 +5343,7 @@ version = "4.1.0+0"
 # ╠═685427d8-9f41-482e-bb08-7fbe7aff32ef
 # ╠═ae5bd8c1-dca5-495d-a5bb-a2d271262645
 # ╠═0bfd4678-c05c-4e62-9f11-6a1d80f4f58a
+# ╠═9e05ea7c-bc7a-4dbd-8199-298c53447d7c
 # ╠═cfb2d2e9-f101-464f-915f-b0f6a38744e5
 # ╠═07a443b3-7233-43a5-aacd-7fb79bec0edf
 # ╠═6569e751-ce87-4063-a142-ad62d088e70d
@@ -4505,6 +5357,7 @@ version = "4.1.0+0"
 # ╠═8f9c937b-5a00-40ce-93ef-cbfc8058dacf
 # ╠═277e1e63-4df5-42a0-a5f3-ad0b73eab310
 # ╠═1f07f950-c69e-4a12-b404-6af89796c58e
+# ╠═5b07590c-b6f9-489e-8c8f-1757ede48cbc
 # ╠═97fc998b-83cc-4d35-b78a-0c9b9bc3cfad
 # ╠═ce1c7b3f-cc7d-4aca-afd1-cee741df6f2a
 # ╠═9b244937-36f3-4d44-b509-6f7d5bef1bca
@@ -4521,7 +5374,6 @@ version = "4.1.0+0"
 # ╠═61ff86de-de16-49af-a9a5-6c7c2b23420f
 # ╠═e11ae85f-c6f6-4381-b5d3-d756124f1c74
 # ╠═8ae3665e-bba7-4032-93a7-9c546d347f60
-# ╠═f3a24cb4-705d-460f-8912-64753ef59a6b
 # ╠═af69b84f-e4f5-4f90-85a3-ef00d2288b83
 # ╠═36bde726-ac0f-4e38-baec-b507ecb0b9d1
 # ╠═9ae9deb1-b9ee-4c8b-b1a4-8c75323a56cb
@@ -4560,17 +5412,39 @@ version = "4.1.0+0"
 # ╠═a49de89e-ff8d-4447-9dcd-491bb0126db6
 # ╠═d0420ab9-27c8-4686-9f59-f643be9f6410
 # ╠═d645fe54-fed9-49c6-b20a-94239ca7eb7e
+# ╠═a8da0aea-9b8d-455a-a87e-afa846fa771d
 # ╠═32faac51-9b53-49a8-87da-61860d3f227a
 # ╟─33d17a66-cb65-4b8c-a269-f7a3f82ac32e
 # ╠═adce8682-ef5a-42ea-a59b-15df0cf1685f
-# ╠═de8484a0-d7e0-43aa-b2db-bbb221fbad01
+# ╠═a2926b44-77ec-42fb-979e-b6d23a8e56b8
+# ╠═bf8c5f3d-a91c-44c5-9dc0-0ea70c91a52a
+# ╠═ce458e11-8612-4c39-9f16-0413edc16586
 # ╟─3edf748d-e2fc-4148-82f4-dfcd541d5901
 # ╠═0d4205f1-e578-4d9b-9260-0a174d89fc45
 # ╠═139b6f9a-4073-40a3-b587-6af681e47069
+# ╠═37c98a61-3350-4eb4-a3fe-8cd8c2b5eab5
 # ╠═b94a5e80-7c96-4269-bc85-d66850b1b926
 # ╠═52df027a-b50a-4a3a-99dc-80bce86c77cc
 # ╠═31352b9e-69cc-4467-aa89-34249666e407
 # ╠═626e38d7-e337-4853-9046-3d9b1485bb24
+# ╟─f103ea34-ad3c-49e1-9e6f-d94d4b3574e6
+# ╠═3303493e-6502-479f-b383-82ffd1ab17bf
+# ╠═765cfe47-b191-4228-b419-ffb6cd2bd9f4
+# ╠═9c050921-f2cc-4e94-a366-6a519d7f4116
+# ╠═a19c845c-c6a5-46c7-8703-a9fd973933ee
+# ╠═208efe14-68dc-4389-bb9b-8bd996bf4749
+# ╟─32dd3921-c58a-41cb-9f11-8d4efa9f7641
+# ╠═32b95f4a-180c-4a61-b899-6b604d911926
+# ╠═9b706ccd-bc47-4cc8-b315-fc17375cbd93
+# ╠═48443da6-0ffc-4ae2-9ebe-c4d0461ecfca
+# ╠═998cb794-525c-4b2d-88c7-80d711e06d3b
+# ╠═b3219d9d-2bfe-445f-8f3a-4ccfa95673ed
+# ╠═ed3bf636-176a-422a-812d-07bc3be8fef4
+# ╠═d05e5a31-5a8b-4cad-85c5-5d6c89c67ad2
+# ╠═4df66cbd-3c0d-40db-8b5b-65b26ffc4c79
+# ╠═31a39f30-740f-4a30-b3f5-e1fef2502138
+# ╠═360d9593-4c34-4bbe-bde6-a554803861f1
+# ╠═77d631d8-6da6-4ec3-a8d2-ebb71f9c474c
 # ╟─e443249e-dc9f-49b6-bd56-693fa1e49242
 # ╠═33587eca-6212-4ace-972c-90c119ddc001
 # ╠═066cd6cb-4bc2-418e-a04e-f9a83808de56
