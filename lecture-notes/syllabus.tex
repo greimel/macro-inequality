@@ -1,11 +1,4 @@
-\documentclass[a4paper,12pt]{article}
-
-%\usepackage{titling}
-%\setlength{\droptitle}{-4cm}
-%\predate{}
-%\postdate{}
-%\preauthor{}
-%\postauthor{}
+\documentclass[a4paper, 11pt]{article}
 
 \usepackage{xcolor}
 
@@ -22,146 +15,128 @@
 \usepackage{bm}
 \usepackage{booktabs,hyperref}
 \usepackage[longnamesfirst]{natbib}
-\bibliographystyle{ecta}
+\usepackage{array}
 
 \begin{document}
+
 \noindent {\LARGE Macroeconomics and Inequality}
 
-\medskip \noindent {\large MSc Economics, University of Vienna}
+\medskip \noindent {\large MSc Economics, University of Vienna, Summer Term 2026}
 
-\subsection*{Lecturer}
+\medskip \noindent {{\textbf{Lecturer:} Dr. Fabian Greimel, \url{https://www.greimel.eu}}}
 
-Fabian Greimel, \url{https://www.greimel.eu}
+\medskip \noindent
+This course provides a macroeconomic perspective on inequality, housing markets, and related structural issues. % such as demographic change and the climate transition. 
+A central theme is that heterogeneity across households (differences in income, wealth, preferences, and investment opportunities) shapes aggregate outcomes and policy responses.
 
-%\noindent
-%Stefanie J. Huber, \url{https://sites.google.com/site/stefaniehuber/}
+We develop tools and models that allow students to analyse and simulate heterogeneous-agent economies, building on the Bewley–Huggett–Aiyagari tradition and its modern extensions. The course blends theory, computation, and empirical context.
 
-\subsection*{Description}
-
-The term ``distributional macroeconomics'' was introduced by Benjamin Moll as a replacement for ``macroeconomics with heterogeneous agents'' to promote the view that the \emph{macroeconomy is a distribution} of state variables (e.g.\ income and wealth).\footnote{See \url{ https://benjaminmoll.com/wp-content/uploads/2019/07/DM_long.pdf}.}
-
-This course will explore some implications of income and wealth heterogeneity for macroeconomic dynamics and macroeconomic policy. First, we want to understand how secular trends (falling interest rates and rising debt) are connected to rising inequality. And second, we want to understand how heterogeneity matters for the aggregate response to macroeconomic shocks.
-
-The focus of the course is on topics, rather than computational methods. (These are covered in second year electives.) We will use simplified models to replicate results from papers and compare the results to empirical evidence. For most topics, we will provide ready-to-run code in the form of interactive \href{https://github.com/fonsp/Pluto.jl}{\texttt{Pluto.jl}} notebooks. 
-
-%The course is based on recent research papers. Most papers build on the Bewley-Huggett-Aiyagari model, some build on the two-agent (Saver-Spender) model. 
-
-\subsection*{Topics}
-
+\medskip
+\noindent\textbf{Core elements}
 \begin{enumerate}
-\item $J$-period lifecycle model
-\item Overlapping generations
-\item Infinite horizon
-\item Income risk, borrowing constraints
-\item 
-\item 
-\item Modelling the wealth distribution
-\begin{itemize}
-  \item Wealth inequality
-  \item Wealth taxes
-\end{itemize} 
-\item Welfare
-\item Housing
-\begin{itemize}
-  \item Housing 
-\end{itemize}
+  \item \textbf{Methods:} Markov chains \& dynamic programming
+  \item \textbf{Models:} Lifecycle and overlapping generations models, heterogeneous-agent models
+  \item \textbf{Applications:} Wealth inequality, wealth taxation, social comparisons in the housng market, inequality and the response to macroeconomic shocks
+  \item \textbf{Data:} Distributional National Accounts (DINA), the Survey of Consumer Finances (SCF), and the Survey of Consumer Expenditures (CEX)
 \end{enumerate}
 
-\subsection*{Evaluation}
+\medskip
+The goal is to develop a sound command of modern macroeconomic models with heterogeneity—sufficient to understand current research and to implement numerical applications in the Julia programming language.
 
-\begin{enumerate}
-\item Assignments
-\item Midterm exam
-\item Final exam
-\end{enumerate}
 
-\subsection*{Structure and Content}
 
-\begin{enumerate}
- \item Household Balance Sheets and the Great Recession
-  %  \begin{enumerate}
-  %  \item \cite{mian2013household}
-  %  \item \cite{berger2015consumption}
-  %  \end{enumerate}
- \item Housing Wealth Effects: How Consumption Reacts to a House Price Bust
-  %  \begin{enumerate}
-  %  \item \cite{berger2018house}
-  %  \item \cite{guren2021housing}
-  %  \end{enumerate}
-%   \item Saving Glut of the Rich  \citep{kumhof2015inequality,mian2021indebted-demand}
-   \item Social comparisons and trickle-down consumption
-     \citep{bertrand2016trickle, bellet2024mcmansion, drechsel2025falling-behind}
-   \item Microeconomics Heterogeneity and Macroeconomic Shocks \citep{kaplan2018microeconomic}
-   \item Inequality and growth \citep{moll2022uneven}
-   \item \citet{hubmer2021sources} decompose wealth inequality into various sources. Earnings, tax progressivity, and return heterogeneity (Table 2)
 
-   Exercise: How does wealth inequality depend on the tax system. (Progressive taxes lower wealth inequality compared to a flat tax.)
 
-   \item \citet{guvenen2023use}
-   \item \citet{fagereng2022asset}
-   \item \citet{guvenen2022global} insights from the GRID project
-\end{enumerate}
+%\subsection*{Course Topics}
+%
+%\begin{tabular}{@{}lp{10cm}@{}}
+%\toprule
+%\textbf{Topic} & \textbf{Description} \\
+%\midrule
+%Lifecycle and OLG Models & $J$-period lifecycle, overlapping generations, infinite horizon \\
+%Income and Borrowing & Income risk and borrowing constraints \\
+%Wealth Distribution & Modeling wealth inequality and wealth taxes \\
+%Welfare & Measuring social welfare for policy evaluation \\
+%Housing & Housing market dynamics and their macroeconomic implications \\
+%Microeconomic Heterogeneity & Impact on macroeconomic shocks and growth \\
+%Markups and Inequality & Market power, price markups, and their effect on inequality \\
+%\bottomrule
+%\end{tabular}
 
-\subsection*{Building up to the Aiyagari model}
 
-\begin{enumerate}
-  \item Two period model without risk
-  \item J-period model without risk
-  \item Markov Chains
-  \item Income process
-  \item Two period model with risk
-  \item exact (?), on an asset grid (== non-stochastic simulation)
-\end{enumerate}
+\subsection*{Session by session}
 
-\section{Lecture by lecture}
+\begin{tabular}{@{}c>{\raggedright\arraybackslash}p{8cm}>{\raggedright\arraybackslash}p{6.5cm}@{}}
+\toprule
+  & Topic & Reading \\
+\midrule
+1 & Introduction; history; two-period OLG & \citet{jappelli2017economics} \\
+2 & $J$-period OLG &  \citet{jappelli2017economics} \\
+3 & Dynamic programming: Value Function Iteration \\
+4 & Income risk and borrowing constraints & \citet{jappelli2017economics} \\
+5 & \new Income processes and Markov chains \\
+6 & \new Dynamic programming: Endogenous Grid Method \\
+7 & Lifetime uncertainty & \citet{jappelli2017economics} \\
+8 & Bequests & \citet{jappelli2017economics}  \\ \midrule
+9 & Tutorial &  \\
+10 & Midterm exam \\ \midrule
+11 & $\infty$-lived household as a Markov chain (I) \\
+12 & $\infty$-lived household as a Markov chain (II) \\
+13 & Modelling the wealth distribution \\
+14 & Wealth inequality & \citet{hubmer2021sources} \\
+15 & Housing &  \\
+16 & \new Housing markets and wealth inequality & \citet{huber2025rental}  \\
+17 & \new Measuring social welfare \& policy evaluation \\
+18 & \new Entrepreneurs \\
+19 & Wealth taxation (I) & \citet{guvenen2023use} \\
+20 & Wealth taxation (II) & \citet{boar2023income-or-wealth} \\
 
-\subsection{Part 1: Preliminaries}
+21 & Social comparisons & \citet{drechsel2025falling-behind} \\
+22 & \new Inequality and macroeconomic shocks & \citet{kaplan2018microeconomic} \\ \midrule
+23 & Tutorial \\
+24 & Final exam \\
+\bottomrule
+\end{tabular}
 
-\subsection{Part 2: Wealth inequality}
+\subsection*{Assessments criteria}
 
-\begin{enumerate}
-  \item {}[Feature] Income risk and credit constraints (I)
-  \item {}[Feature] Income risk and credit constraints (II)
-  \item \new Taking $J \to \infty$
-  \item Household as a Markov Chain
-  \item Modelling the Wealth Distribution
-  \item {}[Paper] Wealth inequality \citep{hubmer2021sources}
-  \item {}[Paper] \new Housing markets and Wealth inequality (Kindermann)
-  \item \new Measuring Social Welfare (for policy evaluation)
-  \item \maybe (Housing markets and wealth inequality II (redistribution from renters to landlords?))
-  \item {}[Feature] \new Entrepreneurs
-  \item {}[Paper] Wealth taxes (I) \citep{guvenen2023use}
-  \item {}[Paper] Wealth taxes (II) \citep{boar2023income-or-wealth}
-\end{enumerate}
-
-\subsection{Part 3: Bonus topics}
-
-\begin{enumerate}
-  \item {} [Paper] \maybe Microeconomics Heterogeneity and Macroeconomic Shocks \citep{kaplan2018microeconomic}
-  \item {} [Paper] \maybe CO$_2$ tax
-\end{enumerate}
-
-\subsubsection{Markups and inequality}
+\begin{tabular}{llll}
+\toprule
+Weight & Criterion & Notes & \\
+\midrule
+30\% & 10 Assignments  & including computer assignments \& reading assignments \\
+30\% & Midterm exam & in-class, closed-book \\
+30\% & Final exam   & in-class, closed-book \\ 
+10\% & Active participation & in-class engagement \\
+\bottomrule
+\end{tabular}
 
 \begin{itemize}
-  \item Background I: \citet[JEP]{syverson2019macroeconomics}
-  \item Background II \citet[QJE]{deloecker2020market-power}
-  \item \url{https://cepr.org/voxeu/columns/price-power-why-rising-markups-hurt-innovation-and-widen-inequality}
-  \item \citet[R\&R JEEA]{auray2026unpacking}
-  \item \citet[R\&R REStud]{boar2024markups}
-  \item Connection to HANK? \citet{auray2026unpacking} seem to be using the same specification of monopolistic competition.
+  \item \emph{Computer assignments} are using the Julia programming language. These are meant to be simple, enlightening and fun!
+  \item \emph{Reading assignments} will cover some of the papers listed in the references below.
+  
+  \item The tutorials will cover exercises in the style of the \emph{exams}. I will provide a \emph{sample exam} for both the midterm and the final exam. 
+  
+  \item \emph{Participation points} are awarded for active participation: questions, answers, comments. For full participation points, a student must actively participate in 15 sessions (other than the exams). The exact criteria will be discussed in the first session.
 \end{itemize}
 
 
-% \section{Models \& Code}
+\subsection*{Grading scheme}
 
-% \begin{enumerate}
-% \item Consumer debt and default [Q]
-% \item Simple Model of Housing [A]
-% \item Housing and Renting [Q] (cf slides)
-% \item Discrete-time vs continuous time (infinitesimal operators bla bla)
-% \end{enumerate}
+\begin{tabular}{ll}
+\toprule
+Grade & Points Range \\
+\midrule
+1 & [89, 100] \\
+2 & [76, 89) \\
+3 & [63, 76) \\
+4 & [50, 63) \\
+5 & [0, 50) \\
+\bottomrule
+\end{tabular}
 
 
+\bibliographystyle{ecta}
 \bibliography{../inequality.bib}
+
 \end{document}
