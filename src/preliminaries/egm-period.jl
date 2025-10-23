@@ -113,34 +113,6 @@ md"""
 ## Income: transitory component
 """
 
-# ╔═╡ 18f05d2a-9e62-4c27-af0d-7b1ef0136477
-function log_discr_AR1(args...; normalize_mean = true, method = QuantEcon.tauchen, period)
-	mc₀ = method(args...)
-	@info mc₀.state_values
-	state_values 	= exp.(mc₀.state_values)
-
-	π∞ = QuantEcon.stationary_distributions(mc₀) |> only
-
-	if normalize_mean
-		𝔼y = mean(state_values, weights(π∞))
-		state_values ./= 𝔼y
-	end
-	
-	return MarkovChain(mc₀.p ^ period, state_values)
-end
-
-# ╔═╡ 901dbe29-9cba-4b3e-a75f-9fe4c978a6ea
-"See Calibration table and E.4 Calibration details"
-function ε_chain_AMMR(σ_scale = 1.0; n = 11, n_std = 3.0, period = 1)
-	ρ = 0.91
-	σ_y = 0.91
-	σ = σ_scale * √(1-ρ^2) * σ_y
-	mc = log_discr_AR1(n, ρ, σ, 0.0, n_std; period)
-end
-
-# ╔═╡ 240be7e1-3e50-4677-8e5e-abaf2bc37312
-ε_chain_AMMR(; n = 3, n_std = 2.0, period = 1).p ^ 4
-
 # ╔═╡ 44909380-710e-4c4d-8ea9-cc03c62309e0
 md"""
 ## Mortality
@@ -280,21 +252,56 @@ sprint_solution(out_18)
 sprint_solution(out_18_noh)
   ╠═╡ =#
 
+# ╔═╡ 9803fab5-2434-4b9c-91bc-869f95ed72f4
+
+
 # ╔═╡ 4c02499c-b898-47c0-a447-cb9bd59da403
-guesses_18_noh_05 = (; 
-	stationary = (K_supply = 11.125494682671198, H_hh = 0.0, L_eff = 6.182668404245064),
-	inheritances_θ = [0.9107166514039926, 1.8020788978170925, 3.7958917201730022]
- #= transition = DimStack(
+guesses_18_noh_05 = 
+(; 
+  stationary = (K_supply = 10.74605690956262, H_hh = 0.0, L_eff = 6.182668404249698),
+  transition = DimStack(
       DimVector([
-      7.811402148350212, 7.696976699232185, 8.036334343845503, 8.266891435404393, 8.423428210659306, 8.529058497774693, 8.60014667151759, 8.647696113328388, 8.679349454740185, 8.700457285410351, 8.715064729079089, 8.725346245825143, 8.732672292914504, 8.737978603948056, 8.741944462892913, 8.74499751979748, 8.747359730438141, 8.749067365016844, 8.75004319053118, 8.750073430266694, 8.750173683604793, 8.750196222717214, 8.750186546360561, 8.750167945927945, 8.750152138668357, 8.750143262530045, 8.750141265686228, 8.75014449758907, 8.750150749057367, 8.750157979009769, 8.75016475890646
+      10.746056881604218, 10.670272687242763, 10.70865004085076, 10.806471272463048, 10.928025312769348, 11.054352666764759, 11.17532916854795, 11.285414250463926, 11.382068833851642, 11.464473176771616, 11.533196636368352, 11.58951197881283, 11.635028666720778, 11.671376862992702, 11.70011740866541, 11.722699984511856, 11.740369965550235, 11.754129287469327, 11.764733748125547, 11.772542923953331, 11.778285314054678, 11.78249784053181, 11.785580083675772, 11.787831449247307, 11.789475445290373, 11.790677294266056, 11.791557947293533, 11.792205122307987, 11.792682232231682, 11.7930353030202, 11.793298169515658
     ], Dim{:t}(0:30), name = :K_supply),
-      DimVector(0 .* [
-      6.987675550496528e-10, 7.005695752425133e-10, 7.021199357613439e-10, 7.033382958659106e-10, 7.042527597373691e-10, 7.049218211244632e-10, 7.054044208653508e-10, 7.057499915945934e-10, 7.059967738333929e-10, 7.061730264819386e-10, 7.062988430718413e-10, 7.063884847636031e-10, 7.064521007405164e-10, 7.064968893841179e-10, 7.065278941860904e-10, 7.065486415468829e-10, 7.065616937445647e-10, 7.065691395022725e-10, 7.065729488788155e-10, 7.065748932471203e-10, 7.065758890017223e-10, 7.065764066824589e-10, 7.065766850667804e-10, 7.065768433705236e-10, 7.065769400023743e-10, 7.065770030978755e-10, 7.065770461654459e-10, 7.065770759054344e-10, 7.065770959254137e-10, 7.065771083257434e-10, 7.065771141913097e-10
+      DimVector([
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     ], Dim{:t}(0:30), name = :H_hh),
       DimVector([
-      6.182668404245081, 6.335290439196823, 6.449476109192162, 6.533716987059263, 6.5955409329156724, 6.6407369894624075, 6.673728102355133, 6.6977585061299525, 6.715191357502084, 6.727914361821739, 6.737159206732236, 6.743817682441144, 6.748556053739719, 6.751895045889912, 6.754215166828059, 6.755776052779009, 6.756731647435928, 6.757168080405256, 6.757168080405252, 6.757168080405265, 6.757168080405257, 6.757168080405253, 6.75716808040526, 6.757168080405256, 6.757168080405252, 6.757168080405261, 6.75716808040525, 6.757168080405254, 6.757168080405254, 6.757168080405259, 6.757168080405258
+      6.182668404245066, 6.335477429312836, 6.449805573998044, 6.534152753995002, 6.596055282755739, 6.6413090645145765, 6.674342456184469, 6.698403730395924, 6.715859015659292, 6.728598426325332, 6.737855217022292, 6.744522313544694, 6.749266833506258, 6.752610172941532, 6.75493333112776, 6.756496277885014, 6.757453148981151, 6.75789017297587, 6.757890172975861, 6.757890172975865, 6.757890172975868, 6.7578901729758725, 6.757890172975868, 6.757890172975866, 6.757890172975863, 6.75789017297587, 6.757890172975869, 6.757890172975872, 6.7578901729758645, 6.757890172975872, 6.757890172975872
     ], Dim{:t}(0:30), name = :L_eff),
-  ) =#
+  ),
+  inheritances_θ = [0.8738136384902594, 1.75137230546213, 3.726223478042022],
+inheritances_θt = [
+  0.8738136350972242 0.5419093202201228 0.602643786643889 0.6484555270714716 0.6806731157498528 0.7021194793168098 0.715211331497029 0.7224927788753638 0.7264000929911315 0.7287910982869286 0.7313958883892043 0.7347365974132273 0.7385684835436841 0.742385959977411 0.7456842053038705 0.7481867031257601 0.7499813375124655 0.7513100875174172 0.7523611784312283 0.7528158069410953 0.7532314282391732 0.7536155537093521 0.7539579102157572 0.7542463862499665 0.7544754281053931 0.7546479276462208 0.7547729595943881 0.754862173320809 0.7549266917128699 0.7549752919846744 0.7550138060081534;
+  1.7513722999984398 1.0907127929234142 1.2174371987414554 1.3135562393075164 1.381982359190052 1.4286880963659876 1.4586412897051466 1.4768507580691907 1.4879035121071598 1.4951224519164465 1.5017874534192999 1.5089867614366226 1.5164709383425607 1.5234869004732212 1.5293404055617341 1.5337431295953374 1.5369343360067278 1.5393357566048493 1.541224713938858 1.5418065334372357 1.5423253763552702 1.5427980069091891 1.5432145047825114 1.543560654789194 1.5438297016964042 1.5440253795950525 1.544159466466256 1.5442474009456677 1.5443043787993171 1.5443427440302795 1.544370898913835;
+  3.7262234691777896 2.327622746099383 2.6056431325506546 2.817506183514487 2.9696524716703534 3.075482623426097 3.1458559264664485 3.191235544197693 3.220709405012037 3.2404937934693234 3.2571194080336463 3.2729977827370313 3.2881444936084714 3.30155496420773 3.3124032367067664 3.320520229037886 3.3265307319219852 3.3312234426567215 3.3349876937448433 3.335719535446571 3.3363395776525615 3.3368866397304426 3.337358097678035 3.3377408254521783 3.33802821117888 3.338225003712873 3.3383457435896466 3.3384099309796023 3.338437435584242 3.3384451728827536 3.338445028217382
+ ]
+)
+
+# ╔═╡ edf8d0b2-86b9-4c43-9d9e-9fdc5dff20d8
+guesses_18_bequests = 
+
+
+(; 
+  stationary = (K_supply = 8.830485846407845, H_hh = 1.4793952394473506, L_eff = 6.18266840425142),
+  transition = DimStack(
+      DimVector([
+      8.83048584744193, 8.822483692594227, 8.831654265770288, 8.85178620389634, 8.873000854716635, 8.893324925402327, 8.911853007836037, 8.928201375796421, 8.94219995123569, 8.953878622223018, 8.963417974350117, 8.97107074378176, 8.977117522155405, 8.981837586122499, 8.985490970425449, 8.98830275352235, 8.99045648702224, 8.992095021725197, 8.993325986853442, 8.994215708317958, 8.994857451402074, 8.995321664160826, 8.995656495580096, 8.995897634844814, 8.996071357172667, 8.996196797684586, 8.996287740215791, 8.996354013806275, 8.996402636389266, 8.996438684370679, 8.996465945233629
+    ], Dim{:t}(0:30), name = :K_supply),
+      DimVector([
+      1.4780432235191776, 1.4783209710632446, 1.479602636601362, 1.4813079484146336, 1.4830925456583772, 1.4847805579389286, 1.486296431733291, 1.487617011407501, 1.4887443911451357, 1.4896917472672488, 1.4904757420753179, 1.4911141165054747, 1.4916252456199852, 1.492027935819559, 1.4923407324986306, 1.4925808678247001, 1.4927632878089143, 1.4929002531656932, 1.4930015938305141, 1.493076240150873, 1.4931310780770861, 1.4931712303645215, 1.493200508958249, 1.4932217636437515, 1.4932371277067977, 1.4932481884381694, 1.4932561086679648, 1.4932617166260214, 1.4932655707768256, 1.493267999513191, 1.4932691100439368
+    ], Dim{:t}(0:30), name = :H_hh),
+      DimVector([
+      6.182668404245034, 6.213225888798156, 6.234425748822419, 6.249297699821584, 6.259845500326865, 6.26737731314875, 6.272783631748733, 6.276673162577645, 6.279469700352515, 6.281489123634959, 6.282940656893956, 6.283975123413265, 6.2847023564676014, 6.285205460865165, 6.285544396220522, 6.285761150843893, 6.285884311204427, 6.285935361390635, 6.285935361390636, 6.285935361390635, 6.285935361390635, 6.285935361390634, 6.285935361390635, 6.285935361390632, 6.285935361390634, 6.285935361390636, 6.285935361390634, 6.285935361390638, 6.285935361390633, 6.285935361390633, 6.285935361390637
+    ], Dim{:t}(0:30), name = :L_eff),
+  ),
+  inheritances_θ = [0.926533177879491, 1.7267687519050297, 3.107771442199534],
+inheritances_θt = [
+  0.9265331778795082 0.855518662667458 0.8712984463079874 0.8815789588679365 0.8880601750223602 0.892033218335623 0.8943477052447008 0.8956631282153669 0.8964810654180612 0.8971304830012765 0.8978419016789214 0.8986510902506645 0.8994898402783866 0.9002648375146061 0.9008987279554836 0.9013675896426102 0.9017038586872068 0.901953412865395 0.9021469541902178 0.90225709755205 0.9023547199206241 0.9024398778346056 0.9025113923538156 0.9025689571975936 0.9026135324014531 0.9026471008631276 0.9026720937654809 0.9026908276875851 0.9027051702646802 0.9027164474476823 0.9027255068618838;
+  1.7267687519050419 1.5950255534575737 1.6255898547674619 1.6457791253192586 1.6587618576304273 1.6670060247866934 1.672098633003194 1.675239087408668 1.6773142892587072 1.6788905041495463 1.6803926457822689 1.6819146536514875 1.6833796699729782 1.6846664803516 1.6856884093797346 1.6864338818832363 1.6869629652464135 1.6873473226364568 1.6876314532643386 1.6877487546374286 1.6878505459196038 1.6879377626578476 1.688009287049394 1.6880649793485352 1.6881060713699445 1.688134971167462 1.688154607240004 1.688167789655769 1.688176799631715 1.6881832485226196 1.6881881226978954;
+  3.107771442199544 2.870433608288773 2.9259227866515483 2.9633190713259148 2.987705594526034 3.003610137588961 3.013868108815866 3.0205531736669466 3.025143277899068 3.028543041372917 3.0314866028317593 3.0341811493140733 3.0365836389211545 3.038586892757421 3.0401365988835463 3.041266287267264 3.042082399231402 3.042685660626641 3.0431235260548584 3.043232107713885 3.0433179691409653 3.0433863219641557 3.0434380855949925 3.043474457444722 3.0434974059473685 3.0435096844246616 3.043514350892856 3.0435142569128675 3.043511695937528 3.0435082585061837 3.043504853529626
+ ]
+
 )
 
 # ╔═╡ 5901b076-656d-4291-8a4f-dcd68efcf039
@@ -339,79 +346,13 @@ function sprint_dimstack(ds, prepend="")
 	"DimStack(\n" * string * ")"
 end
 
-# ╔═╡ d6fab981-9367-46a2-bbbf-ff414069f144
-function sprint_solution(out_trans)
-	(; GE₀, guessed_paths) = out_trans.out
-
-	stationary = "  stationary = " * repr(GE₀.guesses)
-
-	transition = "  transition = " * sprint_dimstack(guessed_paths, "  ")
-
-	"(; \n" * stationary * ",\n" * transition * "\n)" |> Base.Text
-end
-
 # ╔═╡ f83f05ae-4386-4b0c-97be-288b74fc6154
 print_dimstack(ds) = sprint_dimstack(ds) |> Base.Text
-
-# ╔═╡ e59b62d0-cf87-40de-aea8-36ab52441c3c
-md"""
-bequests:      0.17, 1.87, 1.069 
-inheritances:  0.28, 1.94, 0.89
-"""
-
-# ╔═╡ 640db75c-b30a-495f-a3f4-6544b8e2b5ad
-
-
-# ╔═╡ ae88873e-ec8e-4962-b5b2-434daf425ddb
-md"""
-## Fixing inheritances over the transition
-"""
-
-# ╔═╡ f6033846-5dbf-4044-bc91-062b06516195
-md"""
-### Start from a path of bequests
-"""
-
-# ╔═╡ 3ad2dbce-0be1-4ad8-a897-51e450f34226
-md"""
-### Compute inheritances
-"""
-
-# ╔═╡ d971e139-881e-431e-8671-c77abe07b7d8
-md"""
-### Functions
-"""
-
-# ╔═╡ ff670d29-67a2-4ccb-b325-f4e77e167374
-md"""
-### Test 1: Aggregates add up
-"""
-
-# ╔═╡ be3731b6-2b86-4dd4-8457-6959f2ed56eb
-function _π_θjt_((; sim_df, T̃))
-	@chain sim_df begin
-		@groupby(:t = :j + :born, :θ = :permanent.θ, :j)
-		@combine(:π = sum(:π))
-		@subset(0 ≤ :t ≤ T̃)
-		sort([:t, :j, :θ])
-	end
-end
 
 # ╔═╡ 825e58e2-10b4-4a5f-99dc-573517fe32fe
 md"""
 # Bequests along the transition: Working proof of concept
 """
-
-# ╔═╡ b1b7930c-7e06-49a4-b36a-63ee37c8eb7c
-md"""
-# check this!!!! XXXX
-"""
-
-# ╔═╡ e6d7b49e-284d-4895-bcdb-4f1cb951079d
-
-
-# ╔═╡ 832f6607-a2dc-4838-84ab-b459d953b83c
-
 
 # ╔═╡ 4b58e7dc-2a33-4051-918c-a49d39cd6c29
 md"""
@@ -495,7 +436,7 @@ EGMHousingRisk = ingredients("./egm-housing-risk.jl")
 (; get_states, prices_from_guesses_nt, constant_price_paths) = EGMHousingRisk
 
 # ╔═╡ 6d7c2f32-6b22-4c72-87ee-5d71aa4fa60a
-(; mortality, no_inheritances, trivial_initial_distribution, income_profile, no_income_risk, no_permanent_states, Statespace, get_par₀, visualize_stationary, permanent_states_AMMR, dimstack_from_nt) = EGMHousingRisk
+(; mortality, no_inheritances, trivial_initial_distribution, income_profile, no_income_risk, no_permanent_states, Statespace, get_par₀, visualize_stationary, permanent_states_AMMR, ε_chain_AMMR, dimstack_from_nt) = EGMHousingRisk
 
 # ╔═╡ 6b5c2c47-66f8-4375-8850-efca4819e057
 income_profile(90, 65) |> lines
@@ -506,35 +447,44 @@ income_profile(90, 89) |> lines
 # ╔═╡ dcccf82a-e6f0-423d-b445-e09f7054caa4
 (; weighted_neighbours) = EGMHousingRisk
 
-# ╔═╡ fae41d6e-ce7b-462f-9889-d4d6fa59e292
-function get_π_t((; demographics, GE₀, T̃), statespace)
-	
-	pmf₀ = EGMHousingRisk.pmf(GE₀.par.m)
-	births = pmf₀[j = At(0)]
+# ╔═╡ cb517530-9ce3-4774-b6ed-ce2d636cb765
+function sprint_matrix(mat)
 
-	π_θt = @chain demographics begin
-		DataFrame
-		leftjoin(_, rename(DataFrame(GE₀.par.m), :value => :m_baseline), on = :j)
-		@transform(:t = :j + :born)
-		@transform(:m_final = :t < 0 ? :m_baseline : :m)
-		@groupby(:born)
-		@transform(:π = @bycol cumprod([births; 1 .- :m_final])[begin:end-1])
-		@subset(0 ≤ :t ≤ T̃)
-		@groupby(:t)
-		@combine(:π = sum(:π))
-		DimVector([1.0; _.π], Dim{:t}(-1:T̃), name = :π_t)
+	string = "[\n"
+	nrows = size(mat, 1)
+	for row ∈ 1:nrows
+		string = string * "  " * join(repr.(mat[row,:]), " ")
+		if row < nrows
+			string = string * ";\n"
+		else
+			string = string * "\n"
+		end
 	end
+	
+	string * " ]"
+
+	#=
+	names = name(DD.dims(dv))
+
+	
+	string = "("
+
+	for name ∈ names
+		range = DD.dims(dv, name) |> parent |> parent |> repr
+		string = string * "Dim{:$name}($range), "
+	end
+
+	string
+	=#
+	#"DimVector([\n    " * prepend * join(repr.(val), ", ") * "\n$(prepend)  ], Dim{:t}(0:$(length(val)-1)), name = :$key),\n" |> Base.Text
+
 end
 
-# ╔═╡ 7a208658-8fb0-423c-bb95-95c0101fd98e
-# ╠═╡ disabled = true
-#=╠═╡
-out_18_bequests = transition_test(18, 
-		guesses_trans = (; 
-			stationary = (K_supply = 9.625630133755175, H_hh = 1.5969765384739973, L_eff = 6.182668404245044),
-			inheritances_by_type = [0.4531372693992981, 2.7341509939979156, 2.5031852276772097]),
-		tol_stat = 1e-12, tol_trans = 1e-4, bequests = true, skip_transition = true, details = 5) # 575 s
-  ╠═╡ =#
+# ╔═╡ 11f86686-0165-4376-8847-42e68c30cc65
+sprint_dimstack
+
+# ╔═╡ 68b1fb68-61aa-4f1e-b4b9-c27eb9378059
+
 
 # ╔═╡ eff5776e-7558-4c2b-8ce6-6b3d1107a511
 md"""
@@ -911,6 +861,28 @@ md"""
 # Parameters
 """
 
+# ╔═╡ e8496939-0407-4e92-a4cc-8d04bdb8a9c8
+function get_statespace(; amax = 12.0, na = 100, 
+						exponential = true, 
+						period = 5, risk = true,
+					   	n_ε = 3, n_std_ε = 2.0,
+					   	n_θ = 3, n_std_θ = 2.0)
+	if risk
+		ε_chain = ε_chain_AMMR(1.0; n = n_ε, n_std = n_std_ε, period)
+		permanent = permanent_states_AMMR(n = n_θ, n_std = n_std_ε)
+	else
+		ε_chain = no_income_risk()
+		permanent = no_permanent_states()
+	end
+	
+	statespace = Statespace(; 
+							amin = 0.0, amax, na, 
+							ε_chain, permanent, exponential)
+end
+
+# ╔═╡ 27523365-20a0-417f-a038-7e2b2f1bb832
+get_statespace()
+
 # ╔═╡ 7a39d667-e033-4915-94c1-41f12a02b944
 md"""
 ## Save parameters for comparison with Marcelo
@@ -1221,31 +1193,6 @@ let
 	fig
 end
 
-# ╔═╡ 60146915-7b7d-4517-b35f-2baf76d4641a
-function XXX_inheritances_θt(bequests_θt, statespace, π_t)
-	(; perm_dim, mc_permanent, π_permanent) = statespace
-
-	t_dim = DD.dims(bequests_θt, :t)
-	T̃ = maximum(t_dim)
-	θ_dim = only(perm_dim)
-
-	P_θ_DD = DimArray(mc_permanent.p, (θ_dim, θ_dim))
-
-	π_θt = @d π_t .* π_permanent
-	
-	
-	inheritances_θt = DimArray(
-		((@d bequests_θt .* π_θt) * P_θ_DD)[t = At(-1:T̃-1)],
-		(Dim{:t}(0:T̃), θ_dim)
-	)
-	
-	# inheritances == bequests from last period
-	DimArray(
-		(@d inheritances_θt ./ π_θt[t = At(0:T̃)]),
-		name = :inheritances
-	)
-end
-
 # ╔═╡ 6b3462fd-8d95-401f-be37-c394f4ae5fb3
 function get_inheritances_θ(bequests_θ, statespace)
 	(; perm_dim, mc_permanent, π_permanent) = statespace
@@ -1261,6 +1208,39 @@ function get_inheritances_θ(bequests_θ, statespace)
 		(@d _inheritances_θ_ ./ π_permanent),
 		name = :inheritances
 	)
+end
+
+# ╔═╡ abc2d0e1-17f2-49d3-8d1b-6bcdf3210f72
+function sprint_inheritances_θt(inheritances_θt)
+	t_range_repr = DD.dims(inheritances_θt, :t) |> parent |> parent |> repr
+	t_dim_repr = "Dim{:t}($t_range_repr)"
+	
+	string = "inheritances_θt = "
+
+	string = string * (inheritances_θt' |> Matrix |> sprint_matrix) 
+
+	string = string * "\n"
+#	string |> Base.Text
+
+	
+	
+end
+
+# ╔═╡ d6fab981-9367-46a2-bbbf-ff414069f144
+function sprint_solution(out_trans)
+	(; GE₀_etc, out) = out_trans
+	(; GE₀, guessed_paths, inheritances_θt) = out
+
+	stationary = "  stationary = " * repr(GE₀.guesses)
+
+	transition = "  transition = " * sprint_dimstack(guessed_paths, "  ")
+
+	inheritances_θ =  "  inheritances_θ = " * repr(parent(GE₀_etc.inheritances_etc.inheritances_θ))
+	
+	inheritances_θt = inheritances_θt |> sprint_inheritances_θt
+
+	
+	"(; \n" * stationary * ",\n" * transition * ",\n" * inheritances_θ * ",\n" * inheritances_θt *"\n)" |> Base.Text
 end
 
 # ╔═╡ 2e6a5fc2-ccc9-4afd-95ea-349856d86e86
@@ -1310,7 +1290,12 @@ function iterate_cross_sectional_shock!(π₀, π₋₁, sol_backward, statespac
 end
 
 # ╔═╡ e123bf7f-7113-44e0-a955-d20520f84872
-get_cali_test(; amax = 12.0, na = 500, exponential = true, J_P = 71, risk = true, ξ = 0.0, bequests = false) = let
+function get_cali_test(; 
+					   amax = 12.0, na = 500, exponential = true,
+					   J_P = 71, risk = true, ξ = 0.0, bequests = false,
+					   n_ε = 3, n_std_ε = 2.0,
+					   n_θ = 3, n_std_θ = 2.0
+			 )
 
 	J = 71
 	period = (J + 1) / J_P
@@ -1345,18 +1330,9 @@ get_cali_test(; amax = 12.0, na = 500, exponential = true, J_P = 71, risk = true
 	end
 	
 	@assert h_sparse2 ≈ h_sparse
-	
-	if risk
-		ε_chain = ε_chain_AMMR(1.0; n = 3, n_std = 2.0, period)
-		permanent = permanent_states_AMMR(n = 3, n_std = 2.0)
-	else
-		ε_chain = no_income_risk()
-		permanent = no_permanent_states()
-	end
-	
-	statespace = Statespace(; 
-							amin = 0.0, amax, na, 
-							ε_chain, permanent, exponential)
+
+	statespace = get_statespace(; amax, na, risk, exponential, period,  
+								n_ε, n_std_ε, n_θ, n_std_θ)
 	
 	par = get_par₀(; h=h_sparse, m=m_sparse, ξ, δ, β = βs_sparse, 
 				   bonds2GDP = 1.0, NFA2GDP = 0.0, τ = 0.0,
@@ -1382,13 +1358,18 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	Mo = HousingModel()
 
 	if !isnothing(guesses_trans)
+		@info "updated guesses_trans"
+		#guesses_trans = guesses_trans
+	end
+	
+	if !isnothing(guesses_trans)
 		guesses = guesses_trans.stationary
 		inheritances_θ_guess = guesses_trans.inheritances_θ
 	else
 		K_guess = 9.54318
 		guesses = (; K_supply = K_guess, H_hh = 8.55e-8, L_eff = 1.7289)
 
-		guesses = (K_supply=30.30629, H_hh=0.0, L_eff=6.18267)
+		guesses = (K_supply=30.30629, H_hh=1.0, L_eff=6.18267)
 		inheritances_θ_guess = nothing
 	
 	end
@@ -1458,11 +1439,17 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 
 	t_dim = Dim{:t}(0:T̃)
 	perm_dim = only(statespace.perm_dim)
-	
-	inheritances_θt_guess = #DimArray(
-		(stack ∘ fill)(GE₀_etc.inheritances_etc.inheritances_θ, length(t_dim))'
-		#', (t_dim, perm_dim)
-	#)
+
+	if isnothing(guesses_trans) || !hasproperty(guesses_trans, :inheritances_θt)
+		inheritances_θt_guess = 
+			(stack ∘ fill)(GE₀_etc.inheritances_etc.inheritances_θ, length(t_dim))'
+	else
+		@info "used inheritances_θt_guess"
+		inheritances_θt_guess = DimArray(
+			guesses_trans.inheritances_θt',
+			(Dim{:t}(0:T̃), only(statespace.perm_dim))
+		)
+	end
 	
 	if isnothing(guesses_trans) || !hasproperty(guesses_trans, :transition)
 		guess = GE₀.aggregates.updated
@@ -1474,8 +1461,6 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 		guessed_paths = guesses_trans.transition
 	end
 
-	#guessed_paths = guessed_paths[t = At(0:T̃)]
-
 	out = transition_GE(Mo, T̃, par, statespace, demographics, GE₀, guessed_paths;
 						normalize_population = false, inheritances_θt_guess,
 						details, λ = λ_trans, maxiter = maxiter_trans, tol = tol_trans, λ_inh=λ_inherit
@@ -1485,12 +1470,12 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 end
 
 # ╔═╡ 8cb9b650-12fb-4691-925e-51e806cb12fd
-out_18_noh_05 = transition_test(18; #guesses_trans=guesses_18_noh_05,
+out_18_noh_05 = transition_test(18; guesses_trans=guesses_18_noh_05,
 								amax = 200, #na = 100,
 								tol_stat = 1e-10, 
 								tol_trans = 1e-4, ξ = 0.0, λ_trans = 0.2, λ_inherit = 1.0, scale_m = 0.5, bequests = true, skip_transition = false, PE = false,
 								maxiter_GE = 100, 
-								maxiter_trans = 100, details = 10
+								maxiter_trans = 10, details = 1
 							   )
 
 # ╔═╡ b15d0354-b4b8-4378-8a3c-350a81058b57
@@ -1498,6 +1483,27 @@ sprint_solution(out_18_noh_05)
 
 # ╔═╡ 3dc546d1-10f4-4036-b8e2-93963b5e78e0
 out_X = out_18_noh_05
+
+# ╔═╡ 7c79a861-356b-4694-8974-4ee748ffde10
+sprint_solution(out_X)
+
+# ╔═╡ d0737e80-f7ad-42d8-946d-fa584ac3e166
+out_X.GE₀_etc.inheritances_etc.inheritances_θ |> parent |> repr
+
+# ╔═╡ 624256ff-1209-44fc-aa85-3749b61e2186
+let
+	(; out) = out_X
+	@chain out.sim_df begin
+		@groupby(:t = :j + :born)
+		@combine(
+			:bequests    = sum(:bequests, weights(:π)),
+			:inheritance = sum(:inheritance, weights(:π)),
+			:population  = sum(:π)
+		)
+		@subset(0 ≤ :t ≤ out.T̃)
+	end
+
+end
 
 # ╔═╡ d9cc41ce-4e3a-4e59-a1e7-180e06b15d55
 let
@@ -1534,11 +1540,6 @@ end
 # ╔═╡ 51ab33a4-bb9f-457f-8341-4859cb5c743b
 out_X.GE₀_etc.out_PE.inheritances_θj
 
-# ╔═╡ e51c9c8f-f74c-4bd7-b3d1-3fad12aa4fb0
-let
-	out_X.out.inheritances_θtj[t = At(4)]
-end
-
 # ╔═╡ c8912513-9718-44b7-bc92-cf6636de3ecd
 out_X.out.inheritances_θt
 
@@ -1547,6 +1548,12 @@ out_X.out.raw_aggregate_paths.bequests
 
 # ╔═╡ fb387b29-d335-4c84-bf2a-75f88a534f2b
 out_X.out.GE₀.raw_aggregates.bequests
+
+# ╔═╡ 4d6890fd-d7f6-432b-a744-2ea11da65ff1
+out_X.out.GE₀.raw_aggregates.inheritance
+
+# ╔═╡ ed4e6c7d-4741-4630-91e5-acac51f29e06
+out_X.out.raw_aggregate_paths.inheritance
 
 # ╔═╡ 99940e90-3580-446c-9637-7b39c1688935
 let
@@ -1564,17 +1571,6 @@ let
 		data(_) * mapping(:j, vars, color = :θ => nonnumeric, row = AoG.dims(1) => renamer(vars)) * visual(Lines)
 	   draw
 	end
-end
-
-# ╔═╡ ac23ac90-28fd-4bb1-bf1e-ec738a27301d
-let
-	bequests_left = [2.74, 3.01, 3.91]
-	bequests_received = [2.82, 3.06, 3.63]
-
-	π_θ = out_X.statespace.π_permanent |> collect
-
-	sum(bequests_left, weights(π_θ)), sum(bequests_received, weights(π_θ))
-	
 end
 
 # ╔═╡ 27d2effa-2d30-4217-90f9-07f06eeefae4
@@ -1601,10 +1597,18 @@ let
 			:state = mean(:state, weights(:π)),
 			:income = mean(:income, weights(:π)),
 			:bequests = mean(:bequests, weights(:π)),
+			:inheritance = mean(:inheritance, weights(:π)),
 			:π = sum(:π)
 		)
-		data(_) * mapping(:j, :bequests, color = :θ => nonnumeric) * visual(Lines)
-		draw(; figure = (; size = (400, 250)))
+		stack([:bequests, :inheritance])
+		data(_) * mapping(
+			:j => L"age $j$", 
+			:value => "",
+			row = :variable, color = :θ => nonnumeric => L"type $\theta$") * visual(Lines)
+		draw(; 
+			 figure = figure(; size = (400, 300)),
+			 facet = (; linkyaxes = false),
+			)
 	end
 
 end
@@ -1681,238 +1685,8 @@ end
 end
 
 
-# ╔═╡ 20f4ff42-2bb1-439c-86c5-673e1c8dc5c0
-out_X.out.GE₀.raw_aggregates
-
 # ╔═╡ f3d805da-da19-4d9e-b4e6-69da4f19a833
 out_X
-
-# ╔═╡ 3ee7c012-f04b-4117-b33b-2670f2974b6e
-let
-	(; out_PE, inheritances_etc) = out_X.GE₀_etc
-
-	(; T̃, statespace) = out_X.out_full.out_PE
-	(; mc_permanent, π_permanent) = statespace
-	
-	t_dim = Dim{:t}(0:T̃)
-	perm_dim = only(statespace.perm_dim)
-	θ_dim = only(statespace.perm_dim)
-
-	@info inheritances_etc.inheritances_θ
-		
-	bequests_θ = DimArray(
-		(stack ∘ fill)(inheritances_etc.bequests_θ, length(t_dim))', (t_dim, θ_dim)
-	)
-
-	
-	
-	
-		
-	P_θ_DD = DimArray(mc_permanent.p, (θ_dim, θ_dim))
-
-	inheritances_θ = (@d bequests_θ .* π_permanent) * P_θ_DD
-	
-	DimArray(
-		(@d inheritances_θ ./ π_permanent),
-		name = :inheritances
-	)
-#=
-	
-	=#
-	#bequests_to_type = get_bequests_to_type_transition(bequests_by_type, statespace)
-
-	#inheritances_etc.inheritances_by_type
-	# inheritances == bequests from last period
-	#=
-	inheritances_θt = DimArray(
-		bequests_to_type[t = At(-1:T̃-1)],
-		(t_dim, only(perm_dim)), name = :inheritances
-	)
-	=#
-end
-
-# ╔═╡ 7636eeaf-7ebd-4794-9541-8d996458cc0c
-let
-	(; statespace, out) = out_X
-	(; T̃) = out
-
-	bequests_θt = EGMHousingRisk.get_bequests_θt(out, statespace) 
-	
-	@chain bequests_θt begin
-		DataFrame
-		sort([:t, :θ])
-		@subset(:t ∈ [0, 1])
-		@info _
-	end
-	
-	@chain out.sim_df begin
-		@groupby(:t = :j + :born)
-		@combine(
-			:bequests = sum(:bequests, weights(:π)),
-			:inheritance = sum(:inheritance, weights(:π)),
-			:π = sum(:π)
-		)
-		@subset(0 ≤ :t ≤ T̃)
-		sort(:t)
-	#	sort([:t, :permanent])
-	#	@groupby(:t)
-	#	@combine(
-	#		:bequests = sum(:bequests),
-	#		#:inheritance = sum(:inheritance),
-	#		:π_b = sum(:π)
-	#	)
-	end
-	# =#
-end
-
-# ╔═╡ 855d1bbf-1e8c-45c5-9aa2-a122eee3fbf8
-TEST1 = let
-	(; statespace, out) = out_X
-	(; T̃) = out
-
-	#bequests_by_type = get_bequests_from_type_transition(out, statespace) 
-		
-	#@chain bequests_by_type begin
-	#	DataFrame
-	#	sort([:t, :θ])
-	#	@subset(:t ∈ [0, 1])
-	#	@info _
-	#end
-
-	beq_inh_θjt = @chain out.sim_df begin
-		@transform(:t = :j + :born)
-		@subset(0 ≤ :t ≤ T̃)
-	end
-	
-	beq_inh_θt = @chain beq_inh_θjt begin
-		@groupby(:t, :permanent)
-		@combine(
-			:bequests = sum(:bequests, weights(:π)),
-			:inheritance = sum(:inheritance, weights(:π)),
-			:π = sum(:π)
-		)
-		sort([:t, :permanent])
-	end
-
-	beq_inh_t = @chain beq_inh_θt begin
-		@groupby(:t)
-		@combine(
-			:bequests = sum(:bequests),
-			:inheritance = sum(:inheritance),
-			:π_b = sum(:π)
-		)
-	end
-
-	(; beq_inh_θt, beq_inh_t)
-end
-
-# ╔═╡ 8b9179f6-4326-40b9-8048-3dec00ac37ee
-let
-	@chain TEST1.beq_inh_θt begin
-		#@groupby(:t)
-		#@combine(
-		#	:inh = sum(:inheritance),
-		#	:beq = sum(:bequests)
-		#)
-	end
-end
-
-# ╔═╡ 59dfc797-2b65-47dd-ac5e-cb5ec4474737
-TEST2 = let
-	(; statespace, par, out) = out_X
-
-	bequests_θt = EGMHousingRisk.get_bequests_θt(out, statespace) 
-	
-	# lagged
-	
-	inheritances_θt = EGMHousingRisk.get_inheritances_θt(bequests_θt, statespace)
-
-	
-	π_jt = EGMHousingRisk.compute_π_jt(out, par,  statespace)
-
-	(; π_permanent) = statespace
-	π_θjt = DimArray((@d π_jt .* π_permanent), name = :π_θjt)
-
-	@chain _π_θjt_(out) begin
-		leftjoin(_, DataFrame(π_θjt), on = [:θ, :j, :t])
-		@combine(@info @test :π ≈ :π_θjt)
-	end
-
-	#@info @test inheritances_θt ≈ compute_inheritance_θt(out, statespace)
-	#@info @test π_θjt ≈ compute_π_θjt(out, par,  statespace)
-
-	
-	inheritances_θjt = @d inheritances_θt .* par.F ./ π_θjt
-		
-	#=
-		@chain π_θjt begin
-		DataFrame
-		leftjoin(_, DataFrame(inheritances_θt), on = [:θ, :t])
-		leftjoin(_, DataFrame(par.F), on = :j)
-		disallowmissing
-		rename!(:inheritances => :inheritances_θt)
-		@transform(:inheritances = :inheritances_θt * :F / :π)
-		@groupby(:t)
-		@combine(
-			:inheritances = sum(:inheritances, weights(:π)),
-			:π = sum(:π)
-		)
-		#DimArray((@d inheritances_θt .* par.F ./ π_θjt), name = :inheritance)
-		
-	end
-
-=#
-#=
-	bequests_t = @chain bequests_θt begin
-		DataFrame
-		@groupby(:t)
-		@combine(
-			:bequests = sum(:bequests, weights(:π)),
-			:π = sum(:π)
-		)
-	end
-
-	# =#
-	#=
-	inheritances_θt = @chain begin
-		DimStack(inheritances_θjt, π_θjt)
-		DataFrame
-		@groupby(:t, :θ)
-		@combine(
-			:inheritances = sum(:inheritance, weights(:π)),
-			:π = sum(:π)
-		)
-	end
-
-	inheritances_t = @chain inheritances_θt begin
-		@groupby(:t)
-		@combine(
-			:inheritances = sum(:inheritances),
-			:π = sum(:π)
-		)
-	end
-
-	(; inheritances_t, inheritances_θt, inheritances_θjt, bequests_by_type)
-	# =#
-end
-
-# ╔═╡ 91859e87-0b04-406c-b7ac-92b91fbd75bc
-let
-	test_df = leftjoin(TEST1.beq_inh_t, TEST2.inheritances_t, on = :t)
-	@chain test_df begin
-		@combine(
-			@test(:π ≈ :π_b),
-			@test :bequests[1:end-1] ≈ :inheritances[2:end]
-		)
-	end
-end
-
-# ╔═╡ 808664a9-9e69-40c0-8c91-484aa4ed3a52
-let
-	@chain TEST2.bequests_by_type begin
-		_[t = At(-1:1)]
-	end
-end
 
 # ╔═╡ a08be402-718b-4e47-a68d-9d86e52a6b0a
 let
@@ -1941,117 +1715,6 @@ let
 
 end
 
-# ╔═╡ df99895e-61bd-4a53-af6f-5b387e04bda5
-let
-	(; statespace, par, out) = out_X
-
-	π_t = get_π_t(out, statespace)
-	π_θt = DimArray((@d π_t .* statespace.π_permanent)[t = At(0:out.T̃)], name = :π)
-	
-	bequests_θt = EGMHousingRisk.get_bequests_θt(out, statespace)
-
-	@info sort(DataFrame(bequests_θt), [:t, :θ])
-	inheritances_tθ = EGMHousingRisk.get_inheritances_θt(bequests_θt, statespace, π_t)
-	
-	π_jt = EGMHousingRisk.get_π_jt(out, par, statespace)
-
-	# XXX FIXME - I think ./ π_jt must be replaced by something else
-	# pi_jt should sum to one in each t!!!
-	inheritances_θtj = DimArray(@d(inheritances_tθ .* par.F ./ π_jt), name = :inheritance) 
-		
-	@chain inheritances_θtj begin
-		DataFrame
-		sort([:t, :j, :θ])
-	end
-	
-	df = (DataFrame ∘ DimStack)(bequests_θt[t = At(0:out.T̃)], inheritances_tθ, π_θt)
-
-	@chain df begin
-		@groupby(:t)
-		@combine(
-			:bequests = sum(:bequests, weights(:π)),
-			:inheritances = sum(:inheritances, weights(:π))
-		)
-	end
-	# =#
-end
-	
-
-# ╔═╡ 7b852783-61d4-4c1f-ae74-b8e361f241c0
-let
-	(; out, par, statespace, out_full) = out_X
-	
-	π_t = EGMHousingRisk.get_π_t(out, statespace)
-	π_jt = EGMHousingRisk.get_π_jt(out, par, statespace)
-	π_θt = DimArray((@d π_t .* statespace.π_permanent)[t = At(0:out.T̃)], name = :π)
-
-	bequests_θt = EGMHousingRisk.get_bequests_θt(out, statespace)
-	inheritances_tθ = EGMHousingRisk.get_inheritances_θt(bequests_θt, statespace, π_t)
-	
-	inheritances_θtj = DimArray(@d(inheritances_tθ .* par.F ./ π_jt), name = :inheritance) 
-
-	(; inheritances_θtj) = out_full.out_PE
-	
-	# check that the aggregates line up
-	df = (DataFrame ∘ DimStack)(bequests_θt[t = At(0:out.T̃)], inheritances_tθ, π_θt)
-
-	@chain df begin
-		@groupby(:t)
-		@combine(
-			:bequests = sum(:bequests, weights(:π)),
-			:inheritances = sum(:inheritances, weights(:π))
-		)
-	end
-
-	@chain out.sim_df begin
-		@transform(:t = :j + :born)
-		@subset(0 ≤ :t ≤ out.T̃)
-		@select(:j, :t, :state, :ε, :bequests, :inheritance_there = :inheritance, :θ = :permanent.θ, :π)
-		leftjoin(DataFrame(inheritances_θtj), on = [:θ, :j, :t])
-		@groupby(:t)
-		@combine(
-			:bequests = sum(:bequests, weights(:π)),
-			:inheritance_there = sum(:inheritance_there, weights(:π)),
-			:inheritance_here = sum(:inheritance, weights(:π))
-		)
-	end
-end
-
-# ╔═╡ 25af83de-61d6-4f1b-a450-e6ab0559347f
-let
-	(; out, par, statespace, out_full) = out_X
-	(; inheritances_tθ, out_PE) = out_full
-
-	
-	
-	π_jt = EGMHousingRisk.get_π_jt(out, par, statespace)
-
-	# XXX FIXME - I think ./ π_jt must be replaced by something else
-	# pi_jt should sum to one in each t!!!
-	inheritances_θtj = DimArray(@d(inheritances_tθ .* par.F ./ π_jt), name = :inheritance) 
-
-	@d abs.(inheritances_θtj .- out_PE.inheritances_θtj) |> maximum
-	
-	#inheritances_tθ
-end
-
-# ╔═╡ 976ad3d2-a311-4a07-8190-9a9250309a78
-let
-	(; statespace, par, out) = out_X
-
-	@chain out.sim_df begin
-		@transform(:t = :j + :born)
-		@subset(0 ≤ :t ≤ out.T̃)
-		@groupby(:t, :j, :θ=:permanent.θ)
-		@combine(
-			#:bequests = only(unique(:bequests)),
-			:inheritances = only(unique(:inheritance)),
-			:π = sum(:π)
-		)
-		sort([:t, :j, :θ])
-	end
-end
-
 # ╔═╡ 053c4e15-4fc7-4ef4-aa6a-26af5fa83fda
 let
 	(; statespace, par, out) = out_X
@@ -2067,9 +1730,6 @@ let
 		sort([:t, :θ])
 	end
 end
-
-# ╔═╡ e6d5ad7c-80a8-4f3f-bd37-bc4781e52d39
-out_X.out.GE₀.raw_aggregates.bequests
 
 # ╔═╡ 82865d9e-9329-41e6-a53a-a0da2daa9532
 let
@@ -2101,46 +1761,6 @@ let
 		#@subset(0 ≤ :t ≤ out.T̃)
 	end
 end
-
-# ╔═╡ 5c51e8f6-738d-4e72-bdc9-606edbd47a95
-let
-	(; statespace, par, out, out_full) = out_X
-
-	bequests_θt = EGMHousingRisk.get_bequests_θt(out, statespace)
-	inheritances_θt = EGMHousingRisk.get_inheritances_θt(bequests_θt, statespace, EGMHousingRisk.get_π_t(out, statespace)) 
-
-	π = EGMHousingRisk.get_π_jt(out, par, statespace)
-	@info @test out_full.inh_tθ_etc_new.bequests_θt ≈ bequests_θt
-	@info @test out_full.inh_tθ_etc_new.inheritances_θt ≈ inheritances_θt
-
-
-	
-	df = DimStack(
-		bequests_θt[t = At(0:out.T̃)],
-		inheritances_θt,
-		π,
-		#DimArray(bequests_by_type, name = :beq_from_type),
-		#DimArray(bequests_to_type, name = :beq_to_type),
-	) |> DataFrame
-#=
-	@chain df begin
-		@groupby(:t)
-		@combine(sum(:beq_from_type), sum(:beq_to_type))
-	end
-
-	df = DimStack(
-		#bequests_by_type,
-		compute_inheritance_θt(out, statespace),
-		get_π_tθ(out, statespace)
-	) |> DataFrame
-
-
-	
-=#
-	
-	
-end
-	
 
 # ╔═╡ dc69dc02-37c0-40cb-bed8-9251d0285abf
 visualize_transition(out_X.out)
@@ -2313,8 +1933,6 @@ let
 		DataFrame
 		@groupby(:t)
 		@combine(:π_jt = @bycol :π_jt ./ sum(:π_jt))
-		@groupby(:t)
-		@combine( sum(:π_jt))
 	end
 end
 
@@ -2355,6 +1973,24 @@ let
 		draw
 	end
 end
+
+# ╔═╡ d584e00d-3da1-44cf-b62a-1c4bc3144c90
+let
+	out_X.out.statespace.perm_dim
+	out_X.out.inheritances_θt
+end
+
+# ╔═╡ 7a208658-8fb0-423c-bb95-95c0101fd98e
+out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
+								  maxiter_GE = 200,
+								  maxiter_trans = 100,
+								  PE = false,
+								  tol_stat = 1e-9, tol_trans = 1e-4,
+								  bequests = true, skip_transition = false, 
+								  details = 1) # 575 s
+
+# ╔═╡ e942a0e0-f194-4ccf-bade-254a7bdc0c02
+sprint_solution(out_18_bequests)
 
 # ╔═╡ d41e5a93-b200-4f35-a49b-0cddaac9bce7
 let
@@ -4569,9 +4205,6 @@ version = "4.1.0+0"
 # ╠═e6e752c3-411d-404f-aa85-77fdaba6ed59
 # ╠═ada48a44-af10-4a91-b8f8-8aae066b5d53
 # ╟─db007083-7d8f-4f8f-9629-96df08e514f4
-# ╠═901dbe29-9cba-4b3e-a75f-9fe4c978a6ea
-# ╠═18f05d2a-9e62-4c27-af0d-7b1ef0136477
-# ╠═240be7e1-3e50-4677-8e5e-abaf2bc37312
 # ╟─44909380-710e-4c4d-8ea9-cc03c62309e0
 # ╠═b6e810b1-cf37-4736-8f45-812290a6daf4
 # ╠═17367114-1f47-40eb-83f1-31fb88563e4d
@@ -4589,62 +4222,41 @@ version = "4.1.0+0"
 # ╠═f110e4f8-e3d7-4f38-af4d-39901ce3a13b
 # ╠═c1a22777-0fbf-4366-a757-b38a02f79507
 # ╠═b15d0354-b4b8-4378-8a3c-350a81058b57
+# ╠═9803fab5-2434-4b9c-91bc-869f95ed72f4
 # ╠═4c02499c-b898-47c0-a447-cb9bd59da403
+# ╠═e942a0e0-f194-4ccf-bade-254a7bdc0c02
+# ╠═edf8d0b2-86b9-4c43-9d9e-9fdc5dff20d8
 # ╠═5901b076-656d-4291-8a4f-dcd68efcf039
 # ╠═85465c5d-f4d5-4e60-8269-8293bb5d3e2a
 # ╠═d6fab981-9367-46a2-bbbf-ff414069f144
 # ╠═f1cd1f44-cd7b-4162-a51f-1c533cd79721
 # ╠═f83f05ae-4386-4b0c-97be-288b74fc6154
 # ╠═3dc546d1-10f4-4036-b8e2-93963b5e78e0
+# ╠═7c79a861-356b-4694-8974-4ee748ffde10
+# ╠═d0737e80-f7ad-42d8-946d-fa584ac3e166
+# ╠═624256ff-1209-44fc-aa85-3749b61e2186
 # ╠═d9cc41ce-4e3a-4e59-a1e7-180e06b15d55
 # ╠═ef0dccc2-4dbf-4c2f-baf1-3ba015ac2bd8
 # ╠═51ab33a4-bb9f-457f-8341-4859cb5c743b
-# ╠═e51c9c8f-f74c-4bd7-b3d1-3fad12aa4fb0
 # ╠═c8912513-9718-44b7-bc92-cf6636de3ecd
 # ╠═bf12a47d-436a-41fd-a145-656c58378852
 # ╠═fb387b29-d335-4c84-bf2a-75f88a534f2b
-# ╠═e59b62d0-cf87-40de-aea8-36ab52441c3c
+# ╠═4d6890fd-d7f6-432b-a744-2ea11da65ff1
+# ╠═ed4e6c7d-4741-4630-91e5-acac51f29e06
 # ╠═4725c07e-580d-4bba-ad77-89a189491308
 # ╠═99940e90-3580-446c-9637-7b39c1688935
-# ╠═ac23ac90-28fd-4bb1-bf1e-ec738a27301d
 # ╠═27d2effa-2d30-4217-90f9-07f06eeefae4
 # ╠═86c476ee-8da7-4e64-8259-784f4a6095f0
-# ╠═640db75c-b30a-495f-a3f4-6544b8e2b5ad
 # ╠═2b1d18f2-b82c-4058-a6cb-65ff468ed1c4
 # ╠═8daab1ff-f661-4772-89f6-569d9d0246f3
 # ╠═6bf82f04-b7f9-4ac4-a48a-948f7cdbad16
-# ╠═20f4ff42-2bb1-439c-86c5-673e1c8dc5c0
-# ╠═ae88873e-ec8e-4962-b5b2-434daf425ddb
-# ╟─f6033846-5dbf-4044-bc91-062b06516195
-# ╟─3ad2dbce-0be1-4ad8-a897-51e450f34226
-# ╟─d971e139-881e-431e-8671-c77abe07b7d8
-# ╠═ff670d29-67a2-4ccb-b325-f4e77e167374
 # ╠═f3d805da-da19-4d9e-b4e6-69da4f19a833
-# ╠═3ee7c012-f04b-4117-b33b-2670f2974b6e
-# ╠═7636eeaf-7ebd-4794-9541-8d996458cc0c
-# ╠═855d1bbf-1e8c-45c5-9aa2-a122eee3fbf8
-# ╠═be3731b6-2b86-4dd4-8457-6959f2ed56eb
-# ╠═59dfc797-2b65-47dd-ac5e-cb5ec4474737
 # ╠═a08be402-718b-4e47-a68d-9d86e52a6b0a
 # ╟─825e58e2-10b4-4a5f-99dc-573517fe32fe
-# ╠═df99895e-61bd-4a53-af6f-5b387e04bda5
-# ╠═b1b7930c-7e06-49a4-b36a-63ee37c8eb7c
-# ╠═7b852783-61d4-4c1f-ae74-b8e361f241c0
-# ╠═e6d7b49e-284d-4895-bcdb-4f1cb951079d
-# ╠═25af83de-61d6-4f1b-a450-e6ab0559347f
-# ╠═976ad3d2-a311-4a07-8190-9a9250309a78
 # ╠═053c4e15-4fc7-4ef4-aa6a-26af5fa83fda
-# ╠═60146915-7b7d-4517-b35f-2baf76d4641a
-# ╠═fae41d6e-ce7b-462f-9889-d4d6fa59e292
-# ╠═832f6607-a2dc-4838-84ab-b459d953b83c
-# ╠═e6d5ad7c-80a8-4f3f-bd37-bc4781e52d39
 # ╠═4b58e7dc-2a33-4051-918c-a49d39cd6c29
-# ╠═91859e87-0b04-406c-b7ac-92b91fbd75bc
-# ╠═8b9179f6-4326-40b9-8048-3dec00ac37ee
-# ╠═808664a9-9e69-40c0-8c91-484aa4ed3a52
 # ╠═82865d9e-9329-41e6-a53a-a0da2daa9532
 # ╠═9d734553-a5c8-4804-bf64-14dd1d04269d
-# ╠═5c51e8f6-738d-4e72-bdc9-606edbd47a95
 # ╠═f44a4152-f111-4ca9-8fc5-7bf25bef7298
 # ╠═dc69dc02-37c0-40cb-bed8-9251d0285abf
 # ╠═0443aa96-730e-44d3-b372-cabe20bb5c1a
@@ -4678,6 +4290,11 @@ version = "4.1.0+0"
 # ╠═f700462d-89af-4474-b063-92ddbfa4d079
 # ╠═6355f453-5406-4899-a92e-9be360e9629e
 # ╠═7a208658-8fb0-423c-bb95-95c0101fd98e
+# ╠═d584e00d-3da1-44cf-b62a-1c4bc3144c90
+# ╠═abc2d0e1-17f2-49d3-8d1b-6bcdf3210f72
+# ╠═cb517530-9ce3-4774-b6ed-ce2d636cb765
+# ╠═11f86686-0165-4376-8847-42e68c30cc65
+# ╠═68b1fb68-61aa-4f1e-b4b9-c27eb9378059
 # ╠═ea5552f4-e5d1-4a56-a655-5af6eb9cbf25
 # ╟─eff5776e-7558-4c2b-8ce6-6b3d1107a511
 # ╠═a1bf5a1b-36a8-4c65-bb6b-86847f25b569
@@ -4695,6 +4312,8 @@ version = "4.1.0+0"
 # ╠═34280c20-950c-4083-948b-98e8edce0724
 # ╠═6cf01d9d-f444-400a-9700-3e3e55cc1727
 # ╠═f09814a6-82b8-457c-9d75-0c92d8612056
+# ╠═e8496939-0407-4e92-a4cc-8d04bdb8a9c8
+# ╠═27523365-20a0-417f-a038-7e2b2f1bb832
 # ╠═e123bf7f-7113-44e0-a955-d20520f84872
 # ╠═7a39d667-e033-4915-94c1-41f12a02b944
 # ╠═d41e5a93-b200-4f35-a49b-0cddaac9bce7

@@ -1048,9 +1048,9 @@ function default_income_process(;
 end
 
 # ╔═╡ b274b8b0-f343-49d7-8d0b-e8802c9d1500
-function log_discr_AR1(args...; normalize_mean = true, method = QuantEcon.tauchen)
+function log_discr_AR1(args...; normalize_mean = true, method = QuantEcon.tauchen, period = 1)
 	mc₀ = method(args...)
-	@info mc₀.state_values
+	#@info mc₀.state_values
 	state_values 	= exp.(mc₀.state_values)
 
 	π∞ = QuantEcon.stationary_distributions(mc₀) |> only
@@ -1060,7 +1060,7 @@ function log_discr_AR1(args...; normalize_mean = true, method = QuantEcon.tauche
 		state_values ./= 𝔼y
 	end
 	
-	return MarkovChain(mc₀.p, state_values)
+	return MarkovChain(mc₀.p ^ period, state_values)
 end
 
 # ╔═╡ 16a46962-f6be-4536-a2f2-f52fb796d2da
@@ -1079,11 +1079,11 @@ end
 
 # ╔═╡ 86a97101-02b6-4b36-b458-ceae742d5c65
 "See Calibration table and E.4 Calibration details"
-function ε_chain_AMMR(σ_scale = 1.0; n = 11, n_std = 3.0)
+function ε_chain_AMMR(σ_scale = 1.0; n = 11, n_std = 3.0, period = 1)
 	ρ = 0.91
 	σ_y = 0.91
 	σ = σ_scale * √(1-ρ^2) * σ_y
-	mc = log_discr_AR1(n, ρ, σ, 0.0, n_std)
+	mc = log_discr_AR1(n, ρ, σ, 0.0, n_std; period)
 end
 
 # ╔═╡ ff84590d-8e81-47b4-bdd0-8271489be19c
@@ -2862,17 +2862,18 @@ function transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed
 			ax = Axis(fig[1,1], title = "K_supply")
 			ax2 = Axis(fig[1,2], title = "L_eff")
 			ax3 = Axis(fig[1,3], title = "H_hhf")
-			ax4 = Axis(fig[1,4], title = "Bequests")
+			ax4 = Axis(fig[1,4], title = L"beq$_t$, inh$_{t-1}$")
 
 			lines!(ax, path_in.K_supply)
 			lines!(ax2, path_in.L_eff)
 			lines!(ax3, path_in.H_hh)
 
-			lines!(ax, out_PE.aggregate_paths.updated.K_supply)
-			lines!(ax2, out_PE.aggregate_paths.updated.L_eff)
-			lines!(ax3, out_PE.aggregate_paths.updated.H_hh)
-			lines!(ax4, out_PE.raw_aggregate_paths.bequests)
-			
+			lines!(ax, out_PE.aggregate_paths.updated.K_supply, linestyle = :dash)
+			lines!(ax2, out_PE.aggregate_paths.updated.L_eff, linestyle = :dash)
+			lines!(ax3, out_PE.aggregate_paths.updated.H_hh, linestyle = :dash)
+			lines!(ax4, out_PE.raw_aggregate_paths.bequests, label = "beq")
+			lines!(ax4, 0:T̃-1, parent(out_PE.raw_aggregate_paths.inheritance[t = At(1:T̃)]), label = "L(inh)", linestyle = :dash)
+			#axislegend(ax4)
 			@info fig
 		end
 			
