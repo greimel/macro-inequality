@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.20.17
+# v0.20.19
 
 using Markdown
 using InteractiveUtils
@@ -1481,8 +1481,21 @@ out_18_noh_05 = transition_test(18; guesses_trans=guesses_18_noh_05,
 # ╔═╡ b15d0354-b4b8-4378-8a3c-350a81058b57
 sprint_solution(out_18_noh_05)
 
+# ╔═╡ 7a208658-8fb0-423c-bb95-95c0101fd98e
+out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
+								  maxiter_GE = 200,
+								  maxiter_trans = 100,
+								  PE = false,
+								  tol_stat = 1e-9, tol_trans = 1e-4,
+								  bequests = true, skip_transition = false, 
+								  details = 1) # 575 s
+
+# ╔═╡ e942a0e0-f194-4ccf-bade-254a7bdc0c02
+sprint_solution(out_18_bequests)
+
 # ╔═╡ 3dc546d1-10f4-4036-b8e2-93963b5e78e0
-out_X = out_18_noh_05
+#out_X = out_18_noh_05
+out_X = out_18_bequests
 
 # ╔═╡ 7c79a861-356b-4694-8974-4ee748ffde10
 sprint_solution(out_X)
@@ -1544,7 +1557,7 @@ out_X.GE₀_etc.out_PE.inheritances_θj
 out_X.out.inheritances_θt
 
 # ╔═╡ bf12a47d-436a-41fd-a145-656c58378852
-out_X.out.raw_aggregate_paths.bequests
+out_X.out.raw_aggregate_paths.bequests |> lines
 
 # ╔═╡ fb387b29-d335-4c84-bf2a-75f88a534f2b
 out_X.out.GE₀.raw_aggregates.bequests
@@ -1685,8 +1698,33 @@ end
 end
 
 
-# ╔═╡ f3d805da-da19-4d9e-b4e6-69da4f19a833
+# ╔═╡ e0ac337f-2653-4973-a2e6-6559ce58c428
 out_X
+
+# ╔═╡ 2e275057-1155-4edf-bb76-cf870092cb9a
+out_X.GE₀_etc
+
+# ╔═╡ 6de812cb-8d2b-45fc-bf99-685083b07a9a
+@chain out_X.demographics begin
+	DataFrame
+	@transform(:t = :j + :born)
+	@subset(:born == 0)
+	#@groupby(:j, :t, :born)
+	#data(_) * mapping(:j, :m, color = :born => nonnumeric) * visual(Lines)
+	#draw
+end
+
+# ╔═╡ f3d805da-da19-4d9e-b4e6-69da4f19a833
+@chain out_X.out_full.out_PE.sim_df begin
+	@transform(:t = :j + :born)
+	@groupby(:j, :t, :born)
+	@combine(:population = sum(:π))
+	@subset(:t > 0)
+	@subset(:born ∈ [-10, 0, 10])
+	#@subset(:)
+	data(_) * mapping(:j, :population, color = :born => nonnumeric) * visual(Lines)
+	draw
+end
 
 # ╔═╡ a08be402-718b-4e47-a68d-9d86e52a6b0a
 let
@@ -1776,6 +1814,9 @@ visualize_transition(out_X.out)
 	#draw(; facet = (; linkyaxes = false ))
 end
 
+# ╔═╡ 9fd5ad6b-aec7-4a5d-986b-0abec38da5f5
+out_X.out.price_paths.r |> parent
+
 # ╔═╡ cc7b46e7-3475-44a5-9684-471d11e24ad6
 let
 	(; price_paths, raw_aggregate_paths) = out_X.out
@@ -1783,7 +1824,9 @@ let
 	df = innerjoin(DataFrame(price_paths), DataFrame(raw_aggregate_paths), on = :t)
 
 	@chain df begin
-		stack([:r, #=:p, :r, :w, :state, :co, :ho, :income, :m, :constrained, :population,=# :z, :a_next, :z_next], :t)
+		stack([:r, :p, #= :r, :w, :state, :co, :ho, :income, :m, :constrained,=# :population, :z, :a_next, :z_next], :t)
+		@groupby(:variable)
+		@transform(:value = @bycol :value ./ first(:value))
 		data(_) * mapping(:t, :value, layout = :variable) * visual(Lines)
 		draw(facet = (; linkyaxes = false))
 	end
@@ -1979,18 +2022,6 @@ let
 	out_X.out.statespace.perm_dim
 	out_X.out.inheritances_θt
 end
-
-# ╔═╡ 7a208658-8fb0-423c-bb95-95c0101fd98e
-out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
-								  maxiter_GE = 200,
-								  maxiter_trans = 100,
-								  PE = false,
-								  tol_stat = 1e-9, tol_trans = 1e-4,
-								  bequests = true, skip_transition = false, 
-								  details = 1) # 575 s
-
-# ╔═╡ e942a0e0-f194-4ccf-bade-254a7bdc0c02
-sprint_solution(out_18_bequests)
 
 # ╔═╡ d41e5a93-b200-4f35-a49b-0cddaac9bce7
 let
@@ -4250,6 +4281,9 @@ version = "4.1.0+0"
 # ╠═2b1d18f2-b82c-4058-a6cb-65ff468ed1c4
 # ╠═8daab1ff-f661-4772-89f6-569d9d0246f3
 # ╠═6bf82f04-b7f9-4ac4-a48a-948f7cdbad16
+# ╠═e0ac337f-2653-4973-a2e6-6559ce58c428
+# ╠═2e275057-1155-4edf-bb76-cf870092cb9a
+# ╠═6de812cb-8d2b-45fc-bf99-685083b07a9a
 # ╠═f3d805da-da19-4d9e-b4e6-69da4f19a833
 # ╠═a08be402-718b-4e47-a68d-9d86e52a6b0a
 # ╟─825e58e2-10b4-4a5f-99dc-573517fe32fe
@@ -4261,6 +4295,7 @@ version = "4.1.0+0"
 # ╠═dc69dc02-37c0-40cb-bed8-9251d0285abf
 # ╠═0443aa96-730e-44d3-b372-cabe20bb5c1a
 # ╠═ad93f5ad-b0ad-497c-9314-aaee78e25940
+# ╠═9fd5ad6b-aec7-4a5d-986b-0abec38da5f5
 # ╠═cc7b46e7-3475-44a5-9684-471d11e24ad6
 # ╠═92a909f0-7697-4f3a-9c92-10003144783d
 # ╠═18070fd0-a0ce-4e28-ad5a-a39568460f43
