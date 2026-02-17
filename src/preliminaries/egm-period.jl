@@ -915,7 +915,7 @@ end
 let
 	(; par) = out_X
 	
-	π = EGMHousingRisk.pmf(par.m)
+	π = EGMHousingRisk.get_π_j(par.m)
 	inh_θ = out_X.GE₀_etc.inheritances_etc.inheritances_θ
 
 	@d inh_θ .* par.F ./ π
@@ -927,7 +927,7 @@ let
 	
 	(; out, par, statespace) = out_X
 
-	π_j = EGMHousingRisk.pmf(par.m)
+	π_j = EGMHousingRisk.get_π_j(par.m)
 	π_θ = statespace.π_permanent
 
 	π_jθ = @d π_j .* π_θ
@@ -935,7 +935,7 @@ let
 	#π = EGMHousingRisk.compute_π_θjt(out, par, statespace)
 
 	#DataFrame(π)
-	#π = EGMHousingRisk.pmf(par.m)
+	#π = EGMHousingRisk.get_π_j(par.m)
 	
 	inh_θ = out_X.out_full.inheritances_tθ
 	(@d inh_θ .* par.F ./ π_jθ)[t = At(0)]
@@ -1363,7 +1363,7 @@ end
 # ╔═╡ 14b7d938-be7c-445b-b0a7-6088eb1a3fec
 let
 	(; out, GE₀_etc, statespace, par) = out_X
-	π_jt = EGMHousingRisk.get_π_jt(out, par, statespace)
+	π_jt = EGMHousingRisk.get_π_jt(out, par)
 
 	@chain π_jt begin
 		DataFrame
@@ -1381,7 +1381,7 @@ let
 
 	inheritances_θ = get_inheritances_θ(bequests_θ, statespace)
 
-	π_j = EGMHousingRisk.pmf(par.m)
+	π_j = EGMHousingRisk.get_π_j(par.m)
 	
 	inheritances_θj = 
 		DimArray(@d(inheritances_θ .* par.F ./ π_j), name = :inheritances)
