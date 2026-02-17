@@ -2069,9 +2069,10 @@ function inheritances_stationary((; sim_df), statespace)
 end
 
 # ╔═╡ f8919942-9ef9-476a-94eb-c46ec88fde94
-function get_inheritances_θt(bequests_θt, statespace, π_t)
+function get_inheritances_θt(bequests_θt, statespace, demographics_transition)
 	(; perm_dim, mc_permanent, π_permanent) = statespace
-
+	(; π_t) = demographics_transition
+	
 	t_dim = DD.dims(bequests_θt, :t)
 	T̃ = maximum(t_dim)
 	θ_dim = only(perm_dim)
@@ -2096,10 +2097,10 @@ function get_inheritances_θt(bequests_θt, statespace, π_t)
 end
 
 # ╔═╡ 7d9ea25a-6f76-43a2-83ab-d81e6210bbc6
-function inheritances_transition(out, statespace, π_t)
+function inheritances_transition(out, statespace, demographics_transition)
 		
 	bequests_θt = get_bequests_θt(out, statespace)
-	inheritances_θt = get_inheritances_θt(bequests_θt, statespace, π_t)
+	inheritances_θt = get_inheritances_θt(bequests_θt, statespace, demographics_transition)
 
 	(; bequests_θt, inheritances_θt)
 end
@@ -2389,15 +2390,17 @@ function solve_backward_forward!(c, next_state, value, next_value, constrained, 
 end
 
 # ╔═╡ 3c2f3f62-f7b9-4d66-8598-be8bb6bd6356
-function simulate_cohorts(Mo, par, permanent, statespace, demographics, GE_sol_perm; price_paths, j_last = par.J, T̃, inheritances_tj)
+function simulate_cohorts(Mo, par, permanent, statespace, demographics_transition, GE_sol_perm; price_paths, j_last = par.J, T̃, inheritances_tj)
 
+	(; m_jborn) = demographics_transition 
+	
 	j_dim = Dim{:j}(0:j_last)
 	t_borns = (-j_last):1:T̃
 
 	par_all = drop_m_h(; par...)
 	(; c, next_state, value, next_value, constrained, stuff, π) = let
 		par_0 = let
-			m = demographics.m[born = At(0)]
+			m = m_jborn[born = At(0)]
 			par_cohort = (; par.h, par.ρ_SS, m)
 		end
 
@@ -2413,7 +2416,7 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics, GE_sol_p
 	π_init_all = get_π_init_all(GE_sol_perm, price_paths, par, statespace)
 	
 	for t_born ∈ t_borns
-		m = demographics.m[born = At(t_born)]
+		m = m_jborn[born = At(t_born)]
 		par_cohort = (; par.h, par.ρ_SS, m)
 
 		cₜ          = @view 		  c[born = At(t_born)]
@@ -2670,13 +2673,14 @@ function get_price_paths(::HousingModel, path, par; GE₀)
 end
 
 # ╔═╡ ca363b65-dd42-475c-9114-a259691c7913
-function transition_PE(model, T̃, par, statespace, demographics, GE₀, paths_in;
+function transition_PE(model, T̃, par, statespace, demographics_transition, GE₀,
+					   paths_in;
 					   j_last=par.J, normalize_population = false,
-					   inheritances_tθ,
-					   π_jt = get_π_jt(
-						   (; demographics, GE₀, T̃), par, statespace
+					   inheritances_tθ
 					   )
-					  )
+
+	(; π_jt) = demographics_transition
+	
 	price_paths = get_price_paths(model, paths_in, par; GE₀)
 
 	# XXX FIXME - I think ./ π_jt must be replaced by something else
@@ -2689,7 +2693,7 @@ function transition_PE(model, T̃, par, statespace, demographics, GE₀, paths_i
 	sols = map(enumerate(zip(get_states(π_permanent), π_permanent, GE₀.sols))) do (i_perm, (permanent, π_perm, GE_sol_perm))
 		inheritances_θ = @view inheritances_θtj[θ = i_perm]
 		
-		sol = simulate_cohorts(model, par, permanent, statespace, demographics, GE_sol_perm; price_paths, j_last, T̃, inheritances_tj = inheritances_θ)
+		sol = simulate_cohorts(model, par, permanent, statespace, demographics_transition, GE_sol_perm; price_paths, j_last, T̃, inheritances_tj = inheritances_θ)
 
 		sim_df = @transform(sol.sim_df, :π = :π * π_perm)
 		(; sim_df, permanent)
@@ -2703,11 +2707,11 @@ function transition_PE(model, T̃, par, statespace, demographics, GE₀, paths_i
 	raw_aggregate_paths = aggregate_paths(sim_df; normalize_population)
 	_aggregate_paths_ = loss_and_aggregates_t(model, par, paths_in, raw_aggregate_paths, GE₀)
 
-	out_PE = (; aggregate_paths=_aggregate_paths_, price_paths, guessed_paths=deepcopy(paths_in), raw_aggregate_paths, sim_df, demographics, statespace, GE₀, T̃, inheritances_θt=inheritances_tθ, inheritances_θtj, π_jt)
+	out_PE = (; aggregate_paths=_aggregate_paths_, price_paths, guessed_paths=deepcopy(paths_in), raw_aggregate_paths, sim_df, #= demographics, =# statespace, GE₀, T̃, inheritances_θt=inheritances_tθ, inheritances_θtj, π_jt)
 end
 
 # ╔═╡ 880637f3-81f0-48f5-8918-c03dac35e6fc
-function transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed_path;
+function transition_GE(model, T̃, par, statespace, demographics_transition, GE₀, guessed_path;
 					   j_last = par.J, normalize_population = false,   	   
 					   inheritances_θt_guess = nothing,
 					   maxiter = 100, λ = 0.05, tol = 1e-4, λ_inh = 1.0, details=1)
@@ -2717,9 +2721,6 @@ function transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed
 	if λ isa Number
 		λ = fill(λ, maxiter)
 	end
-	
-	π_jt = get_π_jt((; demographics, GE₀, T̃), (; par.J))
-	π_t = get_π_t((; demographics, GE₀, T̃))
 	
 	perm_dim = only(statespace.perm_dim)
 	t_dim = Dim{:t}(0:T̃)
@@ -2732,14 +2733,14 @@ function transition_GE(model, T̃, par, statespace, demographics, GE₀, guessed
 	
 	for it ∈ 1:maxiter
 		
-		out_PE = transition_PE(model, T̃, par, statespace, demographics, GE₀, path_in;
+		out_PE = transition_PE(model, T̃, par, statespace, demographics_transition, GE₀, path_in;
 							   j_last, normalize_population,
-							   inheritances_tθ, π_jt)
+							   inheritances_tθ)
 
 		crit₀ = maximum(abs, out_PE.aggregate_paths.loss)
 		crit = maximum(crit₀)
 
-		inh_tθ_etc_new = inheritances_transition(out_PE, statespace, π_t)
+		inh_tθ_etc_new = inheritances_transition(out_PE, statespace, demographics_transition)
 		inheritances_tθ_new = inh_tθ_etc_new.inheritances_θt
 			
 		#inheritances_tθ_new = compute_inheritance_θt(out_PE, statespace)

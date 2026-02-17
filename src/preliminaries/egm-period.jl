@@ -812,10 +812,10 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	
 
 	#guessed_path = guess_auclert_trans
-	
-	demographics = let
-		m₀ = par.m
-		m₁ = scale_m * par.m
+	m_j = DimArray(par.m, name = :m)
+	m_jborn = let
+		m₀ = m_j
+		m₁ = scale_m * m_j
 		m₁[end] = 1.0
 		
 		j_dim = DD.dims(m₀, :j)
@@ -824,10 +824,14 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 		borns = -J:1:T̃
 		born_dim = Dim{:born}(borns)
 		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
-
-		
-		demo = DimStack(ms, )
 	end
+
+	demographics_transition = (; 
+		m_jborn,
+		π_jt    = EGMHousingRisk.get_π_jt((; demographics = m_jborn, m₀ = m_j, T̃=30)),
+		π_t     = EGMHousingRisk.get_π_t((; demographics = m_jborn, m₀ = m_j, T̃=30))
+	)
+	
 	###########################
 
 	t_dim = Dim{:t}(0:T̃)
@@ -854,12 +858,12 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 		guessed_paths = guesses_trans.transition
 	end
 
-	out = transition_GE(Mo, T̃, par, statespace, demographics, GE₀, guessed_paths;
+	out = transition_GE(Mo, T̃, par, statespace, demographics_transition, GE₀, guessed_paths;
 						normalize_population = false, inheritances_θt_guess,
 						details, λ = λ_trans, maxiter = maxiter_trans, tol = tol_trans, λ_inh=λ_inherit
 						)
 
-	(; par, out=out.out_PE, GE₀_etc, out_full = out, period, statespace, demographics)
+	(; par, out=out.out_PE, GE₀_etc, out_full = out, period, statespace, demographics_transition)
 end
 
 # ╔═╡ 8cb9b650-12fb-4691-925e-51e806cb12fd
@@ -1098,7 +1102,7 @@ out_X
 out_X.GE₀_etc
 
 # ╔═╡ 6de812cb-8d2b-45fc-bf99-685083b07a9a
-@chain out_X.demographics begin
+@chain out_X.demographics_transition.m_jborn begin
 	DataFrame
 	@transform(:t = :j + :born)
 	@subset(:born == 0)
@@ -1363,13 +1367,14 @@ end
 # ╔═╡ 14b7d938-be7c-445b-b0a7-6088eb1a3fec
 let
 	(; out, GE₀_etc, statespace, par) = out_X
-	π_jt = EGMHousingRisk.get_π_jt(out, par)
+#=	π_jt = EGMHousingRisk.get_π_jt(out, par)
 
 	@chain π_jt begin
 		DataFrame
 		@groupby(:t)
 		@combine(:π_jt = @bycol :π_jt ./ sum(:π_jt))
 	end
+=#
 end
 
 # ╔═╡ 702230c6-d538-4dd1-822b-57f2bb4c6818
