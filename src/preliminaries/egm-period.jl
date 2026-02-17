@@ -73,6 +73,12 @@ AdjustPeriod = ingredients("./adjust-period.jl")
 # ╔═╡ e83c948b-3d86-4350-ab68-ed1d5ed63a57
 (; adjust_period_discounting, adjust_period_mortality, adjust_period_flow, adjust_period_income_profile) = AdjustPeriod
 
+# ╔═╡ a3e84b6f-a08b-4821-bf46-acb7db1c7f5a
+Demographics = ingredients("./demographics.jl") 
+
+# ╔═╡ afedcf19-53df-418a-bb09-1a7897efdfe6
+#(; get_π_jt, get_π_t) = Demographics
+
 # ╔═╡ e5b31309-a7cb-43e5-8173-f5ed8bbf316e
 md"""
 # Adjust the code for period $\ne$ 1
@@ -828,8 +834,8 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 
 	demographics_transition = (; 
 		m_jborn,
-		π_jt    = EGMHousingRisk.get_π_jt((; demographics = m_jborn, m₀ = m_j, T̃=30)),
-		π_t     = EGMHousingRisk.get_π_t((; demographics = m_jborn, m₀ = m_j, T̃=30))
+		π_jt    = Demographics.get_π_jt((; demographics = m_jborn, m₀ = m_j, T̃=30)),
+		π_t     = Demographics.get_π_t((; demographics = m_jborn, m₀ = m_j, T̃=30))
 	)
 	
 	###########################
@@ -3633,6 +3639,8 @@ version = "4.1.0+0"
 # ╠═d0fbd753-27d5-4649-82b1-05a3e1cba2f8
 # ╠═5b17de62-1261-48f4-9e6f-e3d75643403a
 # ╠═e83c948b-3d86-4350-ab68-ed1d5ed63a57
+# ╠═a3e84b6f-a08b-4821-bf46-acb7db1c7f5a
+# ╠═afedcf19-53df-418a-bb09-1a7897efdfe6
 # ╠═e5b31309-a7cb-43e5-8173-f5ed8bbf316e
 # ╠═b0b92aec-7643-47b7-a0fc-b44637a6fe91
 # ╠═236eb5d3-65c2-409e-b5b9-b4006f04755a

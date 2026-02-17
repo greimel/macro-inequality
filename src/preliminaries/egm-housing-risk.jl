@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.46
+# v0.20.21
 
 using Markdown
 using InteractiveUtils
@@ -47,7 +47,7 @@ import SparseArrays
 Demographics = ingredients("./demographics.jl")
 
 # ╔═╡ 5d8c511b-d97f-4479-873d-4810e0c67a0d
-(; get_π_j, get_π_jt, get_π_t) = Demographics
+(; get_π_j) = Demographics
 
 # ╔═╡ adb79a2d-cf1e-42a4-a821-d9afd37b73bf
 md"""
