@@ -4,47 +4,65 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ ce8eeee5-5c22-4d16-b7b8-a16b6a89b5a9
-using PlutoTest
+# ╔═╡ a3de9e35-b69b-4174-a6bf-3ae1fb21966c
+using SparseArrays
 
-# ╔═╡ 6b64b9fd-5dd9-4c50-b5be-7d4d380d8a4e
+# ╔═╡ 663e9d66-24c1-432a-b608-64808e333103
 # ╠═╡ skip_as_script = true
 #=╠═╡
 using PlutoUI: TableOfContents
   ╠═╡ =#
 
-# ╔═╡ 315ff198-9dad-42a4-a190-909e7e6c5045
+# ╔═╡ 56a3cbc8-4d5c-42dc-83a7-7ff8c0e0ec06
+using PlutoTest
+
+# ╔═╡ e4bbae5b-3aa8-4ea9-b694-e583fe5bac3e
+using StatsBase: weights
+
+# ╔═╡ 37eedce9-8dba-4b9a-9765-0ce9f7c53af9
+using Statistics: mean
+
+# ╔═╡ 4c80e592-0777-4f39-a7d5-11ad15ec2253
+using Interpolations: linear_interpolation, Flat
+
+# ╔═╡ dd3c5d00-198b-408f-ab8f-8c054c13cc15
 using DimensionalData
 
-# ╔═╡ dcd47f4d-0edc-4332-a792-f381ad9c54d6
-using DataFrames, DataFrameMacros, Chain
+# ╔═╡ 74d09f13-b894-425e-8d1b-475c58ce9530
+# ╠═╡ skip_as_script = true
+#=╠═╡
+using Chain, DataFrameMacros, DataFrames
+  ╠═╡ =#
 
-# ╔═╡ 5cdc862c-cf2f-4536-ab1f-14fc12026d9e
-using SparseArrays
-
-# ╔═╡ c9627465-f18f-45d2-90a9-ca2a0aa8a526
+# ╔═╡ a66d5028-9a26-40c0-a3c4-8c4ff60ba602
 # ╠═╡ skip_as_script = true
 #=╠═╡
 using CairoMakie, AlgebraOfGraphics
   ╠═╡ =#
 
-# ╔═╡ 03cb8b54-b09a-4e0b-a514-13b3d15564cb
+# ╔═╡ 8d35e241-fda7-44a2-b19f-cce306264514
 md"""
-# Demographics
+# Modelling demographic change – What is the demographic transition?
+
+The demographic structure is changing for three reasons.
+
+1. Baby boomers age and die -- `births` are higher than normal for 10 years
+2. Fertility is falling -- `births` are permanently falling
+3. Life expectency is rising (mortality is falling) -- `mortality` is permanently falling
+
+**Note** In this setup the births exogenous, and might be inconsistent with population size. It might be a good idea to make them proportional to the population (_birth rate_). The experiment could/should be: birth rate falls below replacement rate and goes back to replacement rate in 200 years.
 """
 
-# ╔═╡ 997d5d01-ab40-4ee6-85c4-6095566a30b8
+# ╔═╡ 3613c3de-8a41-44fb-a330-4d370534e7fb
+
+
+# ╔═╡ efb027b3-16a6-493e-bdcb-36a55e0a21b6
 md"""
-* all that's reaaly exported is `get_π_j` (formerly `pmf`)
+## Demographics
 """
 
-# ╔═╡ b56eaa24-9498-4521-896e-af3a00825904
-md"""
-# Compute distributions `π_j`, `π_jt`, `π_t`
-"""
-
-# ╔═╡ a97c1766-0bea-11f1-31a4-4167e9205749
-function get_π_j(m; births = nothing)
+# ╔═╡ 63916be1-9a19-48c3-864e-6ca8dab35419
+function pmf(m; births = nothing)
 	
 	j_dim =	DimensionalData.dims(m, :j)
 
@@ -61,132 +79,160 @@ function get_π_j(m; births = nothing)
 
 end
 
-# ╔═╡ 8a6e293b-7c6c-4f56-9535-c90db52cf8ce
-function get_π_t((; demographics, m₀, T̃))
-
-	pmf₀ = get_π_j(m₀)
-	births = pmf₀[j = At(0)]
-
-	π_t = @chain demographics begin
-		DataFrame
-		leftjoin(_, rename(DataFrame(m₀), :m => :m_baseline), on = :j)
-		@transform(:t = :j + :born)
-		@transform(:m_final = :t < 0 ? :m_baseline : :m)
-		@groupby(:born)
-		@transform(:π = @bycol cumprod([births; 1 .- :m_final])[begin:end-1])
-		@subset(0 ≤ :t ≤ T̃)
-		@groupby(:t)
-		@combine(:π = sum(:π))
-		DimVector([1.0; _.π], Dim{:t}(-1:T̃), name = :π_t)
-	end
-end
-
-# ╔═╡ 416cdbf4-c596-413d-99ee-ae096ada767b
-function get_π_jt_df((; demographics, m₀, T̃))
-	
-	pmf₀ = get_π_j(m₀)
-	births = pmf₀[j = At(0)]
-
-	@info births
-	
-	π_jt = @chain demographics begin
-		DataFrame
-		leftjoin(_, rename(DataFrame(m₀), :m => :m_baseline), on = :j)
-		@transform(:t = :j + :born)
-		@transform(:m_final = :t < 0 ? :m_baseline : :m)
-		@aside @test _.m ≈ _.m_final
-		@groupby(:born)
-		@transform(:π = @bycol cumprod([births; 1 .- :m_final])[begin:end-1])
-		@subset(0 ≤ :t ≤ T̃)
-		@groupby(:t) # new
-		@transform(:π = @bycol :π ./ sum(:π)) # new
-		
-		@select(:j, :born, :t, :π)
-	end
-end
-
-# ╔═╡ d8ebf3be-9ccd-49c2-b60e-8c16c025af55
-
-
-# ╔═╡ aa150685-59a8-4f60-99d3-33bfc2fc1646
-md"""
-# Tests
-"""
-
-# ╔═╡ 966d2c21-aacc-4bf1-9249-51a602a2bfad
-p_surv = DimVector(
+# ╔═╡ 77e0583d-f681-4390-8d08-46647be577e5
+p_surv₀ = DimVector(
 	[0.9945385, 0.9995935, 0.9997525, 0.999799, 0.999836, 0.9998605, 0.9998755, 0.999885, 0.99989, 0.99989, 0.999884, 0.9998745, 0.9998525, 0.9998115, 0.99975, 0.9996605, 0.999536, 0.9993885, 0.999241, 0.9991345, 0.99906, 0.998978, 0.9988925, 0.99881, 0.9987215, 0.998631, 0.9985435, 0.9984545, 0.998359, 0.998259, 0.998161, 0.9980625, 0.997962, 0.997868, 0.9977805, 0.997691, 0.9975995, 0.997493, 0.997366, 0.997226, 0.997077, 0.99692, 0.9967525, 0.9965905, 0.996419, 0.9962185, 0.995971, 0.995691, 0.9953685, 0.9950285, 0.994659, 0.9942635, 0.993815, 0.993334, 0.9927975, 0.9921995, 0.9915535, 0.9908825, 0.990155, 0.9893715, 0.988523, 0.987618, 0.9866885, 0.985767, 0.9848455, 0.983935, 0.982972, 0.9818665, 0.980645, 0.9793075, 0.9778105, 0.9760855, 0.9741015, 0.971813, 0.9691475, 0.9657655, 0.9623835000000001, 0.958681, 0.9545755, 0.9497485, 0.9445295, 0.9388595, 0.9326274999999999, 0.9255175, 0.9172435, 0.907863, 0.8973555, 0.885727, 0.873394, 0.859642, 0.844195, 0.827184, 0.8087880000000001, 0.78986, 0.7707634999999999, 0.7515835, 0.732595, 0.7140934999999999, 0.6963895, 0.6798, 0.662296, 0.6438275, 0.6243405, 0.6037785, 0.5820815, 0.559187, 0.5350275, 0.509533, 0.4826284999999999, 0.454237, 0.42427349999999997, 0.39265149999999993, 0.35927850000000006, 0.32405700000000004, 0.28970799999999997, 0.25419400000000003, 0.21690299999999996, 0.17774900000000005, 0.13663599999999998, 0.093468, 1.0],
 	Dim{:j}(0:120)
 )
 
-# ╔═╡ e44723a8-14cb-4c0b-8952-12fca614963d
-m_j_test = let
-	age_min = 0
-	age_max = 100
-	j_dim = Dim{:j}(age_min:age_max)
+# ╔═╡ 5c4b7935-c473-4d07-a99d-39bcd916b176
+p_surv(age) = p_surv₀[j = At(age)]
+
+# ╔═╡ 32734bd8-439f-48b3-9da2-dc31dcd8bee6
+dp_marcelo2 = [
+	0.000894302696081951, 0.000954208212234048, 0.000989840925560537, 0.000996522526309545, 0.00098215260061939,
+	0.000959551106572388, 0.000942388041116207, 0.000935533446389084, 0.000946822022702617, 0.00097378267030598,
+	0.00100754405484986,  0.0010463061900096,   0.00109701785072833, 0.00116237295935761,  0.00124365648706804,
+	0.00133574435463189,  0.0014410461391004,   0.0015673411143621, 0.00171380631074604,  0.0018736380419753,
+	0.00203766165711833,  0.00220659167333691,  0.00238942699716915, 0.00259301587170481,  0.00281861738406178,
+	0.00306417992710891,  0.00332180268908611,  0.00358900693685323, 0.00386267209667191,  0.00414777667611931,
+	0.00445827861595176,  0.00479990363846949,  0.00516531829562337, 0.00555390618653441,  0.00597132583819979,
+	0.00642322495833418,  0.00692461135042076,  0.00749557575640038, 0.0081595130519956,   0.00892672789984719,
+	0.00982654537395458,  0.010830689769232,    0.0118723751877809, 0.0128914065482476,   0.0139080330996353,
+	0.0150030256703387,   0.0162668251372316,   0.0176990779563976, 0.0193202301703282,   0.0211079685238627,
+	0.0229501723647085,   0.0249040093508705,   0.0271512342884117,   0.0297841240612845,   0.0327533107326732,
+	0.0358306701555879,   0.0389873634123265,   0.0425026123367764,   0.0465565209898809,   0.0511997331749049,
+	0.0563354044485466,   0.0618372727625817,   0.0678564046096954,   0.0745037414774353,   0.0819753395107449,
+	0.0896822973078052,   0.0980311248111166,   0.107059411952568,    0.116803935241159,    0.127299983985204,
+	0.138580592383723]
+
+# ╔═╡ 4bb64f09-3dd0-4962-8cd7-7b1fa8abde3c
+function mortality(model; m = 1/45, age_min = 0, age_max = 100)
+	J = age_max - age_min
+	j_dim = Dim{:j}(0:J)
 	
-	p₀ = p_surv[j = At(age_min:age_max-1)]
+	if model == :perpetual_youth
+		return DimVector([fill(m, J); 1.0], j_dim, name = :m)
+	elseif model == :lifecycle
+		ages = Dim{:age}(0:119)
+		p₀ = p_surv.(ages)
+		p₀ = p₀[age = At(age_min:age_max-1)]
+		J = length(p₀)
+		j_dim = Dim{:j}(0:J)
 		
-	DimVector([1 .- p₀; 1.0], j_dim, name = :m)
-end
-
-# ╔═╡ 80e83ba8-e591-41f3-9c91-5dc869dd1b17
-demographics_stationary = (;
-	m_j = m_j_test,
-	π_j = get_π_j(m_j_test)
-)
-
-# ╔═╡ 3b1d1c53-9db5-466b-86ff-60eca7e8db38
-md"""
-# Visualize
-"""
-
-# ╔═╡ 7fc54f06-e142-4f19-9fba-238c5fd8d95d
-
-
-# ╔═╡ 53127dd5-fb72-408f-8625-c1153fcd1112
-md"""
-# Appendix
-"""
-
-# ╔═╡ d1abc7fe-4af4-498e-999e-b4aae6abb022
-#=╠═╡
-TableOfContents()
-  ╠═╡ =#
-
-# ╔═╡ d7aa9304-a8b8-4b25-b7c2-60862880abb6
-md"""
-## Packages
-"""
-
-# ╔═╡ df39e3a5-c5bd-444e-9d4b-d6a55dbdf8f6
-const DD = DimensionalData
-
-# ╔═╡ 1293194d-24ad-41b6-a5a7-58cbfbbaa760
-function get_π_jt((; demographics, m₀, T̃))
-	
-	t_dim = Dim{:t}(0:T̃)
-	j_dim = DD.dims(m₀, :j)
-	
-	df = get_π_jt_df((; demographics, m₀, T̃))
-
-	@chain df begin
-		sparse(_.j .+ 1, _.t .+ 1, _.π)
-		Matrix
-		DimArray(_, (j_dim, t_dim), name = :π_jt)
+		return DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+	elseif model == :marcelo
+		J = length(dp_marcelo2)
+		return DimVector([dp_marcelo2; 1.0], Dim{:j}(0:J), name = :m)
+	else
+		@error "model ∉ [:perpetual_youth, :lifecycle]. Please fix!"
 	end
 	
 end
 
-# ╔═╡ 9ca740fb-66ad-42fb-b922-8e2ad7b9f1d0
-DD.dims(get_π_j(m_j_test), :j)
+# ╔═╡ 255ce278-0be0-11f1-0d95-4db85095c3a0
+m = mortality(:marcelo, age_min = 20, age_max = 91)
 
-# ╔═╡ 6ad0054a-13f7-462f-874e-2e30c80462bc
-m_jborn_test = let
-	scale_m = 0.5
-	T̃ = 30
+# ╔═╡ 2cadefad-d7e7-4a84-a917-424fd8d09cef
+md"""
+# Demograpic transition old
+"""
+
+# ╔═╡ 0f66687d-4d05-49c9-92b9-7b90810e79d2
+function prepend_one(p_surv)
+
+	cat(
+		DimVector(ones(1), Dim{:j}(0:0)),
+		p_surv, 
+		dims = :j
+	)
+end
+
+# ╔═╡ 11076a64-d695-4b69-b137-15dbba1ba28b
+function change_births(p_surv, births; name = :pmf_births)
+	p_surv = copy(p_surv)
+	p_surv[j = At(0)] = births
+
+	DimVector(cumprod(p_surv); name)
+end
+
+# ╔═╡ ccf90874-03e0-41fc-ab45-f6b68734ba03
+#=╠═╡
+function π_jborn_to_π_jt(π_jborn, T̃, J)
+	t_dim = Dim{:t}(0:T̃)
+	j_dim = Dim{:j}(0:J)
+
+	tmp = @chain π_jborn begin
+		DataFrame
+		@transform(:t = :j + :born)
+		@subset(0 ≤ :t ≤ T̃)
+	end
+
+	π_t = @chain tmp begin
+		@groupby(:t)
+		@combine(:pmf = sum(:pmf))
+		DimVector([1.0; _.pmf], Dim{:t}(-1:T̃), name = :π_t)
+	end
+
+	@chain tmp begin
+		@groupby(:t)
+		@combine(@assert length(:t) == J + 1)
+	end
 	
-	m₀ = m_j_test
+	π_jt = @chain tmp begin
+		sparse(_.j .+ 1, _.t .+ 1, _.pmf)
+		Matrix
+		DimArray(_, (j_dim, t_dim), name = :π_jt)
+	end
+
+	(; π_t, π_jt)
+end
+  ╠═╡ =#
+
+# ╔═╡ 36276ece-b4e8-418e-996f-809fed9665cc
+md"""
+# `get_pi_jt` from `egm-housing-risk.jl`
+"""
+
+# ╔═╡ 4207db9b-6f6c-46a9-bbd2-e001eb8bd868
+
+
+# ╔═╡ d3af61b1-8915-45b6-ae91-6eca275191ba
+
+
+# ╔═╡ a2aba978-6fac-4d4a-b91a-a7bad3fe9a2e
+
+
+# ╔═╡ 520fa404-b2c4-4112-baff-30dd6e281b39
+
+
+# ╔═╡ 09310959-3eb6-4767-bd8b-809ff9326a8d
+md"""
+# Appendix
+"""
+
+# ╔═╡ 1f3cd277-b5dd-4788-b98e-73a3b119b5b9
+#=╠═╡
+TableOfContents()
+  ╠═╡ =#
+
+# ╔═╡ 439f6b3c-9a48-4265-9d50-7cfd4741fc9f
+md"""
+## Packages
+"""
+
+# ╔═╡ 127f3d8b-6c4b-46f1-8c26-5013602e36b2
+#using QuantEcon: stationary_distributions
+
+# ╔═╡ 3c2913ea-f260-4fd0-b8e1-b2f1ffc037e4
+#using PlutoLinks: ingredients
+
+# ╔═╡ 22c96bb4-28a1-46b4-a9cd-48860571586e
+const DD = DimensionalData
+
+# ╔═╡ 7448be7b-ae9a-47ad-8b41-c81cf248a4b5
+demographic_transition(m; scale_m = 0.5, T̃ = 30) = let
+	m₀ = m
 	m₁ = scale_m * m₀
 	m₁[end] = 1.0
 		
@@ -196,41 +242,181 @@ m_jborn_test = let
 	borns = -J:1:T̃
 	born_dim = Dim{:born}(borns)
 	ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
-
-	for born in born_dim, j in j_dim
-		t = born + j
-		if t < 0
-			ms[born = At(born), j = At(j)] = m₀[j = At(j)]
-		end
-	end
-		
+	
 	demo = DimStack(ms, )
 end
 
-# ╔═╡ 55d7fbd1-60c4-47d7-a6e3-c592df8c1616
-let
-	demographics = m_jborn = m_jborn_test
-	m₀ = m_j = m_j_test
+# ╔═╡ 21c956dc-b3fa-4fa9-a0a1-b6a8955e71c3
+#=╠═╡
+@chain m begin
+	demographic_transition
+	DataFrame
+	@transform(:t = :j + :born)
+	@subset(:born ∈ [-71, 30])
+	unstack(:j, :born, :m)
+	#data(_) * mapping(:j, :m, color = :born => nonnumeric) * visual(Lines)
+	#draw
+end
+  ╠═╡ =#
 
-	π_t = @chain demographics begin
-		DataFrame
-		leftjoin(_, rename(DataFrame(m₀), :m => :m_baseline), on = :j)
-		@transform(:t = :j + :born)
-		
-	end
+# ╔═╡ 7b70797d-9e41-4d01-a651-545d31618985
+function stretch_mortality(p_surv, factor; births, pmf_name = :pmf, m_name = :m)
+	
+	js = DD.dims(p_surv, :j) |> collect #|> collect
+	m_itp = linear_interpolation(
+			js, 1 .- p_surv; extrapolation_bc = Flat()
+	)
+	
+	m_stretched =
+		m_itp.(factor .* js)
+
+	pₓ = prepend_one(1 .- m_stretched)
+	pₓ[j = At(0)] = births
+	
+	(; m = DimVector([m_stretched; 1.0], Dim{:j}(0:maximum(js)), name = m_name),
+	   pmf = DimVector(cumprod(pₓ); name = pmf_name))
+
 end
 
-# ╔═╡ 36483e0b-cca9-4552-ba64-8a0d2a36a17d
-demographics_transition = (; 
-	m_jborn = m_jborn_test, 
-	π_jt    = get_π_jt((; demographics = m_jborn_test, m₀ = m_j_test, T̃=30)),
-	π_t     = get_π_t((; demographics = m_jborn_test, m₀ = m_j_test, T̃=30))
-)
+# ╔═╡ d9d9582a-2acb-425b-b71f-a01bfbafeb04
+#=╠═╡
+function get_demographics(scenario, T̃; age_min, age_max)
 
-# ╔═╡ 0dd4c393-4eb3-446f-85d6-5e611fabeb2e
-get_π_jt((; demographics = m_jborn_test, m₀ = m_j_test, T̃ = 30))
+	if scenario ∉ [:baby_boom, :births_down, :mortality_down]
+		throw(ArgumentError("scenario must be in [:baby_boom, :births_down, :mortality_down]"))
+	end
+	
+	ages = Dim{:age}(0:119)
+	p₀ = p_surv.(ages)
+	p₀ = p₀[age = At(age_min:age_max-1)]
+	J = length(p₀)
 
-# ╔═╡ 5c9701eb-43df-42d9-b2b4-aee458ec16ca
+	borns = -J:T̃
+	
+	j_dim = Dim{:j}(0:J)
+	m_baseline = DimVector([1 .- p₀; 1.0], j_dim, name = :m) # correct indexing for mortality
+	pₓ = DimVector(p₀, Dim{:j}(1:J)) # shifted indexing for pmf
+	p₊ = prepend_one(pₓ)
+		
+
+	pmf_baseline = cumprod(p₊)
+	pmf_baseline = pmf_baseline ./ sum(pmf_baseline)
+	@info @test sum(pmf_baseline) ≈ 1.0
+	births_baseline = pmf_baseline[j = At(0)]
+	p₊[j = At(0)] = births_baseline
+	j₊_dim = DD.dims(p₊, :j)
+	j₊s = collect(collect(j₊_dim))
+	
+	pmf_baseline  = change_births(p₊, 1.0 * births_baseline, name = :pmf)
+	
+	
+	born_dim = Dim{:born}(borns)
+	
+	if scenario == :baby_boom
+		pmf_scenario  = change_births(p₊, 1.25 * births_baseline, name = :pmf)
+		
+		pmfs = cat(
+			(10 < born ≤ 30 ? pmf_scenario : pmf_baseline for born ∈ borns)...,
+			dims = born_dim
+		)
+
+		ms = cat(fill(m_baseline, born_dim)..., dims = :born)
+		
+	elseif scenario == :births_down
+		pmf_scenario = change_births(p₊, 0.75 * births_baseline, name = :pmf)
+		
+		pmfs = cat(
+			(born > 0 ? pmf_scenario : pmf_baseline for born ∈ borns)...,
+			dims = born_dim
+		)
+		
+		ms = cat(fill(m_baseline,   born_dim)..., dims = :born)
+		
+	elseif scenario == :mortality_down
+		stretch_factor = 0.8
+		stretched = stretch_mortality(
+			pₓ, stretch_factor; births = births_baseline
+		)
+		pmf_scenario = stretched.pmf
+		p_scenario   = stretched.m
+
+		pmfs = cat(
+			(born > 0 ? pmf_scenario : pmf_baseline for born ∈ borns)...,
+			dims = born_dim
+		)
+
+		ms = cat(
+			(born > 0 ? p_scenario : m_baseline for born ∈ borns)...,
+			dims = born_dim
+		)
+	end
+
+	m_jborn = ms
+	π_jborn = pmfs
+	
+	(; π_jt, π_t) = π_jborn_to_π_jt(π_jborn, T̃, J)
+	
+	(; m_jborn, π_jt, π_t)
+end
+  ╠═╡ =#
+
+# ╔═╡ fc7948c0-fa57-43dc-b73f-360d0b66b179
+#=╠═╡
+get_demographics(:baby_boom, 50; age_min = 25, age_max = 120)
+  ╠═╡ =#
+
+# ╔═╡ 70c4cc44-185e-4b70-986a-78fc04deedf1
+#=╠═╡
+@chain :mortality_down begin
+	get_demographics(_, -10:50; age_min = 25, age_max = 120)
+	DataFrame
+	@transform(:t = :j + :born)
+	data(_) * mapping(:t, :pmf, group = :born) * visual(Lines)
+	draw
+end
+  ╠═╡ =#
+
+# ╔═╡ e974c85d-b810-4d3c-80d6-43e83cd4e3fa
+#=╠═╡
+function visualize_demographics(scenario)
+	f = Figure(size = (600, 200))
+	borns = -100:200
+	demographics = get_demographics(scenario, borns; age_min = 25, age_max = 120)
+	
+	@chain demographics begin
+		DataFrame
+		@subset(:j == 0)
+		lines(f[1,1], _.born, _.pmf, axis = (; title = "$scenario: births"))
+	end
+
+	@chain demographics begin
+		DataFrame
+
+		@groupby(:t = :born + :j)
+		@combine(:population = sum(:pmf))
+		@subset(0 ≤ :t ≤ 100)
+		#@sort(:t)
+		lines(f[1,2], _.t, _.population, axis = (; title = "population"))
+	end
+
+	@chain demographics begin
+		DataFrame
+		
+		@transform(:t = :born + :j)
+		#@combine(:population = sum(:pmf))
+		@subset(:born ∈ [-10, 0, 10, 20], :j < 50)
+		data(_) * mapping(:j, :m => "", 
+			color     = :born => nonnumeric,
+			linestyle = :born => nonnumeric,
+		) * visual(Lines)
+		draw!(f[1,3], _, axis = (; title = "mortality"))
+	end
+	
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ e78f880b-82ed-4ccc-abf2-cd6041637b37
 #=╠═╡
 function visualize_demographics(m_jborn, π_jt)
 	T̃ = DD.dims(π_jt, :t) |> maximum
@@ -259,7 +445,7 @@ function visualize_demographics(m_jborn, π_jt)
 	@chain m_jborn begin
 		DataFrame
 		
-		@subset(:born ∈ [-100, -90, -50, 0, 10])
+		@subset(:born ∈ [-100, -90, -50, 0, 5, 10, 20, 30])
 		#unstack(:born, :m)
 		data(_) * mapping(:j, :m => "", 
 			color     = :born => nonnumeric,
@@ -273,16 +459,107 @@ function visualize_demographics(m_jborn, π_jt)
 end
   ╠═╡ =#
 
-# ╔═╡ 1549afc8-fbd8-4535-80f4-14ac02bb4929
+# ╔═╡ 2eeb6520-2379-4c28-a797-7bade488f821
 #=╠═╡
-let	
-	#m_jborn = demographics_test
-	T̃ = 30
-	π_jt = get_π_jt((; demographics = m_jborn_test, m₀ = m_j_test, T̃))
+visualize_demographics(:baby_boom)
+  ╠═╡ =#
 
-	π_jt
+# ╔═╡ fb96f392-23d3-4633-8675-5bedbf289280
+#=╠═╡
+visualize_demographics(:births_down)
+  ╠═╡ =#
+
+# ╔═╡ 110254e7-bd84-458b-9e1e-4f5aea84cb2d
+#=╠═╡
+visualize_demographics(:mortality_down)
+  ╠═╡ =#
+
+# ╔═╡ c837bed5-fa65-4ea3-8806-27a82c2662c9
+#=╠═╡
+let
+	(; m_jborn, π_jt) = get_demographics(:baby_boom, 120; age_min = 25, age_max = 120)
+
+	visualize_demographics(m_jborn, π_jt)
+end
+  ╠═╡ =#
+
+# ╔═╡ 8de62337-955a-41b9-843d-6ef4bdf4f9ec
+#=╠═╡
+let
+	(; m_jborn, π_jt) = get_demographics(:mortality_down, 120; age_min = 25, age_max = 120)
+
+	visualize_demographics(m_jborn, π_jt)
+end
+  ╠═╡ =#
+
+# ╔═╡ 9a43e659-5557-4baa-8e41-1c54a0930b72
+#=╠═╡
+let
+	(; m_jborn, π_jt) = get_demographics(:births_down, 120; age_min = 25, age_max = 120)
+
+	visualize_demographics(m_jborn, π_jt)
+end
+  ╠═╡ =#
+
+# ╔═╡ ba0a8c97-a8a3-4674-b927-6a2e7f880ec2
+#=╠═╡
+let
+	ages = Dim{:age}(0:119)
+	p₀ = p_surv.(ages)
+	p₀ = p₀[age = At(25:119)]
+	J = length(p₀)
+
+	j_dim = Dim{:j}(0:J)
+	p  = DimVector([p₀; 1.0], j_dim, name = :p) # correct indexing for mortality
+	pₓ = DimVector(p₀, Dim{:j}(1:J)) # shifted indexing for pmf
+	p₊ = prepend_one(pₓ)
+		
+
+	pmf_baseline = cumprod(p₊)
+	pmf_baseline = pmf_baseline ./ sum(pmf_baseline)
+	@info @test sum(pmf_baseline) ≈ 1.0
+	births_baseline = pmf_baseline[j = At(0)]
+	p₊[j = At(0)] = births_baseline
+	j₊_dim = DD.dims(p₊, :j)
+	j₊s = collect(collect(j₊_dim))
 	
-	visualize_demographics(m_jborn_test, π_jt)
+	pmf_baseline  = change_births(p₊, 1.0 * births_baseline, name = :baseline)
+	pmf_babyboom  = change_births(p₊, 1.1 * births_baseline, name = :babyboom)
+	pmf_babybust  = change_births(p₊, 0.9 * births_baseline, name = :babybust)
+	stretch_factor = 0.891224784055744
+	stretched = stretch_mortality(pₓ, stretch_factor; births = births_baseline, pmf_name = "longer lived")
+
+	@info "the change in life expectancy is $(
+		mean(j₊s, weights(stretched.pmf)) / mean(j₊s, weights(pmf_baseline)) - 1
+	)"
+	
+	fig = @chain DimStack(pmf_baseline, pmf_babyboom, stretched.pmf, pmf_babybust) begin
+		DataFrame
+		stack(Not(:j))
+		data(_) * mapping(:j => L"age $j$", 
+			:value => "mass", 
+			color = :variable => "scenario"
+		) * visual(Lines)
+		draw(; figure = (; title = "Age distribution (pmf) by cohort"))
+	end
+	@info fig
+
+	@chain DimStack(stretched.m, p) begin
+		DataFrame
+		stack(Not(:j))
+		data(_) * mapping(:j, :value, color = :variable) * visual(Lines)
+		draw(; figure = (; title = "bla"))
+	end
+
+	borns = -1:100
+	# baby boom :-)
+	pmfs = cat(
+		(10 < born < 20 ? pmf_babyboom : pmf_baseline for born ∈ borns)...,
+		dims = Dim{:born}(borns))
+
+	p_survs = cat(fill(p, Dim{:born}(borns))..., dims = :born)
+
+	demo = (; pmfs, p_survs)
 end
   ╠═╡ =#
 
@@ -295,9 +572,12 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 AlgebraOfGraphics = "~0.11.10"
@@ -306,8 +586,10 @@ Chain = "~1.0.0"
 DataFrameMacros = "~0.4.1"
 DataFrames = "~1.8.1"
 DimensionalData = "~0.29.26"
+Interpolations = "~0.16.2"
 PlutoTest = "~0.2.4"
 PlutoUI = "~0.7.79"
+StatsBase = "~0.34.10"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -316,7 +598,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.10"
 manifest_format = "2.0"
-project_hash = "c2b93a091853223add74afa074c2ac46339dbba8"
+project_hash = "a8c22dd05e6fd42173cc4a6bc6f28436bf6cf7f7"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -2097,36 +2379,53 @@ version = "4.1.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─03cb8b54-b09a-4e0b-a514-13b3d15564cb
-# ╠═997d5d01-ab40-4ee6-85c4-6095566a30b8
-# ╟─b56eaa24-9498-4521-896e-af3a00825904
-# ╠═a97c1766-0bea-11f1-31a4-4167e9205749
-# ╠═1293194d-24ad-41b6-a5a7-58cbfbbaa760
-# ╠═8a6e293b-7c6c-4f56-9535-c90db52cf8ce
-# ╠═55d7fbd1-60c4-47d7-a6e3-c592df8c1616
-# ╠═416cdbf4-c596-413d-99ee-ae096ada767b
-# ╠═ce8eeee5-5c22-4d16-b7b8-a16b6a89b5a9
-# ╠═80e83ba8-e591-41f3-9c91-5dc869dd1b17
-# ╠═36483e0b-cca9-4552-ba64-8a0d2a36a17d
-# ╠═d8ebf3be-9ccd-49c2-b60e-8c16c025af55
-# ╟─aa150685-59a8-4f60-99d3-33bfc2fc1646
-# ╠═9ca740fb-66ad-42fb-b922-8e2ad7b9f1d0
-# ╠═0dd4c393-4eb3-446f-85d6-5e611fabeb2e
-# ╠═6ad0054a-13f7-462f-874e-2e30c80462bc
-# ╠═e44723a8-14cb-4c0b-8952-12fca614963d
-# ╠═966d2c21-aacc-4bf1-9249-51a602a2bfad
-# ╠═3b1d1c53-9db5-466b-86ff-60eca7e8db38
-# ╠═1549afc8-fbd8-4535-80f4-14ac02bb4929
-# ╠═7fc54f06-e142-4f19-9fba-238c5fd8d95d
-# ╠═5c9701eb-43df-42d9-b2b4-aee458ec16ca
-# ╟─53127dd5-fb72-408f-8625-c1153fcd1112
-# ╠═6b64b9fd-5dd9-4c50-b5be-7d4d380d8a4e
-# ╠═d1abc7fe-4af4-498e-999e-b4aae6abb022
-# ╠═d7aa9304-a8b8-4b25-b7c2-60862880abb6
-# ╠═315ff198-9dad-42a4-a190-909e7e6c5045
-# ╠═df39e3a5-c5bd-444e-9d4b-d6a55dbdf8f6
-# ╠═dcd47f4d-0edc-4332-a792-f381ad9c54d6
-# ╠═5cdc862c-cf2f-4536-ab1f-14fc12026d9e
-# ╠═c9627465-f18f-45d2-90a9-ca2a0aa8a526
+# ╟─8d35e241-fda7-44a2-b19f-cce306264514
+# ╠═7448be7b-ae9a-47ad-8b41-c81cf248a4b5
+# ╠═21c956dc-b3fa-4fa9-a0a1-b6a8955e71c3
+# ╠═255ce278-0be0-11f1-0d95-4db85095c3a0
+# ╠═3613c3de-8a41-44fb-a330-4d370534e7fb
+# ╠═efb027b3-16a6-493e-bdcb-36a55e0a21b6
+# ╠═63916be1-9a19-48c3-864e-6ca8dab35419
+# ╠═4bb64f09-3dd0-4962-8cd7-7b1fa8abde3c
+# ╠═5c4b7935-c473-4d07-a99d-39bcd916b176
+# ╠═77e0583d-f681-4390-8d08-46647be577e5
+# ╠═32734bd8-439f-48b3-9da2-dc31dcd8bee6
+# ╠═2cadefad-d7e7-4a84-a917-424fd8d09cef
+# ╠═d9d9582a-2acb-425b-b71f-a01bfbafeb04
+# ╠═0f66687d-4d05-49c9-92b9-7b90810e79d2
+# ╠═11076a64-d695-4b69-b137-15dbba1ba28b
+# ╠═7b70797d-9e41-4d01-a651-545d31618985
+# ╠═fc7948c0-fa57-43dc-b73f-360d0b66b179
+# ╠═70c4cc44-185e-4b70-986a-78fc04deedf1
+# ╠═2eeb6520-2379-4c28-a797-7bade488f821
+# ╠═fb96f392-23d3-4633-8675-5bedbf289280
+# ╠═110254e7-bd84-458b-9e1e-4f5aea84cb2d
+# ╠═e78f880b-82ed-4ccc-abf2-cd6041637b37
+# ╠═a3de9e35-b69b-4174-a6bf-3ae1fb21966c
+# ╠═c837bed5-fa65-4ea3-8806-27a82c2662c9
+# ╠═8de62337-955a-41b9-843d-6ef4bdf4f9ec
+# ╠═9a43e659-5557-4baa-8e41-1c54a0930b72
+# ╠═ccf90874-03e0-41fc-ab45-f6b68734ba03
+# ╠═e974c85d-b810-4d3c-80d6-43e83cd4e3fa
+# ╠═ba0a8c97-a8a3-4674-b927-6a2e7f880ec2
+# ╠═36276ece-b4e8-418e-996f-809fed9665cc
+# ╠═4207db9b-6f6c-46a9-bbd2-e001eb8bd868
+# ╠═d3af61b1-8915-45b6-ae91-6eca275191ba
+# ╠═a2aba978-6fac-4d4a-b91a-a7bad3fe9a2e
+# ╠═520fa404-b2c4-4112-baff-30dd6e281b39
+# ╟─09310959-3eb6-4767-bd8b-809ff9326a8d
+# ╠═663e9d66-24c1-432a-b608-64808e333103
+# ╠═1f3cd277-b5dd-4788-b98e-73a3b119b5b9
+# ╟─439f6b3c-9a48-4265-9d50-7cfd4741fc9f
+# ╠═56a3cbc8-4d5c-42dc-83a7-7ff8c0e0ec06
+# ╠═127f3d8b-6c4b-46f1-8c26-5013602e36b2
+# ╠═e4bbae5b-3aa8-4ea9-b694-e583fe5bac3e
+# ╠═37eedce9-8dba-4b9a-9765-0ce9f7c53af9
+# ╠═4c80e592-0777-4f39-a7d5-11ad15ec2253
+# ╠═3c2913ea-f260-4fd0-b8e1-b2f1ffc037e4
+# ╠═dd3c5d00-198b-408f-ab8f-8c054c13cc15
+# ╠═22c96bb4-28a1-46b4-a9cd-48860571586e
+# ╠═74d09f13-b894-425e-8d1b-475c58ce9530
+# ╠═a66d5028-9a26-40c0-a3c4-8c4ff60ba602
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
