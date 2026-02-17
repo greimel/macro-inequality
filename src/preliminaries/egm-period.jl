@@ -49,6 +49,24 @@ using Statistics: mean
 # ╔═╡ 5641018b-f5ff-42aa-a153-83c2da5eea88
 using PlutoLinks: ingredients, @ingredients
 
+# ╔═╡ 6355f453-5406-4899-a92e-9be360e9629e
+EGMHousingRisk = ingredients("./egm-housing-risk.jl")
+
+# ╔═╡ 441c1d74-5bbb-45f8-a150-4a66a5d51379
+(; HousingModel, stationary_GE, stationary_PE, transition_PE, transition_GE) = EGMHousingRisk
+
+# ╔═╡ 6d7c2f32-6b22-4c72-87ee-5d71aa4fa60a
+(; mortality, no_inheritances, trivial_initial_distribution, income_profile, no_income_risk, no_permanent_states, Statespace, get_par₀, visualize_stationary, permanent_states_AMMR, ε_chain_AMMR, dimstack_from_nt) = EGMHousingRisk
+
+# ╔═╡ dcccf82a-e6f0-423d-b445-e09f7054caa4
+(; weighted_neighbours) = EGMHousingRisk
+
+# ╔═╡ a4342153-d03e-42f5-9448-b3ff632672ea
+(; inheritances_stationary) = EGMHousingRisk
+
+# ╔═╡ d0fbd753-27d5-4649-82b1-05a3e1cba2f8
+(; get_states, prices_from_guesses_nt, constant_price_paths) = EGMHousingRisk
+
 # ╔═╡ 5b17de62-1261-48f4-9e6f-e3d75643403a
 AdjustPeriod = ingredients("./adjust-period.jl")
 
@@ -373,6 +391,9 @@ md"""
 ## End
 """
 
+# ╔═╡ 18070fd0-a0ce-4e28-ad5a-a39568460f43
+income_profile(90, 89) |> lines
+
 # ╔═╡ fea217b0-a5b9-4379-834b-393a2d0ad05e
 
 
@@ -421,27 +442,6 @@ out_18_noh = transition_test(18, guesses_trans=guesses_18_noh, tol_stat = 1e-12,
 #=╠═╡
 out_18 = transition_test(18, guesses_trans=guesses_18, tol_stat = 1e-12, tol_trans = 1e-4) # 575 s
   ╠═╡ =#
-
-# ╔═╡ 6355f453-5406-4899-a92e-9be360e9629e
-EGMHousingRisk = ingredients("./egm-housing-risk.jl")
-
-# ╔═╡ 441c1d74-5bbb-45f8-a150-4a66a5d51379
-(; HousingModel, stationary_GE, stationary_PE, transition_PE, transition_GE) = EGMHousingRisk
-
-# ╔═╡ a4342153-d03e-42f5-9448-b3ff632672ea
-(; inheritances_stationary) = EGMHousingRisk
-
-# ╔═╡ d0fbd753-27d5-4649-82b1-05a3e1cba2f8
-(; get_states, prices_from_guesses_nt, constant_price_paths) = EGMHousingRisk
-
-# ╔═╡ 6d7c2f32-6b22-4c72-87ee-5d71aa4fa60a
-(; mortality, no_inheritances, trivial_initial_distribution, income_profile, no_income_risk, no_permanent_states, Statespace, get_par₀, visualize_stationary, permanent_states_AMMR, ε_chain_AMMR, dimstack_from_nt) = EGMHousingRisk
-
-# ╔═╡ 18070fd0-a0ce-4e28-ad5a-a39568460f43
-income_profile(90, 89) |> lines
-
-# ╔═╡ dcccf82a-e6f0-423d-b445-e09f7054caa4
-(; weighted_neighbours) = EGMHousingRisk
 
 # ╔═╡ cb517530-9ce3-4774-b6ed-ce2d636cb765
 function sprint_matrix(mat)
@@ -550,305 +550,6 @@ function solve_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.0,
 	@info (; r = (1 + r)^(1/period)-1, K_hh, ℓ_eff = ℓ_eff / period)
 
 	(; GE, statespace)
-end
-  ╠═╡ =#
-
-# ╔═╡ a1a3aa17-a3c0-4503-910a-3caec607e9a6
-#=╠═╡
-let # test `iterate_cross_sectional_shock!`
-	
-	(; GE, statespace) = out_GE
-	(; sim_df, prices, par, sols) = GE
-
-	(; sol) = sols[1]
-	
-	(; π) = sol.sol_forward
-	(; sol_backward) = sol
-	(; m) = par
-
-	π₋₁ = copy(π, name = :π₋₁)
-	π₀  = zeros(DD.dims(π₋₁), name = :π₀)
-
-	prices₀ = prices #(; prices.r, prices.w, p= * prices.p)
-	
-	iterate_cross_sectional_shock!(π₀, π₋₁, sol_backward, statespace, (; m), prices₀, par)
-
-	@chain DimStack(sol_backward..., π₀, π₋₁) begin
-		DataFrame
-		@groupby(:j)
-		@combine(
-			:π₋₁ = mean(:π₋₁),
-			:π₀  = mean(:π₀),
-			:test = all(:π₋₁ ≈ :π₀)
-		)
-		@test all(_.test)
-	end
-end
-  ╠═╡ =#
-
-# ╔═╡ fe5d9a4a-6169-4090-828b-44d0367ea949
-
-
-# ╔═╡ cf4f7625-a10c-4ccc-b259-b1e538e91246
-# ╠═╡ disabled = true
-#=╠═╡
-out_GE = solve_test(36; guesses = (K_supply = 5.00, H_hh = 1.0, L_eff = 1.6), na = 200, ξ = 0.15, λ = 0.01)
-  ╠═╡ =#
-
-# ╔═╡ 408a192f-0844-4fa4-a58e-45498f9b3bbf
-#=╠═╡
-out_no_risk
-  ╠═╡ =#
-
-# ╔═╡ 0ff31629-855a-49a3-9b7d-cf4316c809da
-#=╠═╡
-let
-	# XXXX
-	(; GE) = out_no_risk
-	
-	(; sim_df, par) = GE
-
-	@chain sim_df begin
-		leftjoin(_, DataFrame(par.β), on = :j)
-		@groupby(:j)
-		@combine(
-			:state = mean(:state, weights(:π)),
-			:next_state = mean(:next_state, weights(:π)),
-			:utility = mean(:utility, weights(:π)),
-			:value = mean(:value, weights(:π)),
-			:next_value = mean(:next_value, weights(:π)),
-			:π = sum(:π),
-			:m = only(unique(:m)),
-			:β = only(unique(:β)),
-			:β_over_β = only(unique(:β_over_β))
-		)
-		@transform(
-			#:next_value = :next_value / (1-:m),
-			:test = :utility + :β_over_β * (1 - :m) * :next_value - :value)
-#		@transform(:test - :value)
-		#@combine(sum(:β .* :π .* :utility))
-		#@info _
-	end
-
-	#=@chain sim_df begin
-		@subset(:j == 0)
-		@combine(mean(:value, weights(:π)))
-		@info _
-	end=#
-end
-
-  ╠═╡ =#
-
-# ╔═╡ f31b04f7-c119-4993-9e3d-f83d6bdce4be
-#=╠═╡
-let
-	(; df, par) = out2
-	(; value, utility, β_over_β, m, π) = df
-
-	j_min = 0
-	j_max = par.J + 1 - j_min
-	
-	l_surv = [1.0; df.surv[1:end-1]]
-	β_over_βX = [1.0; β_over_β]
-	
-	@info @test value[j_max] ≈ utility[j_max]
-	@info @test value[j_max-1] ≈ utility[j_max-1] + l_surv[j_max] * β_over_βX[j_max] * value[j_max]
-	#@info @test value[17] ≈ utility[17] + l_surv[18] * β_over_βX[18] * utility[18]
-	#@info @test value[16] ≈ utility[16] + l_surv[17] * β_over_βX[17] * value[17]
-	#@info @test value[16] ≈ 
-	#	 prod(l_surv[17:16]) * prod(β_over_βX[17:16]) * utility[16] + 
-	#	 prod(l_surv[17:17]) * prod(β_over_βX[17:17]) * utility[17] + 
-	#	 prod(l_surv[17:18]) * prod(β_over_βX[17:18]) * utility[18]
-
-	i = 1
-	value[i] ≈ sum(
-		 prod(l_surv[(i+1):j]) * prod(β_over_βX[i+1:j]) * utility[j] for j ∈ i:18
-	)
-
-	@info @test value[1] ≈ sum(
-		cumprod(l_surv)[j] * cumprod(β_over_βX)[j] * utility[j] for j ∈ 1:18
-	)
-	@info @test value[1] ≈ sum(
-		π[j] * cumprod(β_over_βX)[j] * utility[j] for j ∈ 1:18
-	)
-	value[16]
-
-	cumprod(β_over_β)
-	i = 1
-	j = 1
-	prod(β_over_β[i:(j-1)])#, #cumprod(β_over_β)[j - 1]
-
-	
-	
-end
-  ╠═╡ =#
-
-# ╔═╡ 34280c20-950c-4083-948b-98e8edce0724
-#=╠═╡
-out2 = let
-	(; GE) = out_GE
-	(; sim_df, par) = GE
-	(; ξ, σ) = par
-
-	df = @chain sim_df begin
-		#DataFrame
-		leftjoin(DataFrame(par.β), on = :j)
-		leftjoin(rename(DataFrame(par.ξ), :value => :ξ), on = :j)
-		
-		@groupby(:j)
-			@combine(
-				:utility = mean(:utility, weights(:π)),
-				:β = only(unique(:β)),
-				:π = sum(:π),
-				:next_value = mean(:next_value, weights(:π)),
-				:β_over_β = only(unique(:β_over_β)),
-				:m = only(unique(:m)),
-				:value = mean(:value, weights(:π))
-			)
-			@transform(
-				:surv = 1 - :m,
-				:lsurv = @bycol [1.0; 1 .- :m[1:end-1]]
-			)
-			@transform(
-				:test = :utility + :β_over_β * :surv * :next_value,
-				:cum_surv = @bycol(cumprod(:surv)),
-				:cum_lsurv = @bycol(cumprod(:lsurv))
-			)
-			@transform(
-				:βX = @bycol cumprod([1.0; :β_over_β[1:end-1]])
-			)
-		
-			end
-
-	(; df, par)
-end
-  ╠═╡ =#
-
-# ╔═╡ 6cf01d9d-f444-400a-9700-3e3e55cc1727
-#=╠═╡
-df = let
-	out = out_GE
-
-	(; sim_df, par) = out.GE
-
-	#par.β, [0.995^j for j ∈ 0:(4*18)-1]
-
-	#par.β,
-	tmp = [0.995^j for j ∈ 0:(4*18)-1][4:4:end]
-
-	β_over_β = tmp[10]/tmp[9] 
-	@info @test β_over_β ≈ tmp[2]/tmp[1]
-
-	(; ξ, σ) = par
-
-	ξ, σ
-	df = @chain sim_df begin
-		#DataFrame
-		leftjoin(DataFrame(par.β), on = :j)
-		leftjoin(rename(DataFrame(par.ξ), :value => :ξ), on = :j)
-		@transform(
-			#:u = :co^(1-σ)/(1-σ),
-			#:β2 = 0.995 ^ 3
-		)
-		
-		@transform(
-			#:βu = :β * :u,
-			#:β2u = β_over_β * :u,
-			#:β3u = :β_over_β * :u,
-			
-		)
-		#@select(:value, :u, :u2=:utility, :j, :state, :next_state, :βu, :β2u, :β3u, :π, :β, :m)
-
-		#@transform(:tmp = :j == 17 ? :u : β_over_β * :u)
-		#@groupby(:j)
-		#@combine(
-		#	:v = mean(:value, weights(:π)),
-		#	:u = mean(:u, weights(:π)),
-		#	:π = sum(:π),
-		#	:m = only(unique(:m))
-		#)
-		#@select(:u, :j, :π)
-
-		
-		@aside @chain _ begin
-			@subset(:j == 0, :π > 0)
-		
-			@combine(
-				:v = mean(:value, weights(:π))
-			)
-			@info _
-		end
-		
-		
-		#@aside @chain _ begin
-			@groupby(:j)
-			@combine(
-				:utility = mean(:utility, weights(:π)),
-				:β = only(unique(:β)),
-				:π = sum(:π),
-				:next_value = mean(:next_value, weights(:π)),
-				:β_over_β = only(unique(:β_over_β)),
-				:m = only(unique(:m)),
-				:value = mean(:value, weights(:π))
-			)
-			@transform(
-				:surv = 1 - :m,
-				:lsurv = @bycol [1.0; 1 .- :m[1:end-1]]
-			)
-			@transform(
-				:test = :utility + :β_over_β * :surv * :next_value,
-				:cum_surv = @bycol(cumprod(:surv)),
-				:cum_lsurv = @bycol(cumprod(:lsurv))
-			)
-			@transform(
-				:βX = @bycol cumprod([1.0; :β_over_β[1:end-1]])
-			)
-			@aside @chain _ begin
-				@combine(:value_by_hand = sum(:βX .* :utility .* :π))
-				@info _
-			end
-			#@info _
-		#end
-
-		
-		
-		#@transform(:check = :value - :u)
-		#@combine(maximum(:check))
-		
-		
-		#=
-		@subset(:j ≥ 16, :π > 0)
-		#@aside @chain _ begin
-			#@select(:j, :u, :value, :βu, :π, :\b)
-			@groupby(:j)
-			@combine(
-				:value = mean(:value, weights(:π)),
-				:u = mean(:u, weights(:π)),
-				:u2 = mean(:utility, weights(:π)),
-				:βu = mean(:βu, weights(:π)),
-				:β_over_βu = β_over_β * mean(:u, weights(:π)),
-				:β_over_βu2 = mean(:β_over_β .* :u, weights(:π)),
-				:survβ_over_βu = β_over_β * mean((1 .- :m) .* :u, weights(:π)),
-				:π = sum(:π),
-				:β = only(unique(:β))
-			)
-		#	@info _
-		#end
-		=#
-
-		
-		#@subset(:j == 0, :π > 0)
-		
-		#@combine(
-		#	:v = mean(:value, weights(:π))
-		#)
-		
-	end
-		
-
-	#@chain df begin
-	#	@transfrom(:u = )
-	# =#
 end
   ╠═╡ =#
 
@@ -979,52 +680,6 @@ function sprint_solution(out_trans)
 
 	
 	"(; \n" * stationary * ",\n" * transition * ",\n" * inheritances_θ * ",\n" * inheritances_θt *"\n)" |> Base.Text
-end
-
-# ╔═╡ 2e6a5fc2-ccc9-4afd-95ea-349856d86e86
-function iterate_cross_sectional_shock!(π₀, π₋₁, sol_backward, statespace, (; m), prices₀, par₀; π_init = π₋₁[j = At(0)])
-	# assume the economy was in steady state up until period -1
-	# in period 0 there is a probability-zero-shock
-	# πₜ are interpreted as cross-sectional distributions in periods t ∈ {-1, 0}
-
-	# the code is very similar to "solve_forward"
-	(; p, r) = prices₀
-	(; δ) = par₀
-
-	policy = DimStack(sol_backward...)
-	j₀, J = extrema(DD.dims(policy, :j))
-
-	(; states) = statespace
-	P = statespace.P_from
-
-	π₀[j = At(0)] .= π_init
-	
-	for j ∈ 0:(J-1)
-		# find all states with positive mass
-		positive_mass = findall(@view(π₋₁[j = At(j)]) .> 0)
-	
-		for ind ∈ positive_mass
-			# for each such state ...
-			
-			## 1. find optimal policy
-			(; state, ε) = states[ind]
-
-			#### ADAPTED ####
-			(; ho, a_next) = policy[j = At(j), state = At(state), ε = At(ε)]
-			state_n = a_next + (1-δ)/(1+r) * p * ho
-			#################
-			
-			## 2. find closest points on grid
-			(; high, low) = weighted_neighbours(state_n, statespace.grid)
-
-			## 3. compute probability mass for states in j + 1
-			π_base = π₋₁[j = At(j)][ind] * (1 - m[j = At(j)])
-			π₀[j = At(j+1), state = At(high.x)] .+= π_base .* high.weight .* P[from = At(ε)]
-			π₀[j = At(j+1), state = At(low.x)]  .+= π_base .* low.weight .* P[from = At(ε)]
-		end
-	end
-
-	π₀
 end
 
 # ╔═╡ e123bf7f-7113-44e0-a955-d20520f84872
@@ -3965,15 +3620,16 @@ version = "4.1.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═6355f453-5406-4899-a92e-9be360e9629e
 # ╠═441c1d74-5bbb-45f8-a150-4a66a5d51379
+# ╠═6d7c2f32-6b22-4c72-87ee-5d71aa4fa60a
+# ╠═dcccf82a-e6f0-423d-b445-e09f7054caa4
 # ╠═a4342153-d03e-42f5-9448-b3ff632672ea
 # ╠═d0fbd753-27d5-4649-82b1-05a3e1cba2f8
 # ╠═5b17de62-1261-48f4-9e6f-e3d75643403a
 # ╠═e83c948b-3d86-4350-ab68-ed1d5ed63a57
 # ╠═e5b31309-a7cb-43e5-8173-f5ed8bbf316e
 # ╠═b0b92aec-7643-47b7-a0fc-b44637a6fe91
-# ╠═6d7c2f32-6b22-4c72-87ee-5d71aa4fa60a
-# ╠═dcccf82a-e6f0-423d-b445-e09f7054caa4
 # ╠═236eb5d3-65c2-409e-b5b9-b4006f04755a
 # ╠═516f737f-2729-4a7a-8395-f8227ba790b9
 # ╟─60ba94e8-c7fd-4b3d-89fb-bec0d5bc815f
@@ -4064,7 +3720,6 @@ version = "4.1.0+0"
 # ╠═35976ef0-ab93-4192-abae-b36fad04ca99
 # ╠═9e5d3e99-2fd5-4ef8-afe1-baeaf4339c84
 # ╠═f700462d-89af-4474-b063-92ddbfa4d079
-# ╠═6355f453-5406-4899-a92e-9be360e9629e
 # ╠═7a208658-8fb0-423c-bb95-95c0101fd98e
 # ╠═d584e00d-3da1-44cf-b62a-1c4bc3144c90
 # ╠═abc2d0e1-17f2-49d3-8d1b-6bcdf3210f72
@@ -4078,15 +3733,6 @@ version = "4.1.0+0"
 # ╠═5c88c45b-841a-4e7c-970b-6ae9a1ad38bd
 # ╠═eb6f43e9-7b05-4208-9165-5e3db9346151
 # ╠═8a580804-4c9d-4eb7-b874-46f06282b4c0
-# ╠═a1a3aa17-a3c0-4503-910a-3caec607e9a6
-# ╠═fe5d9a4a-6169-4090-828b-44d0367ea949
-# ╠═2e6a5fc2-ccc9-4afd-95ea-349856d86e86
-# ╠═cf4f7625-a10c-4ccc-b259-b1e538e91246
-# ╠═408a192f-0844-4fa4-a58e-45498f9b3bbf
-# ╠═0ff31629-855a-49a3-9b7d-cf4316c809da
-# ╠═f31b04f7-c119-4993-9e3d-f83d6bdce4be
-# ╠═34280c20-950c-4083-948b-98e8edce0724
-# ╠═6cf01d9d-f444-400a-9700-3e3e55cc1727
 # ╠═f09814a6-82b8-457c-9d75-0c92d8612056
 # ╠═e8496939-0407-4e92-a4cc-8d04bdb8a9c8
 # ╠═27523365-20a0-417f-a038-7e2b2f1bb832
