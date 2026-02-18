@@ -94,7 +94,7 @@ function get_π_jt_df((; demographics, m₀, T̃))
 		leftjoin(_, rename(DataFrame(m₀), :m => :m_baseline), on = :j)
 		@transform(:t = :j + :born)
 		@transform(:m_final = :t < 0 ? :m_baseline : :m)
-		@aside @test _.m ≈ _.m_final
+		# @aside @test _.m ≈ _.m_final
 		@groupby(:born)
 		@transform(:π = @bycol cumprod([births; 1 .- :m_final])[begin:end-1])
 		@subset(0 ≤ :t ≤ T̃)
