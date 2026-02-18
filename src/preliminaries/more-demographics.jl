@@ -61,23 +61,8 @@ md"""
 ## Demographics
 """
 
-# ╔═╡ 63916be1-9a19-48c3-864e-6ca8dab35419
-function pmf(m; births = nothing)
-	
-	j_dim =	DimensionalData.dims(m, :j)
+# ╔═╡ f22bf978-746c-4ddd-a7db-058498530a42
 
-	_births_ = isnothing(births) ? 1.0 : births
-
-	pmf = cumprod([_births_; (1 .- m)])[begin:end-1]
-	pmf = DimVector(pmf, j_dim, name = :pmf) 
-	
-	if isnothing(births)
-		pmf .= pmf ./ sum(pmf)
-	end
-
-	return pmf
-
-end
 
 # ╔═╡ 77e0583d-f681-4390-8d08-46647be577e5
 p_surv₀ = DimVector(
@@ -138,22 +123,21 @@ md"""
 # Demograpic transition old
 """
 
-# ╔═╡ 0f66687d-4d05-49c9-92b9-7b90810e79d2
-function prepend_one(p_surv)
+# ╔═╡ 3044bbe9-6b76-4759-b868-7557ba1536ad
+function get_π_j(m; births = nothing)
+	
+	j_dim =	DimensionalData.dims(m, :j)
 
-	cat(
-		DimVector(ones(1), Dim{:j}(0:0)),
-		p_surv, 
-		dims = :j
-	)
-end
+	_births_ = isnothing(births) ? 1.0 : births
 
-# ╔═╡ 11076a64-d695-4b69-b137-15dbba1ba28b
-function change_births(p_surv, births; name = :pmf_births)
-	p_surv = copy(p_surv)
-	p_surv[j = At(0)] = births
+	pmf = cumprod([_births_; (1 .- m)])[begin:end-1]
+	pmf = DimVector(pmf, j_dim, name = :pmf) 
+	
+	if isnothing(births)
+		pmf .= pmf ./ sum(pmf)
+	end
 
-	DimVector(cumprod(p_surv); name)
+	return pmf
 end
 
 # ╔═╡ ccf90874-03e0-41fc-ab45-f6b68734ba03
@@ -205,6 +189,25 @@ md"""
 
 # ╔═╡ 520fa404-b2c4-4112-baff-30dd6e281b39
 
+
+# ╔═╡ 08016763-1798-4310-9144-e629aa5198c3
+p_surv_ = DimVector(
+	[0.9945385, 0.9995935, 0.9997525, 0.999799, 0.999836, 0.9998605, 0.9998755, 0.999885, 0.99989, 0.99989, 0.999884, 0.9998745, 0.9998525, 0.9998115, 0.99975, 0.9996605, 0.999536, 0.9993885, 0.999241, 0.9991345, 0.99906, 0.998978, 0.9988925, 0.99881, 0.9987215, 0.998631, 0.9985435, 0.9984545, 0.998359, 0.998259, 0.998161, 0.9980625, 0.997962, 0.997868, 0.9977805, 0.997691, 0.9975995, 0.997493, 0.997366, 0.997226, 0.997077, 0.99692, 0.9967525, 0.9965905, 0.996419, 0.9962185, 0.995971, 0.995691, 0.9953685, 0.9950285, 0.994659, 0.9942635, 0.993815, 0.993334, 0.9927975, 0.9921995, 0.9915535, 0.9908825, 0.990155, 0.9893715, 0.988523, 0.987618, 0.9866885, 0.985767, 0.9848455, 0.983935, 0.982972, 0.9818665, 0.980645, 0.9793075, 0.9778105, 0.9760855, 0.9741015, 0.971813, 0.9691475, 0.9657655, 0.9623835000000001, 0.958681, 0.9545755, 0.9497485, 0.9445295, 0.9388595, 0.9326274999999999, 0.9255175, 0.9172435, 0.907863, 0.8973555, 0.885727, 0.873394, 0.859642, 0.844195, 0.827184, 0.8087880000000001, 0.78986, 0.7707634999999999, 0.7515835, 0.732595, 0.7140934999999999, 0.6963895, 0.6798, 0.662296, 0.6438275, 0.6243405, 0.6037785, 0.5820815, 0.559187, 0.5350275, 0.509533, 0.4826284999999999, 0.454237, 0.42427349999999997, 0.39265149999999993, 0.35927850000000006, 0.32405700000000004, 0.28970799999999997, 0.25419400000000003, 0.21690299999999996, 0.17774900000000005, 0.13663599999999998, 0.093468, 1.0],
+	Dim{:age}(0:120)
+)
+
+# ╔═╡ 35a4f74a-e6de-4178-8c89-b3cc915c82c5
+m_j_test = let
+	age_min = 25
+	age_max = 120
+	J = age_max - age_min
+	p₀ = collect(p_surv_[age = At(age_min:age_max-1)])
+	J = length(p₀)
+	
+	j_dim = Dim{:j}(0:J)
+	
+	DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+end
 
 # ╔═╡ 09310959-3eb6-4767-bd8b-809ff9326a8d
 md"""
@@ -259,94 +262,70 @@ end
 end
   ╠═╡ =#
 
-# ╔═╡ 7b70797d-9e41-4d01-a651-545d31618985
-function stretch_mortality(p_surv, factor; births, pmf_name = :pmf, m_name = :m)
+# ╔═╡ b47b920e-2202-46d4-af43-a36d1a324869
+function stretch_mortality(m₀, factor)
+	j_dim = DD.dims(m₀, :j)
+	J = maximum(j_dim)
+	@assert m₀[j = At(J)] == 1.0
 	
-	js = DD.dims(p_surv, :j) |> collect #|> collect
-	m_itp = linear_interpolation(
-			js, 1 .- p_surv; extrapolation_bc = Flat()
+	m₀_itp = linear_interpolation(
+		0:J-1, m₀[j = At(0:J-1)]; extrapolation_bc = Flat()
 	)
-	
-	m_stretched =
-		m_itp.(factor .* js)
 
-	pₓ = prepend_one(1 .- m_stretched)
-	pₓ[j = At(0)] = births
-	
-	(; m = DimVector([m_stretched; 1.0], Dim{:j}(0:maximum(js)), name = m_name),
-	   pmf = DimVector(cumprod(pₓ); name = pmf_name))
+	m_stretched = m₀_itp.(factor .* (0:J-1))
 
+	m = DimVector([m_stretched; 1.0], j_dim)
 end
 
-# ╔═╡ d9d9582a-2acb-425b-b71f-a01bfbafeb04
+# ╔═╡ 6163c43b-c42e-412e-9abd-878c708cb129
 #=╠═╡
-function get_demographics(scenario, T̃; age_min, age_max)
-
+function get_demographics(scenario, m₀, T̃)
+	
 	if scenario ∉ [:baby_boom, :births_down, :mortality_down]
 		throw(ArgumentError("scenario must be in [:baby_boom, :births_down, :mortality_down]"))
 	end
-	
-	ages = Dim{:age}(0:119)
-	p₀ = p_surv.(ages)
-	p₀ = p₀[age = At(age_min:age_max-1)]
-	J = length(p₀)
 
+	j_dim = DD.dims(m₀, :j)
+	J = maximum(j_dim)
 	borns = -J:T̃
-	
-	j_dim = Dim{:j}(0:J)
-	m_baseline = DimVector([1 .- p₀; 1.0], j_dim, name = :m) # correct indexing for mortality
-	pₓ = DimVector(p₀, Dim{:j}(1:J)) # shifted indexing for pmf
-	p₊ = prepend_one(pₓ)
-		
-
-	pmf_baseline = cumprod(p₊)
-	pmf_baseline = pmf_baseline ./ sum(pmf_baseline)
-	@info @test sum(pmf_baseline) ≈ 1.0
-	births_baseline = pmf_baseline[j = At(0)]
-	p₊[j = At(0)] = births_baseline
-	j₊_dim = DD.dims(p₊, :j)
-	j₊s = collect(collect(j₊_dim))
-	
-	pmf_baseline  = change_births(p₊, 1.0 * births_baseline, name = :pmf)
-	
-	
 	born_dim = Dim{:born}(borns)
+
+	pmf₀    = get_π_j(m₀)
+	births₀ = pmf₀[j = At(0)]
 	
 	if scenario == :baby_boom
-		pmf_scenario  = change_births(p₊, 1.25 * births_baseline, name = :pmf)
-		
+		pmf_babyboom = get_π_j(m₀, births = 1.25 * births₀)
+
 		pmfs = cat(
-			(10 < born ≤ 30 ? pmf_scenario : pmf_baseline for born ∈ borns)...,
+			(10 < born ≤ 30 ? pmf_babyboom : pmf₀ for born ∈ borns)...,
 			dims = born_dim
 		)
 
-		ms = cat(fill(m_baseline, born_dim)..., dims = :born)
+		ms = cat(fill(m₀, born_dim)..., dims = born_dim)
 		
 	elseif scenario == :births_down
-		pmf_scenario = change_births(p₊, 0.75 * births_baseline, name = :pmf)
+		pmf_babybust = get_π_j(m₀, births = 0.75 * births₀)
 		
 		pmfs = cat(
-			(born > 0 ? pmf_scenario : pmf_baseline for born ∈ borns)...,
+			(born > 0 ? pmf_babybust : pmf₀ for born ∈ borns)...,
 			dims = born_dim
 		)
 		
-		ms = cat(fill(m_baseline,   born_dim)..., dims = :born)
+		ms = cat(fill(m₀, born_dim)..., dims = born_dim)
 		
 	elseif scenario == :mortality_down
 		stretch_factor = 0.8
-		stretched = stretch_mortality(
-			pₓ, stretch_factor; births = births_baseline
-		)
-		pmf_scenario = stretched.pmf
-		p_scenario   = stretched.m
+		m_stretched = stretch_mortality(m₀, stretch_factor)
+
+		pmf_stretched = get_π_j(m_stretched, births = births₀)
 
 		pmfs = cat(
-			(born > 0 ? pmf_scenario : pmf_baseline for born ∈ borns)...,
+			(born > 0 ? pmf_stretched : pmf₀ for born ∈ borns)...,
 			dims = born_dim
 		)
 
 		ms = cat(
-			(born > 0 ? p_scenario : m_baseline for born ∈ borns)...,
+			(born ≥ 0 ? m_stretched : m₀ for born ∈ borns)...,
 			dims = born_dim
 		)
 	end
@@ -357,23 +336,8 @@ function get_demographics(scenario, T̃; age_min, age_max)
 	(; π_jt, π_t) = π_jborn_to_π_jt(π_jborn, T̃, J)
 	
 	(; m_jborn, π_jt, π_t)
-end
-  ╠═╡ =#
 
-# ╔═╡ fc7948c0-fa57-43dc-b73f-360d0b66b179
-#=╠═╡
-get_demographics(:baby_boom, 50; age_min = 25, age_max = 120)
-  ╠═╡ =#
-
-# ╔═╡ 70c4cc44-185e-4b70-986a-78fc04deedf1
-#=╠═╡
-@chain :mortality_down begin
-	get_demographics(_, -10:50; age_min = 25, age_max = 120)
-	DataFrame
-	@transform(:t = :j + :born)
-	data(_) * mapping(:t, :pmf, group = :born) * visual(Lines)
-	draw
-end
+end	
   ╠═╡ =#
 
 # ╔═╡ e974c85d-b810-4d3c-80d6-43e83cd4e3fa
@@ -459,107 +423,30 @@ function visualize_demographics(m_jborn, π_jt)
 end
   ╠═╡ =#
 
-# ╔═╡ 2eeb6520-2379-4c28-a797-7bade488f821
-#=╠═╡
-visualize_demographics(:baby_boom)
-  ╠═╡ =#
-
-# ╔═╡ fb96f392-23d3-4633-8675-5bedbf289280
-#=╠═╡
-visualize_demographics(:births_down)
-  ╠═╡ =#
-
-# ╔═╡ 110254e7-bd84-458b-9e1e-4f5aea84cb2d
-#=╠═╡
-visualize_demographics(:mortality_down)
-  ╠═╡ =#
-
-# ╔═╡ c837bed5-fa65-4ea3-8806-27a82c2662c9
+# ╔═╡ 7a3327d6-5605-4a4f-9456-e0d34b0138d3
 #=╠═╡
 let
-	(; m_jborn, π_jt) = get_demographics(:baby_boom, 120; age_min = 25, age_max = 120)
+	(; m_jborn, π_jt) = get_demographics(:baby_boom, m_j_test, 120)
 
 	visualize_demographics(m_jborn, π_jt)
 end
   ╠═╡ =#
 
-# ╔═╡ 8de62337-955a-41b9-843d-6ef4bdf4f9ec
+# ╔═╡ 451d6c78-dd53-4c0a-93ad-3b8723a2b679
 #=╠═╡
 let
-	(; m_jborn, π_jt) = get_demographics(:mortality_down, 120; age_min = 25, age_max = 120)
+	(; m_jborn, π_jt) = get_demographics(:births_down, m_j_test, 120)
 
 	visualize_demographics(m_jborn, π_jt)
 end
   ╠═╡ =#
 
-# ╔═╡ 9a43e659-5557-4baa-8e41-1c54a0930b72
+# ╔═╡ 80d07a58-5acb-477d-844d-59719f3675c0
 #=╠═╡
 let
-	(; m_jborn, π_jt) = get_demographics(:births_down, 120; age_min = 25, age_max = 120)
+	(; m_jborn, π_jt) = get_demographics(:mortality_down, m_j_test, 120)
 
 	visualize_demographics(m_jborn, π_jt)
-end
-  ╠═╡ =#
-
-# ╔═╡ ba0a8c97-a8a3-4674-b927-6a2e7f880ec2
-#=╠═╡
-let
-	ages = Dim{:age}(0:119)
-	p₀ = p_surv.(ages)
-	p₀ = p₀[age = At(25:119)]
-	J = length(p₀)
-
-	j_dim = Dim{:j}(0:J)
-	p  = DimVector([p₀; 1.0], j_dim, name = :p) # correct indexing for mortality
-	pₓ = DimVector(p₀, Dim{:j}(1:J)) # shifted indexing for pmf
-	p₊ = prepend_one(pₓ)
-		
-
-	pmf_baseline = cumprod(p₊)
-	pmf_baseline = pmf_baseline ./ sum(pmf_baseline)
-	@info @test sum(pmf_baseline) ≈ 1.0
-	births_baseline = pmf_baseline[j = At(0)]
-	p₊[j = At(0)] = births_baseline
-	j₊_dim = DD.dims(p₊, :j)
-	j₊s = collect(collect(j₊_dim))
-	
-	pmf_baseline  = change_births(p₊, 1.0 * births_baseline, name = :baseline)
-	pmf_babyboom  = change_births(p₊, 1.1 * births_baseline, name = :babyboom)
-	pmf_babybust  = change_births(p₊, 0.9 * births_baseline, name = :babybust)
-	stretch_factor = 0.891224784055744
-	stretched = stretch_mortality(pₓ, stretch_factor; births = births_baseline, pmf_name = "longer lived")
-
-	@info "the change in life expectancy is $(
-		mean(j₊s, weights(stretched.pmf)) / mean(j₊s, weights(pmf_baseline)) - 1
-	)"
-	
-	fig = @chain DimStack(pmf_baseline, pmf_babyboom, stretched.pmf, pmf_babybust) begin
-		DataFrame
-		stack(Not(:j))
-		data(_) * mapping(:j => L"age $j$", 
-			:value => "mass", 
-			color = :variable => "scenario"
-		) * visual(Lines)
-		draw(; figure = (; title = "Age distribution (pmf) by cohort"))
-	end
-	@info fig
-
-	@chain DimStack(stretched.m, p) begin
-		DataFrame
-		stack(Not(:j))
-		data(_) * mapping(:j, :value, color = :variable) * visual(Lines)
-		draw(; figure = (; title = "bla"))
-	end
-
-	borns = -1:100
-	# baby boom :-)
-	pmfs = cat(
-		(10 < born < 20 ? pmf_babyboom : pmf_baseline for born ∈ borns)...,
-		dims = Dim{:born}(borns))
-
-	p_survs = cat(fill(p, Dim{:born}(borns))..., dims = :born)
-
-	demo = (; pmfs, p_survs)
 end
   ╠═╡ =#
 
@@ -2385,34 +2272,29 @@ version = "4.1.0+0"
 # ╠═255ce278-0be0-11f1-0d95-4db85095c3a0
 # ╠═3613c3de-8a41-44fb-a330-4d370534e7fb
 # ╠═efb027b3-16a6-493e-bdcb-36a55e0a21b6
-# ╠═63916be1-9a19-48c3-864e-6ca8dab35419
+# ╠═f22bf978-746c-4ddd-a7db-058498530a42
 # ╠═4bb64f09-3dd0-4962-8cd7-7b1fa8abde3c
 # ╠═5c4b7935-c473-4d07-a99d-39bcd916b176
 # ╠═77e0583d-f681-4390-8d08-46647be577e5
 # ╠═32734bd8-439f-48b3-9da2-dc31dcd8bee6
-# ╠═2cadefad-d7e7-4a84-a917-424fd8d09cef
-# ╠═d9d9582a-2acb-425b-b71f-a01bfbafeb04
-# ╠═0f66687d-4d05-49c9-92b9-7b90810e79d2
-# ╠═11076a64-d695-4b69-b137-15dbba1ba28b
-# ╠═7b70797d-9e41-4d01-a651-545d31618985
-# ╠═fc7948c0-fa57-43dc-b73f-360d0b66b179
-# ╠═70c4cc44-185e-4b70-986a-78fc04deedf1
-# ╠═2eeb6520-2379-4c28-a797-7bade488f821
-# ╠═fb96f392-23d3-4633-8675-5bedbf289280
-# ╠═110254e7-bd84-458b-9e1e-4f5aea84cb2d
+# ╟─2cadefad-d7e7-4a84-a917-424fd8d09cef
+# ╠═3044bbe9-6b76-4759-b868-7557ba1536ad
+# ╠═6163c43b-c42e-412e-9abd-878c708cb129
+# ╠═b47b920e-2202-46d4-af43-a36d1a324869
 # ╠═e78f880b-82ed-4ccc-abf2-cd6041637b37
 # ╠═a3de9e35-b69b-4174-a6bf-3ae1fb21966c
-# ╠═c837bed5-fa65-4ea3-8806-27a82c2662c9
-# ╠═8de62337-955a-41b9-843d-6ef4bdf4f9ec
-# ╠═9a43e659-5557-4baa-8e41-1c54a0930b72
+# ╠═7a3327d6-5605-4a4f-9456-e0d34b0138d3
+# ╠═451d6c78-dd53-4c0a-93ad-3b8723a2b679
+# ╠═80d07a58-5acb-477d-844d-59719f3675c0
 # ╠═ccf90874-03e0-41fc-ab45-f6b68734ba03
 # ╠═e974c85d-b810-4d3c-80d6-43e83cd4e3fa
-# ╠═ba0a8c97-a8a3-4674-b927-6a2e7f880ec2
 # ╠═36276ece-b4e8-418e-996f-809fed9665cc
 # ╠═4207db9b-6f6c-46a9-bbd2-e001eb8bd868
 # ╠═d3af61b1-8915-45b6-ae91-6eca275191ba
 # ╠═a2aba978-6fac-4d4a-b91a-a7bad3fe9a2e
 # ╠═520fa404-b2c4-4112-baff-30dd6e281b39
+# ╠═35a4f74a-e6de-4178-8c89-b3cc915c82c5
+# ╠═08016763-1798-4310-9144-e629aa5198c3
 # ╟─09310959-3eb6-4767-bd8b-809ff9326a8d
 # ╠═663e9d66-24c1-432a-b608-64808e333103
 # ╠═1f3cd277-b5dd-4788-b98e-73a3b119b5b9
