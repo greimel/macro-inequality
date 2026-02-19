@@ -62,7 +62,7 @@ function adjust_period_mortality(m, period; j₀=period)
 	# take diff to get flow
 	surv_sparse = [sparse_cum_surv[i] / sparse_cum_surv[i-1] for i ∈ 2:length(sparse_cum_surv)]
 	
-	m_sparse = DimVector(1 .- surv_sparse, j_dim_new)
+	m_sparse = DimVector(1 .- surv_sparse, j_dim_new, name = :m)
 
 	(; m_sparse, sparse_js)
 	
