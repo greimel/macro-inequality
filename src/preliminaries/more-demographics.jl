@@ -4,8 +4,14 @@
 using Markdown
 using InteractiveUtils
 
+# ╔═╡ 4bdf95f1-4d72-445b-9224-87b039d706b5
+using PlutoLinks: ingredients
+
 # ╔═╡ a3de9e35-b69b-4174-a6bf-3ae1fb21966c
 using SparseArrays
+
+# ╔═╡ f53ef954-2e60-4fdb-be4b-42741b0d4067
+using CSV: CSV
 
 # ╔═╡ 663e9d66-24c1-432a-b608-64808e333103
 # ╠═╡ skip_as_script = true
@@ -39,6 +45,12 @@ using Chain, DataFrameMacros, DataFrames
 #=╠═╡
 using CairoMakie, AlgebraOfGraphics
   ╠═╡ =#
+
+# ╔═╡ 1ef98e3b-5492-4593-9b51-47e22497592a
+AdjustPeriod = ingredients("./adjust-period.jl")
+
+# ╔═╡ 304d693d-f661-419a-b80e-8df22b35ff14
+(; adjust_period_discounting, adjust_period_mortality, adjust_period_flow, adjust_period_income_profile) = AdjustPeriod
 
 # ╔═╡ 8d35e241-fda7-44a2-b19f-cce306264514
 md"""
@@ -138,6 +150,20 @@ function get_π_j(m; births = nothing)
 	end
 
 	return pmf
+end
+
+# ╔═╡ ecbaae7a-ed12-4f82-87e1-df8f351035c5
+baseline_period = let
+	m = mortality(:marcelo, age_min = 20, age_max = 91)
+
+	J_P = 18
+	J = 71
+	period = Int((J + 1) / J_P)
+	J = period * J_P - 1
+	@info J_P
+	(; m_sparse) = adjust_period_mortality(m, period)
+
+	(; m₀ = m_sparse, period, T̃ = 30)
 end
 
 # ╔═╡ ccf90874-03e0-41fc-ab45-f6b68734ba03
@@ -279,7 +305,7 @@ end
 
 # ╔═╡ 6163c43b-c42e-412e-9abd-878c708cb129
 #=╠═╡
-function get_demographics(scenario, m₀, T̃)
+function get_demographics(scenario, m₀, T̃; period = 1)
 	
 	if scenario ∉ [:baby_boom, :births_down, :mortality_down]
 		throw(ArgumentError("scenario must be in [:baby_boom, :births_down, :mortality_down]"))
@@ -297,7 +323,7 @@ function get_demographics(scenario, m₀, T̃)
 		pmf_babyboom = get_π_j(m₀, births = 1.25 * births₀)
 
 		pmfs = cat(
-			(10 < born ≤ 30 ? pmf_babyboom : pmf₀ for born ∈ borns)...,
+			((10 / period) < born ≤ (30 / period) ? pmf_babyboom : pmf₀ for born ∈ borns)...,
 			dims = born_dim
 		)
 
@@ -338,6 +364,32 @@ function get_demographics(scenario, m₀, T̃)
 	(; m_jborn, π_jt, π_t)
 
 end	
+  ╠═╡ =#
+
+# ╔═╡ 9dab3129-a426-4481-91ef-0901c24975e7
+#=╠═╡
+let
+	(; m₀, period, T̃) = baseline_period
+
+	for scenario ∈ [:mortality_down, :baby_boom, :births_down]
+		#scenario = :mortality_down
+		(; m_jborn, π_jt) = get_demographics(scenario, m₀, 30; period)
+
+		@chain m_jborn begin
+			DataFrame
+			@transform(:t = :j + :born)
+			CSV.write("./mortality--$scenario-period_$period.csv", _)
+		end
+
+		@chain π_jt begin
+			DataFrame
+			@transform(:born = :t - :j)
+			CSV.write("./probability_mass--$scenario-period_$period.csv", _)
+		end
+	end
+	
+	#visualize_demographics(m_jborn, π_jt)
+end
   ╠═╡ =#
 
 # ╔═╡ e974c85d-b810-4d3c-80d6-43e83cd4e3fa
@@ -384,6 +436,8 @@ end
 #=╠═╡
 function visualize_demographics(m_jborn, π_jt)
 	T̃ = DD.dims(π_jt, :t) |> maximum
+	J = DD.dims(π_jt, :j) |> maximum
+	
 	f = Figure(size = (650, 200))
 	
 	π_df = @chain π_jt begin
@@ -409,7 +463,7 @@ function visualize_demographics(m_jborn, π_jt)
 	@chain m_jborn begin
 		DataFrame
 		
-		@subset(:born ∈ [-100, -90, -50, 0, 5, 10, 20, 30])
+		@subset(:born ∈ [-J; -(J÷2); 0; T̃÷2; T̃])
 		#unstack(:born, :m)
 		data(_) * mapping(:j, :m => "", 
 			color     = :born => nonnumeric,
@@ -454,12 +508,14 @@ end
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+PlutoLinks = "0ff47ea0-7a50-410d-8455-4348d5de0420"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
@@ -468,12 +524,14 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 AlgebraOfGraphics = "~0.11.10"
+CSV = "~0.10.15"
 CairoMakie = "~0.15.8"
 Chain = "~1.0.0"
 DataFrameMacros = "~0.4.1"
 DataFrames = "~1.8.1"
 DimensionalData = "~0.29.26"
 Interpolations = "~0.16.2"
+PlutoLinks = "~0.1.7"
 PlutoTest = "~0.2.4"
 PlutoUI = "~0.7.79"
 StatsBase = "~0.34.10"
@@ -485,7 +543,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.10"
 manifest_format = "2.0"
-project_hash = "a8c22dd05e6fd42173cc4a6bc6f28436bf6cf7f7"
+project_hash = "2ab44ec124542aecfbba31811d7fdf8de0c5089f"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -634,6 +692,12 @@ git-tree-sha1 = "e329286945d0cfc04456972ea732551869af1cfc"
 uuid = "4e9b3aee-d8a1-5a3d-ad8b-7d824db253f0"
 version = "1.0.1+0"
 
+[[deps.CSV]]
+deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
+git-tree-sha1 = "deddd8725e5e1cc49ee205a1964256043720a6c3"
+uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+version = "0.10.15"
+
 [[deps.Cairo]]
 deps = ["Cairo_jll", "Colors", "Glib_jll", "Graphics", "Libdl", "Pango_jll"]
 git-tree-sha1 = "71aa551c5c33f1a4415867fe06b7844faadb0ae9"
@@ -666,6 +730,18 @@ weakdeps = ["SparseArrays"]
 
     [deps.ChainRulesCore.extensions]
     ChainRulesCoreSparseArraysExt = "SparseArrays"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "b7231a755812695b8046e8471ddc34c8268cbad5"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "3.0.0"
+
+[[deps.CodecZlib]]
+deps = ["TranscodingStreams", "Zlib_jll"]
+git-tree-sha1 = "962834c22b66e32aa10f7611c08c8ca4e20749a9"
+uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
+version = "0.7.8"
 
 [[deps.ColorBrewer]]
 deps = ["Colors", "JSON"]
@@ -716,6 +792,11 @@ weakdeps = ["Dates", "LinearAlgebra"]
 
     [deps.Compat.extensions]
     CompatLinearAlgebraExt = "LinearAlgebra"
+
+[[deps.Compiler]]
+git-tree-sha1 = "382d79bfe72a406294faca39ef0c3cef6e6ce1f1"
+uuid = "807dbc54-b67e-4c79-8afb-eafe4df6f2e1"
+version = "0.1.1"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1323,6 +1404,12 @@ git-tree-sha1 = "b6893345fd6658c8e475d40155789f4860ac3b21"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "3.1.4+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "80580012d4ed5a3e8b18c7cd86cebe4b816d17a6"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.10.9"
+
 [[deps.KernelDensity]]
 deps = ["Distributions", "DocStringExtensions", "FFTA", "Interpolations", "StatsBase"]
 git-tree-sha1 = "4260cfc991b8885bf747801fb60dd4503250e478"
@@ -1454,6 +1541,12 @@ version = "0.3.29"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[deps.LoweredCodeUtils]]
+deps = ["CodeTracking", "Compiler", "JuliaInterpreter"]
+git-tree-sha1 = "65ae3db6ab0e5b1b5f217043c558d9d1d33cc88d"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "3.5.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "c64d943587f7187e751162b3b84445bbbd79f691"
@@ -1681,6 +1774,18 @@ git-tree-sha1 = "26ca162858917496748aad52bb5d3be4d26a228a"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.4.4"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "844a829c8dc9fd0fe62eced22bc2d0dfd66a3f51"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.1.0"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "10c258e189b8d097c1404ed59f6c171281a39b85"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.7"
+
 [[deps.PlutoTest]]
 deps = ["HypertextLiteral", "InteractiveUtils", "Markdown", "Test"]
 git-tree-sha1 = "09d065f418b85a6ea4be2236d2f33dd720fb1d2a"
@@ -1806,6 +1911,16 @@ deps = ["UUIDs"]
 git-tree-sha1 = "62389eeff14780bfe55195b7204c0d8738436d64"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.1"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "FileWatching", "InteractiveUtils", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Preferences", "REPL", "UUIDs"]
+git-tree-sha1 = "14d1bfb0a30317edc77e11094607ace3c800f193"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.13.2"
+weakdeps = ["Distributed"]
+
+    [deps.Revise.extensions]
+    DistributedExt = "Distributed"
 
 [[deps.Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -2118,6 +2233,12 @@ version = "1.28.0"
     NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
     Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[deps.WeakRefStrings]]
+deps = ["DataAPI", "InlineStrings", "Parsers"]
+git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
+uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
+version = "1.4.2"
+
 [[deps.WebP]]
 deps = ["CEnum", "ColorTypes", "FileIO", "FixedPointNumbers", "ImageCore", "libwebp_jll"]
 git-tree-sha1 = "aa1ca3c47f119fbdae8770c29820e5e6119b83f2"
@@ -2129,6 +2250,11 @@ deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "248a7031b3da79a127f14e5dc5f417e26f9f6db7"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "1.1.0"
+
+[[deps.WorkerUtilities]]
+git-tree-sha1 = "cd1659ba0d57b71a464a29e64dbc67cfe83d54e7"
+uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
+version = "1.6.1"
 
 [[deps.XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -2266,6 +2392,9 @@ version = "4.1.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═4bdf95f1-4d72-445b-9224-87b039d706b5
+# ╠═1ef98e3b-5492-4593-9b51-47e22497592a
+# ╠═304d693d-f661-419a-b80e-8df22b35ff14
 # ╟─8d35e241-fda7-44a2-b19f-cce306264514
 # ╠═7448be7b-ae9a-47ad-8b41-c81cf248a4b5
 # ╠═21c956dc-b3fa-4fa9-a0a1-b6a8955e71c3
@@ -2286,6 +2415,9 @@ version = "4.1.0+0"
 # ╠═7a3327d6-5605-4a4f-9456-e0d34b0138d3
 # ╠═451d6c78-dd53-4c0a-93ad-3b8723a2b679
 # ╠═80d07a58-5acb-477d-844d-59719f3675c0
+# ╠═f53ef954-2e60-4fdb-be4b-42741b0d4067
+# ╠═ecbaae7a-ed12-4f82-87e1-df8f351035c5
+# ╠═9dab3129-a426-4481-91ef-0901c24975e7
 # ╠═ccf90874-03e0-41fc-ab45-f6b68734ba03
 # ╠═e974c85d-b810-4d3c-80d6-43e83cd4e3fa
 # ╠═36276ece-b4e8-418e-996f-809fed9665cc
