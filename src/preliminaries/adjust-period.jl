@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.46
+# v0.20.21
 
 using Markdown
 using InteractiveUtils
@@ -32,6 +32,75 @@ using CairoMakie, AlgebraOfGraphics
 md"""
 # Adjust period of mortality, income, discounting, etc
 """
+
+# ╔═╡ 003b2222-1a91-423e-a8b1-f9dfb5d57a70
+md"""
+# Tests
+"""
+
+# ╔═╡ 2c07d651-e740-4398-848b-1bb537364e0b
+function β_AMMR(; age_min = 20, age_max = 96, β̄ = 0.9655, ξ = 0.00071)
+
+	J = age_max - age_min
+	 
+	β = DimVector(
+		[exp(j * log(β̄) + ξ * (j - (40 - age_min))^2) for j ∈ 0:J],
+		Dim{:j}((0:J))
+	)
+
+	β[j = At(0:J-1)]
+
+end
+
+# ╔═╡ 591e6284-da49-4d5b-aff3-ff6597f0ac30
+"""
+	`J` ... age of death
+    `JR` ... retirement age
+"""
+function income_profile(J, JR)
+	@assert JR < J
+
+	y = [3e-06 * j^3 - 0.0012 * j^2 + 0.0589 * j + 0.9503 for j ∈ 1:JR]
+
+	y = [y; fill(y[end], J - JR)]
+
+	DimArray(y, Dim{:j}(0:J-1), name = :y)
+end
+
+# ╔═╡ 1ae762f4-22c8-4242-8541-5bdc1c00c7a9
+p_surv = DimVector(
+	[0.9945385, 0.9995935, 0.9997525, 0.999799, 0.999836, 0.9998605, 0.9998755, 0.999885, 0.99989, 0.99989, 0.999884, 0.9998745, 0.9998525, 0.9998115, 0.99975, 0.9996605, 0.999536, 0.9993885, 0.999241, 0.9991345, 0.99906, 0.998978, 0.9988925, 0.99881, 0.9987215, 0.998631, 0.9985435, 0.9984545, 0.998359, 0.998259, 0.998161, 0.9980625, 0.997962, 0.997868, 0.9977805, 0.997691, 0.9975995, 0.997493, 0.997366, 0.997226, 0.997077, 0.99692, 0.9967525, 0.9965905, 0.996419, 0.9962185, 0.995971, 0.995691, 0.9953685, 0.9950285, 0.994659, 0.9942635, 0.993815, 0.993334, 0.9927975, 0.9921995, 0.9915535, 0.9908825, 0.990155, 0.9893715, 0.988523, 0.987618, 0.9866885, 0.985767, 0.9848455, 0.983935, 0.982972, 0.9818665, 0.980645, 0.9793075, 0.9778105, 0.9760855, 0.9741015, 0.971813, 0.9691475, 0.9657655, 0.9623835000000001, 0.958681, 0.9545755, 0.9497485, 0.9445295, 0.9388595, 0.9326274999999999, 0.9255175, 0.9172435, 0.907863, 0.8973555, 0.885727, 0.873394, 0.859642, 0.844195, 0.827184, 0.8087880000000001, 0.78986, 0.7707634999999999, 0.7515835, 0.732595, 0.7140934999999999, 0.6963895, 0.6798, 0.662296, 0.6438275, 0.6243405, 0.6037785, 0.5820815, 0.559187, 0.5350275, 0.509533, 0.4826284999999999, 0.454237, 0.42427349999999997, 0.39265149999999993, 0.35927850000000006, 0.32405700000000004, 0.28970799999999997, 0.25419400000000003, 0.21690299999999996, 0.17774900000000005, 0.13663599999999998, 0.093468, 1.0],
+	Dim{:j}(0:120)
+)
+
+# ╔═╡ 80aa74dd-e3e7-42f7-911a-3f0dccaba243
+test_mortality = let
+	age_min = 0
+	age_max = 100
+	j_dim = Dim{:j}(age_min:age_max)
+	
+	p₀ = p_surv[j = At(age_min:age_max-1)]
+		
+	DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+end
+
+# ╔═╡ 069770d9-477b-4f96-ad47-443d23d272d0
+md"""
+# Appendix
+"""
+
+# ╔═╡ 55d8d54d-f43b-4c07-b091-c4c72dec8ad1
+md"""
+## Packages
+"""
+
+# ╔═╡ 0d0aab16-1c2b-410d-bdc2-bca2fc97eec2
+#=╠═╡
+TableOfContents()
+  ╠═╡ =#
+
+# ╔═╡ b9a7c27d-c4ab-4059-a2bf-69c55a468899
+const DD = DimensionalData
 
 # ╔═╡ 3f285da1-3cbb-4909-8491-aba0c2df01c1
 function adjust_period_mortality(m, period; j₀=period)
@@ -104,88 +173,6 @@ function adjust_period_income_profile(h, period; kwargs...)
 	(; h_sparse = flow_sparse, sparse_js)
 end
 
-# ╔═╡ 2500a7f3-7d8e-4dc1-8c48-12bf9dd50107
-function adjust_period_discounting(βs, period)
-	j_dim = DD.dims(βs, :j)
-	j_min, j_max = extrema(j_dim)
-
-	# shorten age grid
-	sparse_js = period-1:period:j_max
-	j_dim_new = Dim{:j}(0:length(sparse_js)-1)
-	
-	βs_itp = linear_interpolation(collect(j_dim), βs)
-	
-	βs_sparse₀ = βs_itp.(sparse_js)
-
-	#if extend
-	#	βs_sparse₀ = [βs_sparse₀; βs[j = At(j_max)]]
-	#	sparse_js = [sparse_js; j_max]
-	#end
-	
-	βs_sparse = DimVector(
-		βs_sparse₀, j_dim_new,
-		name = :β
-	)
-
-	(; βs_sparse, sparse_js)
-end
-
-# ╔═╡ 003b2222-1a91-423e-a8b1-f9dfb5d57a70
-md"""
-# Tests
-"""
-
-# ╔═╡ 2c07d651-e740-4398-848b-1bb537364e0b
-function β_AMMR(; age_min = 20, age_max = 96, β̄ = 0.9655, ξ = 0.00071)
-
-	J = age_max - age_min
-	 
-	β = DimVector(
-		[exp(j * log(β̄) + ξ * (j - (40 - age_min))^2) for j ∈ 0:J],
-		Dim{:j}((0:J))
-	)
-
-	β[j = At(0:J-1)]
-
-end
-
-# ╔═╡ 9cb38fa2-4a27-43ac-b964-17903539223d
-#=╠═╡
-let
-	βs = β_AMMR()
-	
-	βs = 0.95 .^ DD.dims(βs, :j)
-
-	J = maximum(DD.dims(βs, :j))
-	
-	period = (J + 1) / 10
-	
-	j₀ = period
-	(; βs_sparse, sparse_js) = adjust_period_discounting(βs, period)
-
-	lines(βs, figure = (; size = (300, 200)), axis = (; title = "Discounting", xlabel = ""))
-
-	scatter!(sparse_js, parent(βs_sparse))
-
-	current_figure()
-end
-  ╠═╡ =#
-
-# ╔═╡ 591e6284-da49-4d5b-aff3-ff6597f0ac30
-"""
-	`J` ... age of death
-    `JR` ... retirement age
-"""
-function income_profile(J, JR)
-	@assert JR < J
-
-	y = [3e-06 * j^3 - 0.0012 * j^2 + 0.0589 * j + 0.9503 for j ∈ 1:JR]
-
-	y = [y; fill(y[end], J - JR)]
-
-	DimArray(y, Dim{:j}(0:J-1), name = :y)
-end
-
 # ╔═╡ 808f9bb4-672f-4b5e-a997-fdb4b40ad58c
 #=╠═╡
 function check_incomes(period; J_P = 60 ÷ period)
@@ -214,22 +201,53 @@ end
 check_incomes(4, J_P = 45)
   ╠═╡ =#
 
-# ╔═╡ 1ae762f4-22c8-4242-8541-5bdc1c00c7a9
-p_surv = DimVector(
-	[0.9945385, 0.9995935, 0.9997525, 0.999799, 0.999836, 0.9998605, 0.9998755, 0.999885, 0.99989, 0.99989, 0.999884, 0.9998745, 0.9998525, 0.9998115, 0.99975, 0.9996605, 0.999536, 0.9993885, 0.999241, 0.9991345, 0.99906, 0.998978, 0.9988925, 0.99881, 0.9987215, 0.998631, 0.9985435, 0.9984545, 0.998359, 0.998259, 0.998161, 0.9980625, 0.997962, 0.997868, 0.9977805, 0.997691, 0.9975995, 0.997493, 0.997366, 0.997226, 0.997077, 0.99692, 0.9967525, 0.9965905, 0.996419, 0.9962185, 0.995971, 0.995691, 0.9953685, 0.9950285, 0.994659, 0.9942635, 0.993815, 0.993334, 0.9927975, 0.9921995, 0.9915535, 0.9908825, 0.990155, 0.9893715, 0.988523, 0.987618, 0.9866885, 0.985767, 0.9848455, 0.983935, 0.982972, 0.9818665, 0.980645, 0.9793075, 0.9778105, 0.9760855, 0.9741015, 0.971813, 0.9691475, 0.9657655, 0.9623835000000001, 0.958681, 0.9545755, 0.9497485, 0.9445295, 0.9388595, 0.9326274999999999, 0.9255175, 0.9172435, 0.907863, 0.8973555, 0.885727, 0.873394, 0.859642, 0.844195, 0.827184, 0.8087880000000001, 0.78986, 0.7707634999999999, 0.7515835, 0.732595, 0.7140934999999999, 0.6963895, 0.6798, 0.662296, 0.6438275, 0.6243405, 0.6037785, 0.5820815, 0.559187, 0.5350275, 0.509533, 0.4826284999999999, 0.454237, 0.42427349999999997, 0.39265149999999993, 0.35927850000000006, 0.32405700000000004, 0.28970799999999997, 0.25419400000000003, 0.21690299999999996, 0.17774900000000005, 0.13663599999999998, 0.093468, 1.0],
-	Dim{:j}(0:120)
-)
+# ╔═╡ 2500a7f3-7d8e-4dc1-8c48-12bf9dd50107
+function adjust_period_discounting(βs, period)
+	j_dim = DD.dims(βs, :j)
+	j_min, j_max = extrema(j_dim)
 
-# ╔═╡ 80aa74dd-e3e7-42f7-911a-3f0dccaba243
-test_mortality = let
-	age_min = 0
-	age_max = 100
-	j_dim = Dim{:j}(age_min:age_max)
+	# shorten age grid
+	sparse_js = period-1:period:j_max
+	j_dim_new = Dim{:j}(0:length(sparse_js)-1)
 	
-	p₀ = p_surv[j = At(age_min:age_max-1)]
-		
-	DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+	βs_itp = linear_interpolation(collect(j_dim), βs)
+	
+	βs_sparse₀ = βs_itp.(sparse_js)
+
+	#if extend
+	#	βs_sparse₀ = [βs_sparse₀; βs[j = At(j_max)]]
+	#	sparse_js = [sparse_js; j_max]
+	#end
+	
+	βs_sparse = DimVector(
+		βs_sparse₀, j_dim_new,
+		name = :β
+	)
+
+	(; βs_sparse, sparse_js)
 end
+
+# ╔═╡ 9cb38fa2-4a27-43ac-b964-17903539223d
+#=╠═╡
+let
+	βs = β_AMMR()
+	
+	βs = 0.95 .^ DD.dims(βs, :j)
+
+	J = maximum(DD.dims(βs, :j))
+	
+	period = (J + 1) / 10
+	
+	j₀ = period
+	(; βs_sparse, sparse_js) = adjust_period_discounting(βs, period)
+
+	lines(βs, figure = (; size = (300, 200)), axis = (; title = "Discounting", xlabel = ""))
+
+	scatter!(sparse_js, parent(βs_sparse))
+
+	current_figure()
+end
+  ╠═╡ =#
 
 # ╔═╡ 9c0df7ba-123d-471a-b0ba-3fc825f6c92e
 #=╠═╡
@@ -257,24 +275,6 @@ let
 	fig
 end
   ╠═╡ =#
-
-# ╔═╡ 069770d9-477b-4f96-ad47-443d23d272d0
-md"""
-# Appendix
-"""
-
-# ╔═╡ 55d8d54d-f43b-4c07-b091-c4c72dec8ad1
-md"""
-## Packages
-"""
-
-# ╔═╡ 0d0aab16-1c2b-410d-bdc2-bca2fc97eec2
-#=╠═╡
-TableOfContents()
-  ╠═╡ =#
-
-# ╔═╡ b9a7c27d-c4ab-4059-a2bf-69c55a468899
-const DD = DimensionalData
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
