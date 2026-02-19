@@ -172,8 +172,9 @@ const DD = DimensionalData
 
 # ╔═╡ 579efb18-a47d-4712-a9e2-d1512ffae808
 function get_demographics_supersimple(m₀, T̃, scale_m = 0.9)
-	m_jborn = let
-		m₀
+	m₀ = copy(m₀)
+	
+	m_jborn = let		
 		m₁ = scale_m * m₀
 		m₁[end] = 1.0
 		
@@ -266,8 +267,8 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	end
 	
 	if !isnothing(guesses_trans)
-		guesses = guesses_trans.stationary
-		inheritances_θ_guess = guesses_trans.inheritances_θ
+		guesses = deepcopy(guesses_trans.stationary)
+		inheritances_θ_guess = deepcopy(guesses_trans.inheritances_θ)
 	else
 		K_guess = 9.54318
 		guesses = (; K_supply = K_guess, H_hh = 8.55e-8, L_eff = 1.7289)
@@ -318,7 +319,7 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	#####################################
 	## TEST 2: REDUCE MORTALITY BY 10% ##
 	
-	m₀ = DimArray(par.m, name = :m)
+	m₀ = DimArray(copy(par.m), name = :m)
 
 	demographics_transition = if scenario == :supersimple
 		get_demographics_supersimple(m₀, T̃)
@@ -333,11 +334,11 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 
 	if isnothing(guesses_trans) || !hasproperty(guesses_trans, :inheritances_θt)
 		inheritances_θt_guess = 
-			(stack ∘ fill)(GE₀_etc.inheritances_etc.inheritances_θ, length(t_dim))'
+			(stack ∘ fill)(copy(GE₀_etc.inheritances_etc.inheritances_θ), length(t_dim))'
 	else
 		@info "used inheritances_θt_guess"
 		inheritances_θt_guess = DimArray(
-			guesses_trans.inheritances_θt',
+			copy(guesses_trans.inheritances_θt)',
 			(Dim{:t}(0:T̃), only(statespace.perm_dim))
 		)
 	end
