@@ -31,6 +31,12 @@ using CairoMakie, AlgebraOfGraphics
 # ╔═╡ 5a7ad3dd-31cb-4210-beeb-ab48260fb832
 Demographics = ingredients("./demographics.jl") 
 
+# ╔═╡ 7c97fa6d-1f70-4c98-824f-92cee4e00070
+MoreDemographics = ingredients("./more-demographics.jl") 
+
+# ╔═╡ c8c7e95b-f8fa-42dc-93bf-7b26d3c5a54e
+(; get_demographics) = MoreDemographics
+
 # ╔═╡ ee84d90d-89f9-4d13-a25c-8e09d3d5c38d
 md"""
 ## Solutions
@@ -118,7 +124,7 @@ md"""
 (; HousingModel, stationary_GE, stationary_PE, transition_PE, transition_GE) = EGMHousingRisk
 
 # ╔═╡ fb9489c3-f6af-4ee6-b1f5-de8e786e1cd0
-(; mortality, income_profile, Statespace, get_par₀, ε_chain_AMMR, permanent_states_AMMR, no_inheritances) = EGMHousingRisk
+(; mortality, income_profile, Statespace, get_par₀, ε_chain_AMMR, permanent_states_AMMR, no_inheritances, dimstack_from_nt) = EGMHousingRisk
 
 # ╔═╡ 5364112f-2207-4e69-8fcd-4b3bf8cd5351
 function get_statespace(; amax = 12.0, na = 100, 
@@ -163,6 +169,28 @@ md"""
 
 # ╔═╡ 5a415b7d-c34e-44da-9852-a2cc8dc96c3d
 const DD = DimensionalData
+
+# ╔═╡ 579efb18-a47d-4712-a9e2-d1512ffae808
+function get_demographics_supersimple(m₀, T̃, scale_m = 0.9)
+	m_jborn = let
+		m₀
+		m₁ = scale_m * m₀
+		m₁[end] = 1.0
+		
+		j_dim = DD.dims(m₀, :j)
+		J = maximum(j_dim)
+	
+		borns = -J:1:T̃
+		born_dim = Dim{:born}(borns)
+		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
+	end
+
+	(; 
+		m_jborn,
+		π_jt    = Demographics.get_π_jt((; demographics = m_jborn, m₀, T̃)),
+		π_t     = Demographics.get_π_t((; demographics = m_jborn, m₀, T̃))
+	)
+end
 
 # ╔═╡ ad897e47-9932-48ea-adbb-16b90f8d5e68
 function get_cali_test(; 
@@ -223,9 +251,9 @@ end
 
 # ╔═╡ f34af52c-2376-4fc5-9a2f-4fc0c6910622
 function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, guesses_trans=nothing, tol_stat = 1e-4, tol_trans = 1e-4, 
-						 λ_trans = 0.02, λ_inherit = 1.0,
-						 scale_m = 0.9, bequests = false, skip_transition = false, details = 20, 
-						 maxiter_GE = 100, maxiter_trans = 400, PE = true
+						 λ_trans = 0.02, λ_inherit = 1.0, bequests = false, skip_transition = false, details = 20, 
+						 maxiter_GE = 100, maxiter_trans = 400, PE = true,
+						 scenario = :supersimple
 						)
 	# equivalent to BaselineModel() in models_reduced.jl
 	(; par, statespace, π_init, period) = get_cali_test(; amax, na, J_P, risk, ξ, bequests)
@@ -286,30 +314,17 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	
 	
 	T̃ = 30
-
 	
 	#####################################
 	## TEST 2: REDUCE MORTALITY BY 10% ##
 	
-	m_j = DimArray(par.m, name = :m)
-	m_jborn = let
-		m₀ = m_j
-		m₁ = scale_m * m_j
-		m₁[end] = 1.0
-		
-		j_dim = DD.dims(m₀, :j)
-		J = maximum(j_dim)
-	
-		borns = -J:1:T̃
-		born_dim = Dim{:born}(borns)
-		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
-	end
+	m₀ = DimArray(par.m, name = :m)
 
-	demographics_transition = (; 
-		m_jborn,
-		π_jt    = Demographics.get_π_jt((; demographics = m_jborn, m₀ = m_j, T̃=30)),
-		π_t     = Demographics.get_π_t((; demographics = m_jborn, m₀ = m_j, T̃=30))
-	)
+	demographics_transition = if scenario == :supersimple
+		get_demographics_supersimple(m₀, T̃)
+	else
+		get_demographics(scenario, m₀, T̃; period)
+	end
 
 	###########################
 
@@ -353,6 +368,23 @@ out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
 								  tol_stat = 1e-9, tol_trans = 1e-4,
 								  bequests = true, skip_transition = false, 
 								  details = 1) # 575 s
+
+# ╔═╡ 8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
+out_18_bequests.out.raw_aggregate_paths.population
+
+# ╔═╡ 5709b531-6050-42d6-8148-95c64796e5eb
+out_18_bequests.demographics_transition.π_t
+
+# ╔═╡ a5aeb7b6-36fc-4010-bd83-0531838550e8
+out_babyboom = transition_test(18,
+								  maxiter_GE = 200,
+								  maxiter_trans = 100,
+								  PE = false,
+								  tol_stat = 1e-9, tol_trans = 1e-4,
+								  bequests = true, skip_transition = false, 
+								  details = 1,
+							   	  scenario = :baby_boom
+							  ) # 575 s
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2530,7 +2562,13 @@ version = "4.1.0+0"
 
 # ╔═╡ Cell order:
 # ╠═5a7ad3dd-31cb-4210-beeb-ab48260fb832
+# ╠═7c97fa6d-1f70-4c98-824f-92cee4e00070
+# ╠═c8c7e95b-f8fa-42dc-93bf-7b26d3c5a54e
 # ╠═1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0
+# ╠═a5aeb7b6-36fc-4010-bd83-0531838550e8
+# ╠═579efb18-a47d-4712-a9e2-d1512ffae808
+# ╠═8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
+# ╠═5709b531-6050-42d6-8148-95c64796e5eb
 # ╠═f34af52c-2376-4fc5-9a2f-4fc0c6910622
 # ╠═ad897e47-9932-48ea-adbb-16b90f8d5e68
 # ╠═5364112f-2207-4e69-8fcd-4b3bf8cd5351
