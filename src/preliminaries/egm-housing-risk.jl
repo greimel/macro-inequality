@@ -78,7 +78,8 @@ md"""
 """
 
 # ╔═╡ a44e51f9-3f90-4ec8-b890-e53e7b9549f6
-function aggregate_paths(sim_df; normalize_population = false)
+function aggregate_paths(sim_df)
+	weight_col = :π_final
 	
 	df₀ = @chain sim_df begin
 		@transform(:t = :j + :born) 
@@ -95,27 +96,20 @@ function aggregate_paths(sim_df; normalize_population = false)
 	t_dim = Dim{:t}(0:T̃)
 
 	@chain df₀ begin
-		@subset!(0 ≤ :t ≤ T̃, :π > 0)
-	end
-
-	if normalize_population
-		@chain df₀ begin
-			@groupby(:t)
-			@transform!(:π = @bycol :π ./ sum(:π))
-		end
+		@subset!(0 ≤ :t ≤ T̃, {weight_col} > 0)
 	end
 
 	pop = @chain df₀ begin
 		@groupby(:t)
-		@combine(:pop = sum(:π))
+		@combine(:pop = sum({weight_col}))
 		DimVector(_.pop, t_dim, name = :population)
 	end
 
-	variables = setdiff(names(df₀), string.([:j, :t, :born, :π, :permanent]))
+	variables = setdiff(names(df₀), string.([:j, :t, :born, weight_col, :permanent]))
 	
 	@chain df₀ begin
 		@groupby(:t)
-		@combine(variables = sum({variables}, weights(:π)), :population = sum(:π) )
+		@combine(variables = sum({variables}, weights({weight_col})), :population = sum({weight_col}) )
 		stack([variables; "population"])
 		@groupby(:variable)
 		@combine(:da = [DimVector(:value, t_dim, name = only(unique(:variable)))])
@@ -2467,8 +2461,6 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 	π = DimArray(@d(π_within .* surv .* mass_init), name = :π)
 	sol = (c, next_state, stuff, π, π_within, surv, mass_init)
 
-	
-	
 	sim_ds = DimStack(
 			c, value, next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)..., π, π_within, surv,
 		)
@@ -2483,7 +2475,10 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 		only(_.π)
 	end
 
-	@transform!(sim_df, :π = :π / factor)
+	@transform!(sim_df,
+				:π_pop = :π / factor,
+				#:π = :π / factor,
+			   )
 	
 	(; sol, sim_df, sim_ds)
 end
@@ -2704,7 +2699,7 @@ end
 # ╔═╡ ca363b65-dd42-475c-9114-a259691c7913
 function transition_PE(model, T̃, par, statespace, demographics_transition, GE₀,
 					   paths_in;
-					   j_last=par.J, normalize_population = false,
+					   j_last=par.J,
 					   inheritances_tθ
 					   )
 
@@ -2724,7 +2719,7 @@ function transition_PE(model, T̃, par, statespace, demographics_transition, GE�
 		
 		sol = simulate_cohorts(model, par, permanent, statespace, demographics_transition, GE_sol_perm; price_paths, j_last, T̃, inheritances_tj = inheritances_θ)
 
-		sim_df = @transform(sol.sim_df, :π = :π * π_perm)
+		sim_df = @transform(sol.sim_df, :π_final = :π_pop * π_perm)
 		(; sim_df, permanent)
 	end
 
@@ -2733,7 +2728,7 @@ function transition_PE(model, T̃, par, statespace, demographics_transition, GE�
 		source = :permanent => parent(getproperty.(sols, :permanent))
 	)
 	
-	raw_aggregate_paths = aggregate_paths(sim_df; normalize_population)
+	raw_aggregate_paths = aggregate_paths(sim_df)
 	_aggregate_paths_ = loss_and_aggregates_t(model, par, paths_in, raw_aggregate_paths, GE₀)
 
 	out_PE = (; aggregate_paths=_aggregate_paths_, price_paths, guessed_paths=deepcopy(paths_in), raw_aggregate_paths, sim_df, #= demographics, =# statespace, GE₀, T̃, inheritances_θt=inheritances_tθ, inheritances_θtj, π_jt)
@@ -2741,7 +2736,7 @@ end
 
 # ╔═╡ 880637f3-81f0-48f5-8918-c03dac35e6fc
 function transition_GE(model, T̃, par, statespace, demographics_transition, GE₀, guessed_path;
-					   j_last = par.J, normalize_population = false,   	   
+					   j_last = par.J,   	   
 					   inheritances_θt_guess = nothing, bequests = true,
 					   maxiter = 100, λ = 0.05, tol = 1e-4, λ_inh = 1.0, details=1)
 
@@ -2763,7 +2758,7 @@ function transition_GE(model, T̃, par, statespace, demographics_transition, GE�
 	for it ∈ 1:maxiter
 		
 		out_PE = transition_PE(model, T̃, par, statespace, demographics_transition, GE₀, path_in;
-							   j_last, normalize_population,
+							   j_last,
 							   inheritances_tθ)
 
 		crit₀ = maximum(abs, out_PE.aggregate_paths.loss)
