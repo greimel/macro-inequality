@@ -2744,6 +2744,7 @@ function transition_GE(model, T̃, par, statespace, demographics_transition, GE�
 			crit_inh = norm(@d inheritances_tθ_new .- inheritances_tθ)
 			converged = abs(crit) < tol && abs(crit_inh) < tol
 		else
+			crit_inh = NaN
 			converged = abs(crit) < tol
 		end
 		
