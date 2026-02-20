@@ -2104,17 +2104,17 @@ function inheritances_transition(out, statespace, demographics_transition)
 end
 
 # ╔═╡ f66ab91b-14d6-4981-b78e-ab6f55129220
-function solve_forward!(π, π_within, surv, mass_init, sol_backward, statespace, (; m); π_init, j_init)
+function solve_forward!(π, π_within, surv, mass_init, sol_backward, statespace, (; m); π_within_init, _mass_init_, j_init)
 	
 	(; next_state) = sol_backward
 	j₀, J = extrema(DD.dims(next_state, :j))
 
-	_mass_init_ = sum(π_init)
+#	_mass_init_ = sum(π_init)
 	
 	# π_within is conditional on being alive: sums to 1 at each age
-	π_within[j = At(j_init)] .= π_init ./ _mass_init_
+	π_within[j = At(j_init)] .= π_within_init
 	mass_init .= _mass_init_
-	π[j = At(j_init)] .= π_init
+	π[j = At(j_init)] .= π_within_init .* _mass_init_
 
 	(; states) = statespace
 	P = statespace.P_from
@@ -2389,14 +2389,14 @@ function solve_backward!(c, next_state, value, next_value, constrained, stuff, M
 end
 
 # ╔═╡ 26bc0666-0405-466b-8dea-356d9d7c4e19
-function solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0,
+function solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0,
 								 inherit_j # inheritances for each age j of a given permanent type θ
 								)
 	
 	solve_backward!(c, next_state, value, next_value, constrained, stuff, Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
 	## SOLVE FORWARD
-	solve_forward!(π, π_within, surv, mass_init, (; next_state), statespace, par_cohort; π_init, j_init)
+	solve_forward!(π, π_within, surv, mass_init, (; next_state), statespace, par_cohort; π_within_init, _mass_init_, j_init)
 
 	return nothing
 end
@@ -2404,7 +2404,7 @@ end
 # ╔═╡ 3c2f3f62-f7b9-4d66-8598-be8bb6bd6356
 function simulate_cohorts(Mo, par, permanent, statespace, demographics_transition, GE_sol_perm; price_paths, j_last = par.J, T̃, inheritances_tj)
 
-	(; m_jborn) = demographics_transition 
+	(; m_jborn, π_jt) = demographics_transition 
 	
 	j_dim = Dim{:j}(0:j_last)
 	t_borns = (-j_last):1:T̃
@@ -2428,6 +2428,7 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 	π_init_all = get_π_init_all(GE_sol_perm, price_paths, par, statespace)
 	
 	for t_born ∈ t_borns
+		
 		m = m_jborn[born = At(t_born)]
 		par_cohort = (; par.h, par.ρ_SS, m)
 
@@ -2443,7 +2444,18 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 		mass_initₜ  = @view   mass_init[born = At(t_born)]
 
 		j_init = max(0, -t_born)
+
+		#=
+		if t_born ≥ 0
+			_mass_init_ = π_jt[t = At(t_born), j = At(0)]
+		else
+			_mass_init_ = π_jt[t = At(0), j = At(j_init)]
+		end
+		=#
+		
 		π_init = π_init_all[j = At(j_init)]
+		_mass_init_ = sum(π_init)
+		π_within_init = π_init ./ _mass_init_
 
 		inherit_j = map(j_dim) do j
 			t = clamp(j + t_born, 0, T̃)
@@ -2453,7 +2465,7 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 		solve_backward_forward!(cₜ, next_stateₜ, valueₜ, next_valueₜ, 
 								constrainedₜ, stuffₜ, πₜ, π_withinₜ, survₜ, mass_initₜ,
 								Mo, par_all, par_cohort, permanent, statespace; 
-								price_paths, π_init, j_init, t_born, inherit_j)
+								price_paths, π_within_init, _mass_init_, j_init, t_born, inherit_j)
 	end
 
 	@assert π ≈ π_within .* surv .* mass_init
@@ -2484,13 +2496,13 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 end
 
 # ╔═╡ 0ae74c43-bae4-406b-9e31-fd76a0a4a398
-function simulate_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0,
+function simulate_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0,
 								inherit_j # inheritances for each age of a given permanent type θ
 							   )
 	
 	(; c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init) = initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
-	solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_init, j_init, t_born, inherit_j)
+	solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init, t_born, inherit_j)
 
 	sol_backward = (; c, next_state, value, dimarray_of_nts_to_nt_of_dimarrays(stuff)...)
 
@@ -2526,10 +2538,14 @@ function stationary_PE(Mo, par, statespace, guesses, prices;
 	
 	price_paths = constant_price_paths(par, prices)
 
+	
 	sols = map(enumerate(zip(get_states(π_permanent), π_permanent))) do (i_perm, (permanent, π_perm))
 		inherit_j = @view inheritances_θj[θ = i_perm]
+
+		_mass_init_ = sum(π_init)
+		π_within_init = π_init ./ _mass_init_
 		
-		sol = simulate_cohort(Mo, par_x, par_cohort, permanent, statespace; price_paths, π_init, j_init = 0, t_born = 0, inherit_j)
+		sol = simulate_cohort(Mo, par_x, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0, inherit_j)
 
 		sim_df = @transform(sol.sim_df, :π = :π * π_perm)
 		(; sol, sim_df, permanent)
