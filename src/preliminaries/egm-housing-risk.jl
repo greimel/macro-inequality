@@ -2154,17 +2154,7 @@ function solve_forward!(π, π_within, surv, mass_init, sol_backward, statespace
 			π_within_base = π_within[j = At(j)][ind]
 			π_within[j = At(j+1), state = At(high.x)] .+= π_within_base .* high.weight .* P[from = At(ε)]
 			π_within[j = At(j+1), state = At(low.x)]  .+= π_within_base .* low.weight .* P[from = At(ε)]
-			
 		end
-
-		#@assert sum(π_init[j = At(j)]) ≈ 1)
-	
-		# renormalize to keep conditional probabilities summing to 1
-		#mass = sum(parent(π[j = At(j+1)]))
-		#if mass > 0
-		#	π[j = At(j+1)] .= π[j = At(j+1)] ./ mass
-		#end
-		# is this really necessary?
 	end
 
 	nothing
