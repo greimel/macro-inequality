@@ -176,36 +176,6 @@ md"""
 ## Check against simpler version
 """
 
-# ╔═╡ a87f8586-fa96-4940-9f88-f97831ed9c1a
-#=╠═╡
-let
-	(; par, out) = out_18
-	
-	par_beq = get_cali_test(; J_P = par.J +1, risk = true, bequests = true).par
-	@assert par_beq.h == par.h
-	
-	π_jt = compute_π_jt(out, par_beq)
-	
-	(; inheritances, aggregate_inheritances) = compute_bequests_transition_simple(out, par_beq, π_jt)
-
-	inheritances
-	#=
-	π_df = @chain out.sim_df begin
-		@transform(:j, :t = :j + :born)
-		@subset(0 ≤ :t ≤ out.T̃)
-		@select(:j, :t, :born, :state, :ε, :π)		
-		@subset(:π > 0)
-	end
-	
-	@chain π_df begin
-		leftjoin(_, DataFrame(inheritances), on = [:j, :t])
-		@groupby(:t)
-		@combine(:total_inheritance = sum(:inheritance, weights(:π)))
-	end
-	=#
-end
-  ╠═╡ =#
-
 # ╔═╡ fb9f60d9-4f44-411f-9bfb-3b12830d4f78
 function compute_π_jt((; sim_df, T̃), (; J))
 	t_dim = Dim{:t}(0:T̃)
@@ -270,11 +240,6 @@ md"""
 md"""
 ## Transition path
 """
-
-# ╔═╡ f110e4f8-e3d7-4f38-af4d-39901ce3a13b
-#=╠═╡
-sprint_solution(out_18)
-  ╠═╡ =#
 
 # ╔═╡ c1a22777-0fbf-4366-a757-b38a02f79507
 #=╠═╡
@@ -351,8 +316,7 @@ guesses_18_noh = (;
 
 # ╔═╡ 85465c5d-f4d5-4e60-8269-8293bb5d3e2a
 guesses_18 = (; 
-  stationary = (K_supply = 7.127752341937452, H_hh = 1.1212658132348279, L_eff = 6.182668404245626),
-  inheritances_by_type = nothing,
+ stationary = (K_supply = 7.127752341937452, H_hh = 1.1212658132348279, L_eff = 6.182668404245626),
   transition = DimStack(
       DimVector([
       7.127700125678019, 7.107433468422651, 7.174792033701194, 7.215516608289269, 7.241026838170942, 7.257270671743569, 7.267758147644637, 7.2745703273571936, 7.279016993292482, 7.281955759056319, 7.283983425533437, 7.285416527714739, 7.286450280997171, 7.287211969166251, 7.28778672895185, 7.288223618076419, 7.288546259955412, 7.288760963503013, 7.288869655680551, 7.288872015456595, 7.288882259888983, 7.288881882782235, 7.288878396092633, 7.288874943198147, 7.2888727282325965, 7.288871916772743, 7.288872208969871, 7.2888731783887435, 7.28887442518633, 7.288875648093575, 7.288876673044379
@@ -363,7 +327,14 @@ guesses_18 = (;
       DimVector([
       6.182668771850203, 6.213231013571356, 6.234434173980124, 6.2493084402392185, 6.259857882821448, 6.267390868190918, 6.2727980284409055, 6.2766881647858535, 6.279485137919513, 6.28150487557965, 6.282956634807694, 6.283991262367838, 6.284718608633669, 6.2852217913511375, 6.285560779469282, 6.285777567835035, 6.285900747367915, 6.285951805501046, 6.2859518055010435, 6.285951805501045, 6.285951805501045, 6.2859518055010435, 6.285951805501044, 6.285951805501049, 6.285951805501048, 6.285951805501046, 6.285951805501045, 6.285951805501045, 6.285951805501046, 6.285951805501046, 6.285951805501045
     ], Dim{:t}(0:30), name = :L_eff),
-  )
+  ),
+  inheritances_θ = [0.6369005178864167, 1.3386517232723942, 2.6193090417738962],
+inheritances_θt = 0 .* [
+  0.6369005178864167 0.5962209728911592 0.6079811594833096 0.6155320665422297 0.6203956335250228 0.6235821357796271 0.6256778941367663 0.6270660206549159 0.6279896418846743 0.6285828057676296 0.6289827386229992 0.6292555249946102 0.62943969703096 0.6295623000862984 0.6296470886749188 0.6297121580672163 0.6297702535240923 0.6298256626656221 0.6298728858233813 0.6298690482618905 0.6298740873380165 0.6298763434762271 0.6298771602898242 0.6298772645282329 0.6298770673123113 0.6298767970068068 0.6298765716834311 0.6298764385042357 0.6298764002948057 0.6298764329000356 0.6298765073096585;
+  1.3386517232723942 1.2529433002947028 1.27752113661636 1.293295294736006 1.303483990067802 1.3101799657965494 1.3145974505575244 1.317531871301601 1.3194906444511205 1.320754063638582 1.3216097614632771 1.322196380609679 1.3225947435242889 1.3228616974987366 1.3230472542898937 1.3231895996300227 1.3233155376263506 1.323434186657825 1.3235345793043995 1.3235261657721367 1.3235349656557616 1.3235387480328569 1.3235399717491507 1.3235399548958968 1.3235394389083286 1.3235388311749177 1.3235383393869138 1.3235380426202523 1.3235379396182776 1.3235379803609784 1.323538107030013;
+  2.6193090417738962 2.450175594118649 2.4973160823306797 2.527559266406661 2.5472923113304864 2.5604093004970303 2.5691664500664517 2.5750535575957927 2.5790369163306743 2.581653149006086 2.5834582356907534 2.584720794637981 2.5855975737227728 2.586200065136953 2.586626934486198 2.586953961676279 2.5872340683662713 2.587486530695119 2.5876933721783706 2.5876760847237663 2.587682980950393 2.5876849659060643 2.5876846742174644 2.587683442582953 2.587681995526876 2.587680701230693 2.587679728435048 2.587679116279098 2.5876788244795246 2.5876787651232562 2.5876788491476215
+ ]
+
 )
 
 # ╔═╡ f1cd1f44-cd7b-4162-a51f-1c533cd79721
@@ -410,11 +381,6 @@ md"""
 * F matrix
 """
 
-# ╔═╡ b0d59912-88b6-42bf-9328-aed96c0a3515
-#=╠═╡
-out_18.out.GE₀.raw_aggregates.a_next
-  ╠═╡ =#
-
 # ╔═╡ ee57a9c8-94ee-4c7b-8e53-20cab12fa64a
 md"""
 # To do
@@ -441,12 +407,6 @@ end
 # ╠═╡ disabled = true
 #=╠═╡
 out_18_noh = transition_test(18, guesses_trans=guesses_18_noh, tol_stat = 1e-12, tol_trans = 1e-5, ξ = 0.0, λ_trans = 0.2)
-  ╠═╡ =#
-
-# ╔═╡ f700462d-89af-4474-b063-92ddbfa4d079
-# ╠═╡ disabled = true
-#=╠═╡
-out_18 = transition_test(18, guesses_trans=guesses_18, tol_stat = 1e-12, tol_trans = 1e-4) # 575 s
   ╠═╡ =#
 
 # ╔═╡ cb517530-9ce3-4774-b6ed-ce2d636cb765
@@ -845,11 +805,13 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 
 	if isnothing(guesses_trans) || !hasproperty(guesses_trans, :inheritances_θt)
 		inheritances_θt_guess = 
-			(stack ∘ fill)(GE₀_etc.inheritances_etc.inheritances_θ, length(t_dim))'
+			(stack ∘ fill)(
+				copy(GE₀_etc.inheritances_etc.inheritances_θ), length(t_dim)
+			)'
 	else
 		@info "used inheritances_θt_guess"
 		inheritances_θt_guess = DimArray(
-			guesses_trans.inheritances_θt',
+			copy(guesses_trans.inheritances_θt)',
 			(Dim{:t}(0:T̃), only(statespace.perm_dim))
 		)
 	end
@@ -866,7 +828,7 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 
 	out = transition_GE(Mo, T̃, par, statespace, demographics_transition, GE₀, guessed_paths;
 						normalize_population = false, inheritances_θt_guess,
-						details, λ = λ_trans, maxiter = maxiter_trans, tol = tol_trans, λ_inh=λ_inherit
+						details, λ = λ_trans, maxiter = maxiter_trans, tol = tol_trans, λ_inh=λ_inherit, bequests
 						)
 
 	(; par, out=out.out_PE, GE₀_etc, out_full = out, period, statespace, demographics_transition)
@@ -883,6 +845,19 @@ out_18_noh_05 = transition_test(18; guesses_trans=guesses_18_noh_05,
 
 # ╔═╡ b15d0354-b4b8-4378-8a3c-350a81058b57
 sprint_solution(out_18_noh_05)
+
+# ╔═╡ f700462d-89af-4474-b063-92ddbfa4d079
+out_18 = transition_test(18; guesses_trans=guesses_18,
+						 maxiter_GE = 200,
+						 maxiter_trans = 100,
+						 tol_stat = 1e-12,
+						 tol_trans = 1e-4,
+						 bequests = false, PE = false,
+						 details = 1, 
+						)
+
+# ╔═╡ f110e4f8-e3d7-4f38-af4d-39901ce3a13b
+sprint_solution(out_18)
 
 # ╔═╡ 7a208658-8fb0-423c-bb95-95c0101fd98e
 out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
@@ -1101,12 +1076,6 @@ end
 end
 
 
-# ╔═╡ e0ac337f-2653-4973-a2e6-6559ce58c428
-out_X
-
-# ╔═╡ 2e275057-1155-4edf-bb76-cf870092cb9a
-out_X.GE₀_etc
-
 # ╔═╡ 6de812cb-8d2b-45fc-bf99-685083b07a9a
 @chain out_X.demographics_transition.m_jborn begin
 	DataFrame
@@ -1247,12 +1216,6 @@ let
 	end
 	
 end
-
-# ╔═╡ 21a6230c-9284-4246-83d8-4eefd8616b90
-out_X.out.GE₀
-
-# ╔═╡ ebfdc2d6-431c-4ced-b8d2-0f534829d16e
-out_X.out.sim_df
 
 # ╔═╡ c2aa615c-4231-4173-a6db-81a5be35cabd
 let
@@ -3653,7 +3616,6 @@ version = "4.1.0+0"
 # ╟─1b7e6662-ab53-4a63-81a3-4b2b626e0e7e
 # ╠═f40fa3a0-8064-4c6b-b5c2-9cd838919c9d
 # ╟─88d9865b-796d-4ed5-a2d5-862236f3ae54
-# ╠═a87f8586-fa96-4940-9f88-f97831ed9c1a
 # ╠═fb9f60d9-4f44-411f-9bfb-3b12830d4f78
 # ╠═6049b54f-6d12-4608-b5d4-9eea447a28f5
 # ╠═1a5eea93-82b6-413c-900e-a3972ce6d32b
@@ -3691,8 +3653,6 @@ version = "4.1.0+0"
 # ╠═2b1d18f2-b82c-4058-a6cb-65ff468ed1c4
 # ╠═8daab1ff-f661-4772-89f6-569d9d0246f3
 # ╠═6bf82f04-b7f9-4ac4-a48a-948f7cdbad16
-# ╠═e0ac337f-2653-4973-a2e6-6559ce58c428
-# ╠═2e275057-1155-4edf-bb76-cf870092cb9a
 # ╠═6de812cb-8d2b-45fc-bf99-685083b07a9a
 # ╠═f3d805da-da19-4d9e-b4e6-69da4f19a833
 # ╠═a08be402-718b-4e47-a68d-9d86e52a6b0a
@@ -3711,15 +3671,12 @@ version = "4.1.0+0"
 # ╠═18070fd0-a0ce-4e28-ad5a-a39568460f43
 # ╠═fea217b0-a5b9-4379-834b-393a2d0ad05e
 # ╠═2f587a99-6ff5-40cd-9415-4383f39571d4
-# ╠═21a6230c-9284-4246-83d8-4eefd8616b90
-# ╠═ebfdc2d6-431c-4ced-b8d2-0f534829d16e
 # ╠═d4c3447e-8dae-4201-8d39-11bba68b56c5
 # ╠═c2aa615c-4231-4173-a6db-81a5be35cabd
 # ╠═211246a2-7bd6-47c3-882c-7804e31a012f
 # ╠═3ea13784-73f0-4f70-bd72-edc4e81efa59
 # ╠═3bd0d3fe-619d-4f10-938c-c60d5cfb49e5
 # ╠═6667de81-671d-454c-8d73-f0309f646b60
-# ╠═b0d59912-88b6-42bf-9328-aed96c0a3515
 # ╠═8cb9b650-12fb-4691-925e-51e806cb12fd
 # ╠═3b124dcd-6e93-43d6-bb00-e144926a0a58
 # ╠═0b68d40c-e7b0-4f4e-bf0d-d009a14707b3
