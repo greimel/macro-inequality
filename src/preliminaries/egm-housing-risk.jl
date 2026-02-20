@@ -295,9 +295,6 @@ md"""
 ## Solving backward
 """
 
-# ╔═╡ 9e05ea7c-bc7a-4dbd-8199-298c53447d7c
-global COUNTER = 0
-
 # ╔═╡ cfb2d2e9-f101-464f-915f-b0f6a38744e5
 function dimarray_of_nts_to_nt_of_dimarrays(da)
 	names = keys(first(da))
@@ -2713,7 +2710,7 @@ end
 # ╔═╡ 880637f3-81f0-48f5-8918-c03dac35e6fc
 function transition_GE(model, T̃, par, statespace, demographics_transition, GE₀, guessed_path;
 					   j_last = par.J, normalize_population = false,   	   
-					   inheritances_θt_guess = nothing,
+					   inheritances_θt_guess = nothing, bequests = true,
 					   maxiter = 100, λ = 0.05, tol = 1e-4, λ_inh = 1.0, details=1)
 
 	path_in = deepcopy(guessed_path)
@@ -2742,12 +2739,13 @@ function transition_GE(model, T̃, par, statespace, demographics_transition, GE�
 
 		inh_tθ_etc_new = inheritances_transition(out_PE, statespace, demographics_transition)
 		inheritances_tθ_new = inh_tθ_etc_new.inheritances_θt
-			
-		#inheritances_tθ_new = compute_inheritance_θt(out_PE, statespace)
-		
-		crit_inh = norm(@d inheritances_tθ_new .- inheritances_tθ)
-		
-		converged = abs(crit) < tol && abs(crit_inh) < tol
+
+		if bequests
+			crit_inh = norm(@d inheritances_tθ_new .- inheritances_tθ)
+			converged = abs(crit) < tol && abs(crit_inh) < tol
+		else
+			converged = abs(crit) < tol
+		end
 		
 		if converged || (details > 0 && it % details == 0)
 			@info (; it, crit₀, crit, crit_inh)
@@ -5307,7 +5305,6 @@ version = "4.1.0+0"
 # ╠═685427d8-9f41-482e-bb08-7fbe7aff32ef
 # ╠═ae5bd8c1-dca5-495d-a5bb-a2d271262645
 # ╠═0bfd4678-c05c-4e62-9f11-6a1d80f4f58a
-# ╠═9e05ea7c-bc7a-4dbd-8199-298c53447d7c
 # ╠═cfb2d2e9-f101-464f-915f-b0f6a38744e5
 # ╠═07a443b3-7233-43a5-aacd-7fb79bec0edf
 # ╠═6569e751-ce87-4063-a142-ad62d088e70d
