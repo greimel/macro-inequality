@@ -827,7 +827,7 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	end
 
 	out = transition_GE(Mo, T̃, par, statespace, demographics_transition, GE₀, guessed_paths;
-						normalize_population = false, inheritances_θt_guess,
+						inheritances_θt_guess,
 						details, λ = λ_trans, maxiter = maxiter_trans, tol = tol_trans, λ_inh=λ_inherit, bequests
 						)
 
