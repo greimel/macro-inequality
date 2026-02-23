@@ -31,6 +31,9 @@ using CairoMakie, AlgebraOfGraphics
 # ╔═╡ 5a7ad3dd-31cb-4210-beeb-ab48260fb832
 Demographics = ingredients("./demographics.jl") 
 
+# ╔═╡ 5804ea15-2d18-44e4-be38-0f1f119f59ef
+
+
 # ╔═╡ 7c97fa6d-1f70-4c98-824f-92cee4e00070
 MoreDemographics = ingredients("./more-demographics.jl") 
 
@@ -187,9 +190,9 @@ function get_demographics_supersimple(m₀, T̃, scale_m = 0.9)
 	end
 
 	(; 
-		m_jborn,
-		π_jt    = Demographics.get_π_jt((; demographics = m_jborn, m₀, T̃)),
-		π_t     = Demographics.get_π_t((; demographics = m_jborn, m₀, T̃))
+	  m_jborn, 
+	  Demographics.get_π_jt((; demographics = m_jborn, m₀, T̃=30))...,
+	  π_t     = Demographics.get_π_t((; demographics = m_jborn, m₀, T̃=30))
 	)
 end
 
@@ -354,7 +357,7 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	end
 
 	out = transition_GE(Mo, T̃, par, statespace, demographics_transition, GE₀, guessed_paths;
-						normalize_population = false, inheritances_θt_guess,
+						inheritances_θt_guess,
 						details, λ = λ_trans, maxiter = maxiter_trans, tol = tol_trans, λ_inh=λ_inherit
 						)
 
@@ -362,6 +365,8 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 end
 
 # ╔═╡ 1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0
+# ╠═╡ disabled = true
+#=╠═╡
 out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
 								  maxiter_GE = 200,
 								  maxiter_trans = 100,
@@ -369,12 +374,17 @@ out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
 								  tol_stat = 1e-9, tol_trans = 1e-4,
 								  bequests = true, skip_transition = false, 
 								  details = 1) # 575 s
+  ╠═╡ =#
 
 # ╔═╡ 8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
+#=╠═╡
 out_18_bequests.out.raw_aggregate_paths.population
+  ╠═╡ =#
 
 # ╔═╡ 5709b531-6050-42d6-8148-95c64796e5eb
+#=╠═╡
 out_18_bequests.demographics_transition.π_t
+  ╠═╡ =#
 
 # ╔═╡ a5aeb7b6-36fc-4010-bd83-0531838550e8
 out_babyboom = transition_test(18,
@@ -2563,6 +2573,7 @@ version = "4.1.0+0"
 
 # ╔═╡ Cell order:
 # ╠═5a7ad3dd-31cb-4210-beeb-ab48260fb832
+# ╠═5804ea15-2d18-44e4-be38-0f1f119f59ef
 # ╠═7c97fa6d-1f70-4c98-824f-92cee4e00070
 # ╠═c8c7e95b-f8fa-42dc-93bf-7b26d3c5a54e
 # ╠═1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0

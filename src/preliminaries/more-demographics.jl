@@ -11,7 +11,10 @@ using PlutoLinks: ingredients
 using SparseArrays
 
 # ╔═╡ f53ef954-2e60-4fdb-be4b-42741b0d4067
+# ╠═╡ skip_as_script = true
+#=╠═╡
 using CSV: CSV
+  ╠═╡ =#
 
 # ╔═╡ 663e9d66-24c1-432a-b608-64808e333103
 # ╠═╡ skip_as_script = true
@@ -35,10 +38,7 @@ using Interpolations: linear_interpolation, Flat
 using DimensionalData
 
 # ╔═╡ 74d09f13-b894-425e-8d1b-475c58ce9530
-# ╠═╡ skip_as_script = true
-#=╠═╡
 using Chain, DataFrameMacros, DataFrames
-  ╠═╡ =#
 
 # ╔═╡ a66d5028-9a26-40c0-a3c4-8c4ff60ba602
 # ╠═╡ skip_as_script = true
@@ -167,37 +167,49 @@ baseline_period = let
 end
 
 # ╔═╡ ccf90874-03e0-41fc-ab45-f6b68734ba03
-#=╠═╡
 function π_jborn_to_π_jt(π_jborn, T̃, J)
 	t_dim = Dim{:t}(0:T̃)
 	j_dim = Dim{:j}(0:J)
 
-	tmp = @chain π_jborn begin
+	π_jt_df = @chain π_jborn begin
 		DataFrame
 		@transform(:t = :j + :born)
 		@subset(0 ≤ :t ≤ T̃)
 	end
 
-	π_t = @chain tmp begin
+	# normalize within each time period for computing bequests
+	π_jt_normalized_df = @chain π_jt_df begin
+		@groupby(:t)
+		@transform(:pmf = @bycol :pmf ./ sum(:pmf))
+	end
+
+	(; π_jt_df, π_jt_normalized_df)
+
+	π_t = @chain π_jt_df begin
 		@groupby(:t)
 		@combine(:pmf = sum(:pmf))
 		DimVector([1.0; _.pmf], Dim{:t}(-1:T̃), name = :π_t)
 	end
 
-	@chain tmp begin
+	@chain π_jt_df begin
 		@groupby(:t)
 		@combine(@assert length(:t) == J + 1)
 	end
-	
-	π_jt = @chain tmp begin
-		sparse(_.j .+ 1, _.t .+ 1, _.pmf)
-		Matrix
-		DimArray(_, (j_dim, t_dim), name = :π_jt)
+
+	function df_to_da(df)
+		@chain df begin
+			sparse(_.j .+ 1, _.t .+ 1, _.pmf)
+			Matrix
+			DimArray(_, (j_dim, t_dim), name = :π_jt)
+		end
 	end
 
-	(; π_t, π_jt)
+	π_jt            = df_to_da(π_jt_df)
+	π_jt_normalized = df_to_da(π_jt_normalized_df)
+	
+
+	(; π_t, π_jt, π_jt_normalized)
 end
-  ╠═╡ =#
 
 # ╔═╡ 36276ece-b4e8-418e-996f-809fed9665cc
 md"""
@@ -276,7 +288,6 @@ demographic_transition(m; scale_m = 0.5, T̃ = 30) = let
 end
 
 # ╔═╡ 21c956dc-b3fa-4fa9-a0a1-b6a8955e71c3
-#=╠═╡
 @chain m begin
 	demographic_transition
 	DataFrame
@@ -286,7 +297,6 @@ end
 	#data(_) * mapping(:j, :m, color = :born => nonnumeric) * visual(Lines)
 	#draw
 end
-  ╠═╡ =#
 
 # ╔═╡ b47b920e-2202-46d4-af43-a36d1a324869
 function stretch_mortality(m₀, factor)
@@ -304,7 +314,6 @@ function stretch_mortality(m₀, factor)
 end
 
 # ╔═╡ 6163c43b-c42e-412e-9abd-878c708cb129
-#=╠═╡
 function get_demographics(scenario, m₀, T̃; period = 1)
 	
 	if scenario ∉ [:baby_boom, :births_down, :mortality_down]
@@ -358,13 +367,12 @@ function get_demographics(scenario, m₀, T̃; period = 1)
 
 	m_jborn = ms
 	π_jborn = pmfs
+
+	(; π_t, π_jt, π_jt_normalized) = π_jborn_to_π_jt(π_jborn, T̃, J)
 	
-	(; π_jt, π_t) = π_jborn_to_π_jt(π_jborn, T̃, J)
-	
-	(; m_jborn, π_jt, π_t)
+	(; m_jborn, π_t, π_jt, π_jt_normalized)
 
 end	
-  ╠═╡ =#
 
 # ╔═╡ 9dab3129-a426-4481-91ef-0901c24975e7
 #=╠═╡
