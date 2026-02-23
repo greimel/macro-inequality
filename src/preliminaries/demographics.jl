@@ -84,7 +84,7 @@ function get_π_jt_df((; demographics, m₀, T̃))
 
 	@info births
 	
-	π_jt = @chain demographics begin
+	π_jt_df = @chain demographics begin
 		DataFrame
 		leftjoin(_, rename(DataFrame(m₀), :m => :m_baseline), on = :j)
 		@transform(:t = :j + :born)
@@ -93,11 +93,16 @@ function get_π_jt_df((; demographics, m₀, T̃))
 		@groupby(:born)
 		@transform(:π = @bycol cumprod([births; 1 .- :m_final])[begin:end-1])
 		@subset(0 ≤ :t ≤ T̃)
-		@groupby(:t) # new
-		@transform(:π = @bycol :π ./ sum(:π)) # new
-		
 		@select(:j, :born, :t, :π)
 	end
+
+	# normalize within each time period for computing bequests
+	π_jt_normalized_df = @chain π_jt_df begin
+		@groupby(:t)
+		@transform(:π = @bycol :π ./ sum(:π))
+	end
+
+	(; π_jt_df, π_jt_normalized_df)
 end
 
 # ╔═╡ d8ebf3be-9ccd-49c2-b60e-8c16c025af55
@@ -225,14 +230,20 @@ function get_π_jt((; demographics, m₀, T̃))
 	t_dim = Dim{:t}(0:T̃)
 	j_dim = DD.dims(m₀, :j)
 	
-	df = get_π_jt_df((; demographics, m₀, T̃))
+	(; π_jt_df, π_jt_normalized_df) = get_π_jt_df((; demographics, m₀, T̃))
 
-	@chain df begin
-		sparse(_.j .+ 1, _.t .+ 1, _.π)
-		Matrix
-		DimArray(_, (j_dim, t_dim), name = :π_jt)
+	function df_to_da(df)
+		@chain df begin
+			sparse(_.j .+ 1, _.t .+ 1, _.π)
+			Matrix
+			DimArray(_, (j_dim, t_dim), name = :π_jt)
+		end
 	end
-	
+
+	π_jt = df_to_da(π_jt_df)
+	π_jt_normalized = df_to_da(π_jt_normalized_df)
+
+	(; π_jt, π_jt_normalized)
 end
 
 # ╔═╡ 9ca740fb-66ad-42fb-b922-8e2ad7b9f1d0
@@ -278,11 +289,17 @@ let
 end
 
 # ╔═╡ 36483e0b-cca9-4552-ba64-8a0d2a36a17d
-demographics_transition = (; 
-	m_jborn = m_jborn_test, 
-	π_jt    = get_π_jt((; demographics = m_jborn_test, m₀ = m_j_test, T̃=30)),
-	π_t     = get_π_t((; demographics = m_jborn_test, m₀ = m_j_test, T̃=30))
-)
+demographics_transition = let
+	(; π_jt, π_jt_normalized) = get_π_jt(
+		(; demographics = m_jborn_test, m₀ = m_j_test, T̃=30)
+	)
+	
+	(; 
+	  m_jborn = m_jborn_test, 
+	  π_jt, π_jt_normalized,
+	  π_t     = get_π_t((; demographics = m_jborn_test, m₀ = m_j_test, T̃=30))
+	)
+end
 
 # ╔═╡ 0dd4c393-4eb3-446f-85d6-5e611fabeb2e
 get_π_jt((; demographics = m_jborn_test, m₀ = m_j_test, T̃ = 30))

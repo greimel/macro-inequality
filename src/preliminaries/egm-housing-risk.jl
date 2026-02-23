@@ -158,9 +158,9 @@ function get_bequests_θt((; sim_df, T̃, GE₀), statespace)
 		@transform(:t = :born + :j)
 		@subset(0 ≤ :t ≤ T̃)
 		#@select(:j, :t, :born, :state, :ε, :π)		
-		@subset(:π > 0)
+		@subset(:π_pop > 0)
 		@groupby(:t, :permanent)
-		@combine(:bequests = mean(:bequests, weights(:π)))
+		@combine(:bequests = mean(:bequests, weights(:π_pop)))
 		[_; bequests₋₁_df]
 		sort([:permanent, :t])
 		@groupby(:permanent)
@@ -2462,12 +2462,13 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 	end
 
 	#@assert π ≈ π_within .* surv .* mass_init
-	
+
+	#π = DimArray(@d(π_within .* π_jt), name = :π)
 	π = DimArray(@d(π_within .* surv .* mass_init), name = :π)
 	sol = (c, next_state, stuff, π, π_within, surv, mass_init)
 
 	sim_ds = DimStack(
-			c, value, next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)..., π, π_within, surv,
+			c, value, next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)..., π, π_within, surv, mass_init,
 		)
 	
 	sim_df = DataFrame(sim_ds)
@@ -2484,6 +2485,8 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 				:π_pop = :π / factor,
 				#:π = :π / factor,
 			   )
+
+	select!(sim_df, Not(:π))
 	
 	(; sol, sim_df, sim_ds)
 end
@@ -2713,13 +2716,13 @@ function transition_PE(model, T̃, par, statespace, demographics_transition, GE�
 					   inheritances_tθ
 					   )
 
-	(; π_jt) = demographics_transition
+	(; π_jt_normalized) = demographics_transition
 	
 	price_paths = get_price_paths(model, paths_in, par; GE₀)
 
 	# XXX FIXME - I think ./ π_jt must be replaced by something else
 	# pi_jt should sum to one in each t!!!
-	inheritances_θtj = DimArray(@d(inheritances_tθ .* par.F ./ π_jt), name = :inheritance)
+	inheritances_θtj = DimArray(@d(inheritances_tθ .* par.F ./ π_jt_normalized), name = :inheritance)
 	
 	(; π_permanent, state_dim, perm_dim) = statespace
 
@@ -2741,7 +2744,7 @@ function transition_PE(model, T̃, par, statespace, demographics_transition, GE�
 	raw_aggregate_paths = aggregate_paths(sim_df)
 	_aggregate_paths_ = loss_and_aggregates_t(model, par, paths_in, raw_aggregate_paths, GE₀)
 
-	out_PE = (; aggregate_paths=_aggregate_paths_, price_paths, guessed_paths=deepcopy(paths_in), raw_aggregate_paths, sim_df, #= demographics, =# statespace, GE₀, T̃, inheritances_θt=inheritances_tθ, inheritances_θtj, π_jt)
+	out_PE = (; aggregate_paths=_aggregate_paths_, price_paths, guessed_paths=deepcopy(paths_in), raw_aggregate_paths, sim_df, #= demographics, =# statespace, GE₀, T̃, inheritances_θt=inheritances_tθ, inheritances_θtj, π_jt_normalized)
 end
 
 # ╔═╡ 880637f3-81f0-48f5-8918-c03dac35e6fc

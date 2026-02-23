@@ -791,11 +791,11 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 		born_dim = Dim{:born}(borns)
 		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
 	end
-
+	
 	demographics_transition = (; 
-		m_jborn,
-		π_jt    = Demographics.get_π_jt((; demographics = m_jborn, m₀ = m_j, T̃=30)),
-		π_t     = Demographics.get_π_t((; demographics = m_jborn, m₀ = m_j, T̃=30))
+	  m_jborn = m_jborn, 
+	  Demographics.get_π_jt((; demographics = m_jborn, m₀ = m_j, T̃=30))...,
+	  π_t     = Demographics.get_π_t((; demographics = m_jborn, m₀ = m_j, T̃=30))
 	)
 	
 	###########################
