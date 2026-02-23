@@ -2104,17 +2104,14 @@ function inheritances_transition(out, statespace, demographics_transition)
 end
 
 # ╔═╡ f66ab91b-14d6-4981-b78e-ab6f55129220
-function solve_forward!(π, π_within, surv, mass_init, sol_backward, statespace, (; m); π_within_init, _mass_init_, j_init)
+function solve_forward!(π_within, surv, mass_init, sol_backward, statespace, (; m); π_within_init, _mass_init_, j_init)
 	
 	(; next_state) = sol_backward
 	j₀, J = extrema(DD.dims(next_state, :j))
 
-#	_mass_init_ = sum(π_init)
-	
 	# π_within is conditional on being alive: sums to 1 at each age
 	π_within[j = At(j_init)] .= π_within_init
 	mass_init .= _mass_init_
-	π[j = At(j_init)] .= π_within_init .* _mass_init_
 
 	(; states) = statespace
 	P = statespace.P_from
@@ -2127,7 +2124,7 @@ function solve_forward!(π, π_within, surv, mass_init, sol_backward, statespace
 		surv[j = At(j+1)] = surv[j = At(j)] .* (1 - m[j = At(j)]) # should be redundant
 
 		# find all states with positive mass
-		positive_mass = findall(@view(π[j = At(j)]) .> 0)
+		positive_mass = findall(@view(π_within[j = At(j)]) .> 0)
 	
 		for ind ∈ positive_mass
 			# for each such state ...
@@ -2138,10 +2135,6 @@ function solve_forward!(π, π_within, surv, mass_init, sol_backward, statespace
 
 			## 2. find closest points on grid
 			(; high, low) = weighted_neighbours(state_n, statespace.grid)
-
-			π_base = π[j = At(j)][ind] * (1 - m[j = At(j)])
-			π[j = At(j+1), state = At(high.x)] .+= π_base .* high.weight .* P[from = At(ε)]
-			π[j = At(j+1), state = At(low.x)]  .+= π_base .* low.weight .* P[from = At(ε)]
 			
 			## 3. compute probability mass for states in j + 1
 			
@@ -2389,14 +2382,14 @@ function solve_backward!(c, next_state, value, next_value, constrained, stuff, M
 end
 
 # ╔═╡ 26bc0666-0405-466b-8dea-356d9d7c4e19
-function solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0,
+function solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0,
 								 inherit_j # inheritances for each age j of a given permanent type θ
 								)
 	
 	solve_backward!(c, next_state, value, next_value, constrained, stuff, Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
 	## SOLVE FORWARD
-	solve_forward!(π, π_within, surv, mass_init, (; next_state), statespace, par_cohort; π_within_init, _mass_init_, j_init)
+	solve_forward!(π_within, surv, mass_init, (; next_state), statespace, par_cohort; π_within_init, _mass_init_, j_init)
 
 	return nothing
 end
@@ -2463,12 +2456,12 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 		end
 
 		solve_backward_forward!(cₜ, next_stateₜ, valueₜ, next_valueₜ, 
-								constrainedₜ, stuffₜ, πₜ, π_withinₜ, survₜ, mass_initₜ,
+								constrainedₜ, stuffₜ, π_withinₜ, survₜ, mass_initₜ,
 								Mo, par_all, par_cohort, permanent, statespace; 
 								price_paths, π_within_init, _mass_init_, j_init, t_born, inherit_j)
 	end
 
-	@assert π ≈ π_within .* surv .* mass_init
+	#@assert π ≈ π_within .* surv .* mass_init
 	
 	π = DimArray(@d(π_within .* surv .* mass_init), name = :π)
 	sol = (c, next_state, stuff, π, π_within, surv, mass_init)
@@ -2500,14 +2493,14 @@ function simulate_cohort(Mo, par_all, par_cohort, permanent, statespace; price_p
 								inherit_j # inheritances for each age of a given permanent type θ
 							   )
 	
-	(; c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init) = initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
+	(; c, next_state, value, next_value, constrained, stuff, π_within, surv, mass_init) = initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
-	solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init, t_born, inherit_j)
+	solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π_within, surv, mass_init, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init, t_born, inherit_j)
 
 	sol_backward = (; c, next_state, value, dimarray_of_nts_to_nt_of_dimarrays(stuff)...)
 
 	
-	@assert π ≈ π_within .* surv .* mass_init
+	#@assert π ≈ π_within .* surv .* mass_init
 
 	π = DimArray(@d(π_within .* surv .* mass_init), name = :π)
 	sol_forward = (; π, π_within, surv, mass_init)
