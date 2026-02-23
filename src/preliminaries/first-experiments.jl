@@ -4,6 +4,9 @@
 using Markdown
 using InteractiveUtils
 
+# ╔═╡ b66ff537-5930-43e5-bb5c-2e7ac87b01e4
+using CSV
+
 # ╔═╡ 403b4d7f-820d-4d5d-b773-ef38d954196e
 # ╠═╡ skip_as_script = true
 #=╠═╡
@@ -39,6 +42,41 @@ MoreDemographics = ingredients("./more-demographics.jl")
 
 # ╔═╡ c8c7e95b-f8fa-42dc-93bf-7b26d3c5a54e
 (; get_demographics) = MoreDemographics
+
+# ╔═╡ 1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0
+# ╠═╡ disabled = true
+#=╠═╡
+out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
+								  maxiter_GE = 200,
+								  maxiter_trans = 100,
+								  PE = false,
+								  tol_stat = 1e-9, tol_trans = 1e-4,
+								  bequests = true, skip_transition = false, 
+								  details = 1) # 575 s
+  ╠═╡ =#
+
+# ╔═╡ 8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
+#=╠═╡
+out_18_bequests.out.raw_aggregate_paths.population
+  ╠═╡ =#
+
+# ╔═╡ 5709b531-6050-42d6-8148-95c64796e5eb
+#=╠═╡
+out_18_bequests.demographics_transition.π_t
+  ╠═╡ =#
+
+# ╔═╡ 6ecf7fb6-35bc-47c0-9199-7d226f02aee3
+m_j = let
+	age_min = 25
+	age_max = 120
+	J = age_max - age_min
+	p₀ = collect(MoreDemographics.p_surv_[age = At(age_min:age_max-1)])
+	J = length(p₀)
+	
+	j_dim = Dim{:j}(0:J)
+	
+	DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+end
 
 # ╔═╡ ee84d90d-89f9-4d13-a25c-8e09d3d5c38d
 md"""
@@ -151,6 +189,51 @@ end
 # ╔═╡ 90d6106a-0f09-45c1-abe2-4ee0f9c3ecc5
 (; adjust_period_discounting, adjust_period_mortality, adjust_period_flow, adjust_period_income_profile) = AdjustPeriod
 
+# ╔═╡ 21ab5207-7043-4bb0-9b43-03b64aae4b15
+baseline_period = let
+	m = m_j
+
+	J = length(m_j) - 1
+
+	(; J)
+	period = 4
+
+	J_P = Int((J + 1) / period)
+
+	@info J_P
+	
+	(; m_sparse) = adjust_period_mortality(m, period)
+
+	(; m₀ = m_sparse, period, T̃ = 30)
+end
+
+# ╔═╡ 63241b32-ed56-4cfd-909d-6513c0749282
+baseline_period
+
+# ╔═╡ 4a1c0f90-5ad2-4fa4-b8d6-2b5d730082a5
+let
+	(; m₀, period, T̃) = baseline_period
+
+	for scenario ∈ [:mortality_down, :baby_boom, :births_down]
+		#scenario = :mortality_down
+		(; m_jborn, π_jt) = get_demographics(scenario, m₀, 30; period)
+
+		@chain m_jborn begin
+			DataFrame
+			@transform(:t = :j + :born)
+			CSV.write("./mortality--$scenario-period_$period.csv", _)
+		end
+
+		@chain π_jt begin
+			DataFrame
+			@transform(:born = :t - :j)
+			CSV.write("./probability_mass--$scenario-period_$period.csv", _)
+		end
+	end
+	
+	#visualize_demographics(m_jborn, π_jt)
+end
+
 # ╔═╡ 0fc9fa75-8fd5-43b5-b12f-207504829efb
 md"""
 # Move to EGMHousingRisk
@@ -251,6 +334,24 @@ function get_cali_test(;
 
 	inheritances = no_inheritances(par, statespace)
 	(; par, statespace, π_init, inheritances, period)
+end
+
+# ╔═╡ b408dea8-cebe-48ea-82cf-4550f820d009
+let
+	J_P = 24
+	amax = 200
+	na = 100
+	risk = true
+	ξ = 0.15
+	bequests = true
+	
+	(; par, statespace, π_init, period) = get_cali_test(; amax, na, J_P, risk, ξ, bequests)
+
+	tmp = DimStack(
+		par.m, par.β, DimVector(par.ξ, name = :ξ), par.h
+	) |> DataFrame
+
+	CSV.write(joinpath(@__DIR__(), "pars_for_marcelo.csv"), tmp)
 end
 
 # ╔═╡ f34af52c-2376-4fc5-9a2f-4fc0c6910622
@@ -364,28 +465,6 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	(; par, out=out.out_PE, GE₀_etc, out_full = out, period, statespace, demographics_transition)
 end
 
-# ╔═╡ 1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0
-# ╠═╡ disabled = true
-#=╠═╡
-out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
-								  maxiter_GE = 200,
-								  maxiter_trans = 100,
-								  PE = false,
-								  tol_stat = 1e-9, tol_trans = 1e-4,
-								  bequests = true, skip_transition = false, 
-								  details = 1) # 575 s
-  ╠═╡ =#
-
-# ╔═╡ 8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
-#=╠═╡
-out_18_bequests.out.raw_aggregate_paths.population
-  ╠═╡ =#
-
-# ╔═╡ 5709b531-6050-42d6-8148-95c64796e5eb
-#=╠═╡
-out_18_bequests.demographics_transition.π_t
-  ╠═╡ =#
-
 # ╔═╡ a5aeb7b6-36fc-4010-bd83-0531838550e8
 out_babyboom = transition_test(18,
 								  maxiter_GE = 200,
@@ -401,6 +480,7 @@ out_babyboom = transition_test(18,
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 AlgebraOfGraphics = "cbdf2221-f076-402e-a563-3d30da359d67"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
@@ -416,6 +496,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 AlgebraOfGraphics = "~0.11.10"
+CSV = "~0.10.15"
 CairoMakie = "~0.15.8"
 Chain = "~1.0.0"
 DataFrameMacros = "~0.4.1"
@@ -436,7 +517,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.10"
 manifest_format = "2.0"
-project_hash = "8c9a5633569f6a9fdaa0c765d38d5d756330e388"
+project_hash = "e381b62e6341c8f4ae4d2892f6521e9b4b9e4fba"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -645,6 +726,12 @@ git-tree-sha1 = "e329286945d0cfc04456972ea732551869af1cfc"
 uuid = "4e9b3aee-d8a1-5a3d-ad8b-7d824db253f0"
 version = "1.0.1+0"
 
+[[deps.CSV]]
+deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
+git-tree-sha1 = "deddd8725e5e1cc49ee205a1964256043720a6c3"
+uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+version = "0.10.15"
+
 [[deps.Cairo]]
 deps = ["Cairo_jll", "Colors", "Glib_jll", "Graphics", "Libdl", "Pango_jll"]
 git-tree-sha1 = "71aa551c5c33f1a4415867fe06b7844faadb0ae9"
@@ -683,6 +770,12 @@ deps = ["InteractiveUtils", "UUIDs"]
 git-tree-sha1 = "b7231a755812695b8046e8471ddc34c8268cbad5"
 uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
 version = "3.0.0"
+
+[[deps.CodecZlib]]
+deps = ["TranscodingStreams", "Zlib_jll"]
+git-tree-sha1 = "962834c22b66e32aa10f7611c08c8ca4e20749a9"
+uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
+version = "0.7.8"
 
 [[deps.ColorBrewer]]
 deps = ["Colors", "JSON"]
@@ -2418,6 +2511,12 @@ version = "1.28.0"
     NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
     Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[deps.WeakRefStrings]]
+deps = ["DataAPI", "InlineStrings", "Parsers"]
+git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
+uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
+version = "1.4.2"
+
 [[deps.WebP]]
 deps = ["CEnum", "ColorTypes", "FileIO", "FixedPointNumbers", "ImageCore", "libwebp_jll"]
 git-tree-sha1 = "aa1ca3c47f119fbdae8770c29820e5e6119b83f2"
@@ -2429,6 +2528,11 @@ deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "248a7031b3da79a127f14e5dc5f417e26f9f6db7"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "1.1.0"
+
+[[deps.WorkerUtilities]]
+git-tree-sha1 = "cd1659ba0d57b71a464a29e64dbc67cfe83d54e7"
+uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
+version = "1.6.1"
 
 [[deps.XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -2581,6 +2685,12 @@ version = "4.1.0+0"
 # ╠═579efb18-a47d-4712-a9e2-d1512ffae808
 # ╠═8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
 # ╠═5709b531-6050-42d6-8148-95c64796e5eb
+# ╠═6ecf7fb6-35bc-47c0-9199-7d226f02aee3
+# ╠═21ab5207-7043-4bb0-9b43-03b64aae4b15
+# ╠═b408dea8-cebe-48ea-82cf-4550f820d009
+# ╠═63241b32-ed56-4cfd-909d-6513c0749282
+# ╠═4a1c0f90-5ad2-4fa4-b8d6-2b5d730082a5
+# ╠═b66ff537-5930-43e5-bb5c-2e7ac87b01e4
 # ╠═f34af52c-2376-4fc5-9a2f-4fc0c6910622
 # ╠═ad897e47-9932-48ea-adbb-16b90f8d5e68
 # ╠═5364112f-2207-4e69-8fcd-4b3bf8cd5351
