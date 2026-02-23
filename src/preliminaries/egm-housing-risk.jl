@@ -2443,6 +2443,10 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 								price_paths, π_within_init, j_init, t_born, inherit_j)
 	end
 
+	##############################################################
+	# TODO THIS WHOLE BLOCK SHOULD BE OUTSIDE OF THIS FUNCTION
+	# (shouldn't this just be π_jt)
+	
 	surv = zeros((Dim{:born}(t_borns), j_dim))
 
 	for t_born ∈ t_borns
@@ -2469,6 +2473,8 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 	end
 	
 	π_pop = DimArray(@d(π_within .* surv .* mass_init), name = :π_pop)
+	#################################################################
+	
 	sol = (c, next_state, stuff, π_pop, π_within, surv, mass_init)
 
 	sim_ds = DimStack(
