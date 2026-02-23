@@ -134,11 +134,11 @@ function get_bequests_θ(sim_df, statespace)
 	(; perm_dim) = statespace
 	
 	@chain sim_df begin
-		@transform(:π = @bycol :π ./ sum(:π))
+		@transform(:π_pop = @bycol :π_pop ./ sum(:π_pop))
 		@groupby(:permanent)
 		@combine(
-			:π = sum(:π),
-			:bequests = mean(:bequests, weights(:π))
+			#:π = sum(:π),
+			:bequests = mean(:bequests, weights(:π_pop))
 		)
 		DimVector(_.bequests, perm_dim, name = :bequests)
 	end
@@ -204,10 +204,10 @@ md"""
 # ╔═╡ 917206f6-abd6-4ffb-a738-6c39024cbaaa
 function aggregate(sim_df; total_mass)
 	agg_nt = @chain sim_df begin
-		@transform(:π = @bycol :π ./ sum(:π) .* total_mass)
-		stack(Not(:j, :π, :permanent))
+		@transform(:π_pop = @bycol :π_pop ./ sum(:π_pop) .* total_mass)
+		stack(Not(:j, :π_pop, :permanent))
 		@groupby(:variable)
-		@combine(:value = sum(:value, weights(:π)))
+		@combine(:value = sum(:value, weights(:π_pop)))
 		(; (Symbol.(_.variable) .=> _.value)...)
 	end
 end
@@ -2544,7 +2544,7 @@ function stationary_PE(Mo, par, statespace, guesses, prices;
 		
 		sol = simulate_cohort(Mo, par_x, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0, inherit_j)
 
-		sim_df = @transform(sol.sim_df, :π = :π * π_perm)
+		sim_df = @transform(sol.sim_df, :π_pop = :π * π_perm)
 		(; sol, sim_df, permanent)
 	end
 
