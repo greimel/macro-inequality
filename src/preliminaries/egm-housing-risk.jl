@@ -2402,7 +2402,7 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 	t_borns = (-j_last):1:T̃
 
 	par_all = drop_m_h(; par...)
-	(; c, next_state, value, next_value, constrained, stuff, π, π_within, surv, mass_init) = let
+	(; c, next_state, value, next_value, constrained, stuff, π_within, surv) = let
 		par_0 = let
 			m = m_jborn[born = At(0)]
 			par_cohort = (; par.h, par.ρ_SS, m)
@@ -2430,25 +2430,13 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 		next_valueₜ = @view  next_value[born = At(t_born)]
 		constrainedₜ= @view constrained[born = At(t_born)]
 		stuffₜ      = @view 	  stuff[born = At(t_born)]
-		πₜ          = @view           π[born = At(t_born)]
 		π_withinₜ   = @view    π_within[born = At(t_born)]
 		survₜ       = @view 	   surv[born = At(t_born)]
-		mass_initₜ  = @view   mass_init[born = At(t_born)]
 
 		j_init = max(0, -t_born)
-
-		#=
-		if t_born ≥ 0
-			_mass_init_ = π_jt[t = At(t_born), j = At(0)]
-		else
-			_mass_init_ = π_jt[t = At(0), j = At(j_init)]
-		end
-		=#
 		
 		π_init = π_init_all[j = At(j_init)]
-		_mass_init_ = sum(π_init)
-		mass_initₜ .= _mass_init_
-		π_within_init = π_init ./ _mass_init_
+		π_within_init = π_init ./ sum(π_init)
 
 		inherit_j = map(j_dim) do j
 			t = clamp(j + t_born, 0, T̃)
@@ -2461,9 +2449,17 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 								price_paths, π_within_init, j_init, t_born, inherit_j)
 	end
 
-	#@assert π ≈ π_within .* surv .* mass_init
+	mass_init = zeros(Dim{:born}(t_borns))	
 
-	#π = DimArray(@d(π_within .* π_jt), name = :π)
+	for t_born ∈ t_borns
+		j_init = max(0, -t_born)
+		if t_born ≥ 0
+			mass_init[born = At(t_born)] = π_jt[t = At(t_born), j = At(0)]
+		else
+			mass_init[born = At(t_born)] = π_jt[t = At(0), j = At(j_init)]
+		end
+	end
+	
 	π = DimArray(@d(π_within .* surv .* mass_init), name = :π)
 	sol = (c, next_state, stuff, π, π_within, surv, mass_init)
 
