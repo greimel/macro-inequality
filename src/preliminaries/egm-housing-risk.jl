@@ -2460,29 +2460,14 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 		end
 	end
 	
-	π = DimArray(@d(π_within .* surv .* mass_init), name = :π)
-	sol = (c, next_state, stuff, π, π_within, surv, mass_init)
+	π_pop = DimArray(@d(π_within .* surv .* mass_init), name = :π_pop)
+	sol = (c, next_state, stuff, π_pop, π_within, surv, mass_init)
 
 	sim_ds = DimStack(
-			c, value, next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)..., π, π_within, surv, mass_init,
+			c, value, next_state, dimarray_of_nts_to_nt_of_dimarrays(stuff)..., π_pop, π_within, surv, mass_init,
 		)
 	
 	sim_df = DataFrame(sim_ds)
-
-	# TODO: FIX for multiple types
-	factor = @chain sim_df begin
-		@transform(:t = :j + :born)
-		@subset( :t == 0)
-		@combine(:π = sum(:π))
-		only(_.π)
-	end
-
-	@transform!(sim_df,
-				:π_pop = :π / factor,
-				#:π = :π / factor,
-			   )
-
-	select!(sim_df, Not(:π))
 	
 	(; sol, sim_df, sim_ds)
 end
