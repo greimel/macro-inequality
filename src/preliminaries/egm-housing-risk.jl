@@ -2000,10 +2000,10 @@ end
 # ╔═╡ 0c481dec-3a04-4a51-9c11-ef03dbab3683
 function get_π_init_all(GE_sol_perm, price_paths, par, statespace)
 	(; sol_backward, sol_forward) = GE_sol_perm.sol
-	(; π) = sol_forward
+	(; π_within) = sol_forward
 	(; m) = par
 
-	π₋₁ = copy(π, name = :π₋₁)
+	π₋₁ = copy(π_within, name = :π₋₁)
 	π₀  = zeros(DD.dims(π₋₁), name = :π₀)
 
 	prices₀ = price_paths[t = At(0)]
@@ -2104,7 +2104,7 @@ function inheritances_transition(out, statespace, demographics_transition)
 end
 
 # ╔═╡ f66ab91b-14d6-4981-b78e-ab6f55129220
-function solve_forward!(π_within, surv, sol_backward, statespace, (; m); π_within_init, j_init)
+function solve_forward!(π_within, sol_backward, statespace, (; m); π_within_init, j_init)
 	
 	(; next_state) = sol_backward
 	j₀, J = extrema(DD.dims(next_state, :j))
@@ -2114,14 +2114,8 @@ function solve_forward!(π_within, surv, sol_backward, statespace, (; m); π_wit
 
 	(; states) = statespace
 	P = statespace.P_from
-	
-	# surv[j] is cohort survival mass relative to birth (or relative to j_init)
-	surv[j = At(j_init)] .= 1.0 # should be redundant
 
 	for j ∈ j_init:(J-1)
-		# update survival mass
-		surv[j = At(j+1)] = surv[j = At(j)] .* (1 - m[j = At(j)]) # should be redundant
-
 		# find all states with positive mass
 		positive_mass = findall(@view(π_within[j = At(j)]) .> 0)
 	
@@ -2381,14 +2375,14 @@ function solve_backward!(c, next_state, value, next_value, constrained, stuff, M
 end
 
 # ╔═╡ 26bc0666-0405-466b-8dea-356d9d7c4e19
-function solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π_within, surv, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, j_init = 0, t_born = 0,
+function solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π_within, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, j_init = 0, t_born = 0,
 								 inherit_j # inheritances for each age j of a given permanent type θ
 								)
 	
 	solve_backward!(c, next_state, value, next_value, constrained, stuff, Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
 	## SOLVE FORWARD
-	solve_forward!(π_within, surv, (; next_state), statespace, par_cohort; π_within_init, j_init)
+	solve_forward!(π_within, (; next_state), statespace, par_cohort; π_within_init, j_init)
 
 	return nothing
 end
@@ -2444,11 +2438,25 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 		end
 
 		solve_backward_forward!(cₜ, next_stateₜ, valueₜ, next_valueₜ, 
-								constrainedₜ, stuffₜ, π_withinₜ, survₜ,
+								constrainedₜ, stuffₜ, π_withinₜ,
 								Mo, par_all, par_cohort, permanent, statespace; 
 								price_paths, π_within_init, j_init, t_born, inherit_j)
 	end
 
+	surv = zeros((Dim{:born}(t_borns), j_dim))
+
+	for t_born ∈ t_borns
+		j_init = max(0, -t_born)
+		survₜ = @view surv[born = At(t_born)]
+		survₜ[j = At(j_init)] = 1.0
+
+		m = m_jborn[born = At(t_born)]
+		
+		for j ∈ j_init:(j_last-1)
+			survₜ[j = At(j+1)] = survₜ[j = At(j)] .* (1 - m[j = At(j)])
+		end
+	end
+	
 	mass_init = zeros(Dim{:born}(t_borns))	
 
 	for t_born ∈ t_borns
@@ -2473,22 +2481,17 @@ function simulate_cohorts(Mo, par, permanent, statespace, demographics_transitio
 end
 
 # ╔═╡ 0ae74c43-bae4-406b-9e31-fd76a0a4a398
-function simulate_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0,
+function simulate_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, j_init = 0, t_born = 0,
 								inherit_j # inheritances for each age of a given permanent type θ
 							   )
 	
-	(; c, next_state, value, next_value, constrained, stuff, π_within, surv, mass_init) = initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
+	(; c, next_state, value, next_value, constrained, stuff, π_within, mass_init) = initialize_cohort(Mo, par_all, par_cohort, permanent, statespace; price_paths, j_init, t_born, inherit = inherit_j)
 
-	solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π_within, surv, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, j_init, t_born, inherit_j)
+	solve_backward_forward!(c, next_state, value, next_value, constrained, stuff, π_within, Mo, par_all, par_cohort, permanent, statespace; price_paths, π_within_init, j_init, t_born, inherit_j)
 
 	sol_backward = (; c, next_state, value, dimarray_of_nts_to_nt_of_dimarrays(stuff)...)
 
-	
-	#@assert π ≈ π_within .* surv .* mass_init
-	mass_init .= _mass_init_
-	
-	π = DimArray(@d(π_within .* surv .* mass_init), name = :π)
-	sol_forward = (; π, π_within, surv, mass_init)
+	sol_forward = (; π_within)
 
 	sim_df = DataFrame(DimStack(sol_backward..., sol_forward...))
 	
@@ -2507,6 +2510,10 @@ function stationary_PE(Mo, par, statespace, guesses, prices;
 	(; π_permanent, state_dim, perm_dim) = statespace
 
 	π_j = get_π_j(par.m)
+	surv = DimVector(π_j ./ π_j[j = At(0)], name = :surv)
+
+	mass_init = sum(π_init)
+	π_within_init = π_init ./ mass_init
 	
 	inheritances_θj = 
 		DimArray(@d(inheritances_θ .* par.F ./ π_j), name = :inheritances)
@@ -2519,13 +2526,16 @@ function stationary_PE(Mo, par, statespace, guesses, prices;
 	
 	sols = map(enumerate(zip(get_states(π_permanent), π_permanent))) do (i_perm, (permanent, π_perm))
 		inherit_j = @view inheritances_θj[θ = i_perm]
-
-		_mass_init_ = sum(π_init)
-		π_within_init = π_init ./ _mass_init_
 		
-		sol = simulate_cohort(Mo, par_x, par_cohort, permanent, statespace; price_paths, π_within_init, _mass_init_, j_init = 0, t_born = 0, inherit_j)
+		sol = simulate_cohort(Mo, par_x, par_cohort, permanent, statespace; price_paths, π_within_init, j_init = 0, t_born = 0, inherit_j)
 
-		sim_df = @transform(sol.sim_df, :π_pop = :π * π_perm)
+		sim_df = @chain sol.sim_df begin
+			#@transform(:mass_init = mass_init)
+			leftjoin(_, DataFrame(surv), on = :j)
+			@transform(:π = :π_within * :surv * mass_init)
+			@transform(:π_pop = :π * π_perm)		
+		end
+	
 		(; sol, sim_df, permanent)
 	end
 
