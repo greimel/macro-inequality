@@ -152,20 +152,6 @@ function get_π_j(m; births = nothing)
 	return pmf
 end
 
-# ╔═╡ ecbaae7a-ed12-4f82-87e1-df8f351035c5
-baseline_period = let
-	m = mortality(:marcelo, age_min = 20, age_max = 91)
-
-	J_P = 18
-	J = 71
-	period = Int((J + 1) / J_P)
-	J = period * J_P - 1
-	@info J_P
-	(; m_sparse) = adjust_period_mortality(m, period)
-
-	(; m₀ = m_sparse, period, T̃ = 30)
-end
-
 # ╔═╡ ccf90874-03e0-41fc-ab45-f6b68734ba03
 function π_jborn_to_π_jt(π_jborn, T̃, J)
 	t_dim = Dim{:t}(0:T̃)
@@ -245,6 +231,24 @@ m_j_test = let
 	j_dim = Dim{:j}(0:J)
 	
 	DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+end
+
+# ╔═╡ ecbaae7a-ed12-4f82-87e1-df8f351035c5
+baseline_period = let
+	m = m_j_test
+
+	J = length(m_j_test) - 1
+
+	(; J)
+	period = 4
+
+	J_P = Int((J + 1) / period)
+
+	@info J_P
+	
+	(; m_sparse) = adjust_period_mortality(m, period)
+
+	(; m₀ = m_sparse, period, T̃ = 30)
 end
 
 # ╔═╡ 09310959-3eb6-4767-bd8b-809ff9326a8d
@@ -507,6 +511,39 @@ end
 #=╠═╡
 let
 	(; m_jborn, π_jt) = get_demographics(:mortality_down, m_j_test, 120)
+
+	visualize_demographics(m_jborn, π_jt)
+end
+  ╠═╡ =#
+
+# ╔═╡ 2e22e241-cce1-4191-8a99-ddc98c5e0b9f
+#=╠═╡
+let
+	(; m₀, period, T̃) = baseline_period
+
+	(; m_jborn, π_jt) = get_demographics(:baby_boom, m₀, 30; period)
+
+	visualize_demographics(m_jborn, π_jt)
+end
+  ╠═╡ =#
+
+# ╔═╡ c0165a9c-e7cf-44e0-b463-3b3adf590d29
+#=╠═╡
+let
+	(; m₀, period, T̃) = baseline_period
+
+	(; m_jborn, π_jt) = get_demographics(:mortality_down, m₀, 30; period)
+
+	visualize_demographics(m_jborn, π_jt)
+end
+  ╠═╡ =#
+
+# ╔═╡ b7288c48-4e82-4713-949a-caaf7b7bb9c4
+#=╠═╡
+let
+	(; m₀, period, T̃) = baseline_period
+
+	(; m_jborn, π_jt) = get_demographics(:births_down, m₀, 30; period)
 
 	visualize_demographics(m_jborn, π_jt)
 end
@@ -2426,6 +2463,9 @@ version = "4.1.0+0"
 # ╠═f53ef954-2e60-4fdb-be4b-42741b0d4067
 # ╠═ecbaae7a-ed12-4f82-87e1-df8f351035c5
 # ╠═9dab3129-a426-4481-91ef-0901c24975e7
+# ╠═2e22e241-cce1-4191-8a99-ddc98c5e0b9f
+# ╠═c0165a9c-e7cf-44e0-b463-3b3adf590d29
+# ╠═b7288c48-4e82-4713-949a-caaf7b7bb9c4
 # ╠═ccf90874-03e0-41fc-ab45-f6b68734ba03
 # ╠═e974c85d-b810-4d3c-80d6-43e83cd4e3fa
 # ╠═36276ece-b4e8-418e-996f-809fed9665cc
