@@ -7,6 +7,9 @@ using InteractiveUtils
 # ╔═╡ b66ff537-5930-43e5-bb5c-2e7ac87b01e4
 using CSV
 
+# ╔═╡ e2a760c7-f107-4bcf-9798-f153d813facf
+using Distributions
+
 # ╔═╡ 403b4d7f-820d-4d5d-b773-ef38d954196e
 # ╠═╡ skip_as_script = true
 #=╠═╡
@@ -43,18 +46,6 @@ MoreDemographics = ingredients("./more-demographics.jl")
 # ╔═╡ c8c7e95b-f8fa-42dc-93bf-7b26d3c5a54e
 (; get_demographics) = MoreDemographics
 
-# ╔═╡ 1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0
-# ╠═╡ disabled = true
-#=╠═╡
-out_18_bequests = transition_test(18, guesses_trans = guesses_18_bequests,
-								  maxiter_GE = 200,
-								  maxiter_trans = 100,
-								  PE = false,
-								  tol_stat = 1e-9, tol_trans = 1e-4,
-								  bequests = true, skip_transition = false, 
-								  details = 1) # 575 s
-  ╠═╡ =#
-
 # ╔═╡ 8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
 #=╠═╡
 out_18_bequests.out.raw_aggregate_paths.population
@@ -77,6 +68,9 @@ m_j = let
 	
 	DimVector([1 .- p₀; 1.0], j_dim, name = :m)
 end
+
+# ╔═╡ d0ffe927-46d8-42b3-987d-4fa942b4459c
+
 
 # ╔═╡ ee84d90d-89f9-4d13-a25c-8e09d3d5c38d
 md"""
@@ -129,6 +123,126 @@ F_marcelo = [
 	0.0000873
 ]
 
+# ╔═╡ d43acb49-c37c-4cd7-9562-04a6eb5d761b
+let
+	m_j
+
+	lines(F_marcelo)
+end
+
+# ╔═╡ 143cd722-3d62-4334-a2a1-140f7a22cf3e
+let
+	F_marcelo #[(1:(J+1)) .+ 2]
+	cumsum(F_marcelo) #|> lines
+	#lines(F_marcelo)
+
+	#findmax(F_marcelo)
+	#F_marceloₓ = [F_marcelo; fill(0.0, 30)]
+end
+
+# ╔═╡ 8a23b58a-b04d-400d-8a7e-dd621e593dcc
+guesses_babyboom = 
+(; 
+  stationary = (K_supply = 8.984535478646388, H_hh = 1.4794850237030346, L_eff = 6.200522664662699),
+  transition = DimStack(
+      DimVector([
+      8.984535486274755, 8.98156503012303, 8.980285729438615, 8.937408108437138, 8.929849326221248, 8.954255107675932, 9.00862595274509, 9.090623715649489, 9.239575871943336, 9.377770011760285, 9.499115385886498, 9.601845169805, 9.683429868379415, 9.739267954789165, 9.76802317210508, 9.77738641967069, 9.769478632813811, 9.746796493768835, 9.71366255161277, 9.670940731316705, 9.616154924929985, 9.547591538006085, 9.467087895104875, 9.380690817267075, 9.295636601255612, 9.218930938077458, 9.15595208419821, 9.10814858931704, 9.073032912289657, 9.047205320184762, 9.027912424010546
+    ], Dim{:t}(0:30), name = :K_supply),
+      DimVector([
+      1.4797000953529964, 1.47961351581332, 1.4792735707397335, 1.4812956155252748, 1.4857974488057526, 1.4926216781435222, 1.5015364268100355, 1.5122794548669956, 1.5219924622714407, 1.530265236692566, 1.5370621539583866, 1.5424269476009305, 1.5463786824732726, 1.5489706057307036, 1.5503199478642553, 1.5504700440246222, 1.5494332209843575, 1.5472225612314805, 1.543782708828482, 1.5390120006307864, 1.5329195558673154, 1.525769958227227, 1.5180838278760076, 1.5104882263727466, 1.503572650190958, 1.4977544446502375, 1.493180270085213, 1.4897638430905755, 1.487340014863288, 1.4857831711565632, 1.485066907181204
+    ], Dim{:t}(0:30), name = :H_hh),
+      DimVector([
+      6.2005226733157395, 6.2005226733157395, 6.20052267331574, 6.2792495858019715, 6.37139381806547, 6.474022743884599, 6.584301857633542, 6.699481529523398, 6.7381359258352145, 6.7629188726256135, 6.7740638118858625, 6.771705742417636, 6.7559588606434415, 6.730828580261046, 6.69981126567459, 6.664255792735804, 6.624804905501771, 6.581581634617484, 6.53111248556399, 6.471534563975491, 6.406100565351253, 6.341915820278051, 6.286665774946491, 6.245019441250627, 6.218697470872682, 6.205913348482229, 6.201627937912147, 6.200668464012345, 6.20053291834606, 6.200522945845052, 6.200522674719164
+    ], Dim{:t}(0:30), name = :L_eff),
+  ),
+  inheritances_θ = [0.9965594548668406, 1.8526061175076445, 3.3450826770201716],
+inheritances_θt = [
+  0.9965594548651179 0.9964693940235838 0.9963494052535763 0.9785094745972319 0.9634372872097756 0.9506553174086524 0.9397511802733571 0.9303621122953452 0.9374705893653675 0.94328221423916 0.9481312168685996 0.9525104190190408 0.957000499771558 0.9621254727424968 0.9682427842130809 0.9760585508767008 0.9867709293427711 1.001379731420974 1.0199512621302878 1.0414201524162265 1.061129693100299 1.0722625358018019 1.0717070662473334 1.0618838226800653 1.0460615195372998 1.0292283221245577 1.0170237142915424 1.0110089803305233 1.008183909959593 1.006236901894298 1.0044451363146731;
+  1.8526061175055004 1.8524733564543738 1.8523198326137744 1.8192676114314965 1.7910327997887057 1.7667422830720163 1.7456954428907496 1.7272907847930148 1.7394026931340238 1.749423676596666 1.7580764014781785 1.7663489068975764 1.7753786105938791 1.7861459744072805 1.7992080690130983 1.8158956425065023 1.8385586637936322 1.8690855403934807 1.907375063952956 1.951006714274687 1.9900924786008096 2.010462160080173 2.00607278494043 1.9825995854720708 1.9473319944556833 1.9109836511237674 1.8853499070617414 1.8733793427557432 1.8684179137619048 1.8654279981789665 1.8628032628098805;
+  3.3450826770178956 3.3448956269190377 3.3447804719055334 3.285354150809313 3.2336113907773507 3.188013467018672 3.147619385356189 3.1116629681524035 3.130601722781575 3.1470172455531578 3.1623389542846545 3.1783118709624927 3.196887499788311 3.2196409405307023 3.2471703003187584 3.281969627824556 3.3283932286508455 3.3898131563024614 3.4656162020364856 3.550668218652063 3.625129115992997 3.661132636134575 3.6474790322884987 3.5963273869371823 3.522857726574984 3.4487907986632926 3.3974808716346083 3.37426146463943 3.365447004169694 3.360812291547986 3.3570451693640866
+ ]
+
+)
+
+# ╔═╡ 81c2f487-979f-45b4-81e4-480197eb3861
+guesses_births = 
+(; 
+  stationary = (K_supply = 8.984535478646388, H_hh = 1.4794850237030346, L_eff = 6.200522664662699),
+  transition = DimStack(
+      DimVector([
+      8.98453548634791, 9.02494268254201, 9.029702011211203, 9.003628115811829, 8.948642663540852, 8.866572985877001, 8.75943255832273, 8.62965407118149, 8.48575819402581, 8.331207105622125, 8.170146197346716, 8.00883110949133, 7.850897999536743, 7.697919514389254, 7.551714367336549, 7.414847331764686, 7.290761541703895, 7.1832117107665985, 7.09587718734715, 7.03022530088051, 6.983424438870287, 6.950016470740782, 6.925732850978439, 6.908000832271968, 6.8951653412850895, 6.885997711469117, 6.879529422077317, 6.875000967298592, 6.8718323463191995, 6.869594384915901, 6.867977730418387
+    ], Dim{:t}(0:30), name = :K_supply),
+      DimVector([
+      1.4769824036491839, 1.472444390949209, 1.4656474790189686, 1.4567525237776329, 1.4460359497999946, 1.4338112532244147, 1.4203901138624362, 1.4060802779437334, 1.3911080630236978, 1.3757066344394333, 1.360170096326904, 1.3447781723934418, 1.329774052375349, 1.3154060548271287, 1.301958694479196, 1.2897566651035097, 1.2791281344393723, 1.2703378545571185, 1.2634729676493799, 1.2583635328608616, 1.2546562475899334, 1.25198443734176, 1.2500574109344682, 1.2486673046150476, 1.2476680923398782, 1.246955298203372, 1.2464525404764348, 1.2461037594565645, 1.2458691781995153, 1.245723731719497, 1.2456576412743001
+    ], Dim{:t}(0:30), name = :H_hh),
+      DimVector([
+      6.2005226733157395, 6.131179676576455, 6.050018647957278, 5.959622657009712, 5.862488348250371, 5.761037607200534, 5.657647655071247, 5.554657702336987, 5.454445201858214, 5.3593878906373575, 5.271807069504843, 5.190551974384205, 5.114882203228333, 5.045987113355386, 4.985678310089938, 4.936168728351132, 4.899367072692691, 4.87617378628616, 4.8649132385278095, 4.8611386295774635, 4.86029352091761, 4.860174131722756, 4.860165347901789, 4.860165109092963, 4.860165107856837, 4.860165107856837, 4.860165107856837, 4.860165107856836, 4.860165107856837, 4.860165107856837, 4.860165107856837
+    ], Dim{:t}(0:30), name = :L_eff),
+  ),
+  inheritances_θ = [0.9965594548541137, 1.8526061174917834, 3.345082677003435],
+inheritances_θt = [
+  0.9965594548541137 1.0128143492816677 1.0280736913192703 1.042423150235418 1.0560624208618972 1.069166374254472 1.081858641779266 1.0941990773066763 1.1060787559983556 1.1171905341539072 1.1270758291570575 1.135256431546845 1.141381566542128 1.1444903068009096 1.142752893700683 1.1344185942873768 1.1189732675650437 1.097596569240235 1.0753508464580304 1.0588825857919673 1.0501130864610946 1.0454813550191475 1.042222650733703 1.039438691226313 1.0370143890444896 1.0349849911874494 1.0333684870413986 1.032143903508297 1.0312566135970693 1.0306332008052046 1.0301988800151836;
+  1.8526061174917834 1.8827424945541762 1.9113005218304215 1.9384678709437082 1.964568489424781 1.9898655986702247 2.014506475154532 2.038493668114779 2.061533114460665 2.082911190894243 2.1016157687444417 2.116632532504833 2.1272746192840026 2.1315943750403554 2.1258527660188027 2.106570475161651 2.0729494071285757 2.0277462451870583 1.9817683790023537 1.9488505307342572 1.9326093141265908 1.9251561560164052 1.9204833980149936 1.9166246505956648 1.9132945472040253 1.9105381612190395 1.9083822600001303 1.9067934055552231 1.9056867594668998 1.9049496712942218 1.9044687872948174;
+  3.345082677003435 3.3994130331408443 3.4515273469133976 3.5019465653699586 3.5510137317619344 3.5989418992092217 3.645707700352109 3.6909631216346157 3.734135286666722 3.773661313865331 3.8074389243757105 3.8334763964267826 3.8505129558240974 3.854779121669953 3.8390004559413677 3.796639679263718 3.726705122037677 3.635283211785819 3.544204780756087 3.4806541567816405 3.451030145296891 3.4390706016251835 3.4325981040109905 3.427593259344787 3.4233981569137972 3.4200267330196814 3.4174874022996353 3.4157092575284036 3.4145573426403852 3.413866801249619 3.413479368154469
+ ]
+
+)
+
+# ╔═╡ a8e0cb51-82d8-4035-a8cc-091dc5636563
+guesses_mortality =
+(; 
+  stationary = (K_supply = 8.984535478646388, H_hh = 1.4794850237030346, L_eff = 6.200522664662699),
+  transition = DimStack(
+      DimVector([
+      8.98453548634791, 8.98470778253652, 8.9844932918814, 8.984522990088697, 8.98529944561633, 8.987271437581967, 8.99154368485835, 8.999499522347906, 9.014515603967997, 9.041185661298703, 9.082335185593871, 9.13949634407301, 9.21169826452597, 9.297252072007607, 9.398481227980946, 9.520926522548402, 9.67050761071727, 9.852549022460577, 10.06145163029965, 10.276477424708629, 10.471459386752473, 10.631946438821501, 10.755934525288339, 10.849889305388162, 10.926798977943692, 10.980172865381453, 11.023528044015798, 11.05734666974011, 11.083262586788129, 11.102819336537571, 11.117434872623313
+    ], Dim{:t}(0:30), name = :K_supply),
+      DimVector([
+      1.4794169289905086, 1.4793424911920474, 1.4791673678553743, 1.478842798953039, 1.478328742891144, 1.4775610805172466, 1.4764761212422945, 1.4751191521322462, 1.4737539037518494, 1.4728046637209062, 1.4727732611032545, 1.4741654086182279, 1.477500021068833, 1.4833858289257789, 1.4924433569611077, 1.505068238150458, 1.5211551027932215, 1.539743099547827, 1.5590339335982542, 1.5769963805962965, 1.5921857724889177, 1.6040740884019942, 1.6129228910120121, 1.6193903750729424, 1.6240434981683178, 1.6275062610970494, 1.6301203631576726, 1.6320854127998883, 1.6335125391150287, 1.6344500841845855, 1.6348866757440106
+    ], Dim{:t}(0:30), name = :H_hh),
+      DimVector([
+      6.2005226733157395, 6.2005226733157395, 6.200634570683074, 6.200989522119866, 6.201794782929524, 6.203441090500134, 6.206508787377892, 6.2120054015714965, 6.221148142706841, 6.235292075818373, 6.256293973439646, 6.285643553409395, 6.3250744313919895, 6.379059815232452, 6.453493948646431, 6.552452752117596, 6.675165823014288, 6.809369802042024, 6.933073895477434, 7.026589277443078, 7.084373332405339, 7.112624730129186, 7.122955911870208, 7.125729242882727, 7.125729242882724, 7.125729242882727, 7.12572924288273, 7.125729242882724, 7.125729242882724, 7.125729242882727, 7.12572924288273
+    ], Dim{:t}(0:30), name = :L_eff),
+  ),
+  inheritances_θ = [0.9965594548541137, 1.8526061174917834, 3.345082677003435],
+inheritances_θt = [
+  0.9965594548541137 0.9965627737221048 0.9965387342040763 0.9964361181804547 0.9961874904390371 0.9956007503945797 0.994300488955145 0.9913900039183862 0.9854722666219738 0.9745347385031584 0.9568173772618737 0.9329290507582124 0.901956274088346 0.8577859120754733 0.7977351001884826 0.7276381751660872 0.6598732389316424 0.6181741253906243 0.6190823541016347 0.6559394954399512 0.703950053787034 0.744263199522914 0.7684990636333655 0.7783390596777506 0.7845507698172854 0.7807581281191219 0.7808498091628259 0.7815725874861482 0.7827714184508948 0.7842475574955741 0.7857922906401089;
+  1.8526061174917834 1.8526123708691287 1.8525556426613339 1.8523279863958109 1.851778507438525 1.8504951032396675 1.847718444739858 1.8417255923813098 1.830030752006729 1.8091642665615344 1.7762396654014319 1.7325336286825321 1.6762721415505646 1.5961529810680999 1.4867826252688943 1.3581746582263856 1.2328969268322747 1.155894988861363 1.1600606713802155 1.234147312085179 1.330693323964245 1.4125189072387105 1.462415502423358 1.4831034316811746 1.4946299705215207 1.4887154155491242 1.488579617713737 1.4893836751076748 1.4908987855505356 1.4928347968143931 1.4948878827937553;
+  3.345082677003435 3.34509389091742 3.3449531530996444 3.34442491141122 3.3431558629589055 3.3402216155768594 3.3340133636611755 3.321213846543236 3.297557199510948 3.2573248126495 3.196198546769152 3.1170101859647916 3.016502565907006 2.8745271488677333 2.681022411709781 2.4527905633713107 2.229417320538316 2.092015184095547 2.1021467014434716 2.2414974813236497 2.423891581612344 2.580172135054664 2.6771905618923753 2.718868457558312 2.74086377700922 2.7327418678328237 2.732814643041809 2.733987696263247 2.7359560883495986 2.7383593110592868 2.740830347084669
+ ]
+
+)
+
+# ╔═╡ c92eae61-0856-4b5e-a117-eb3894c0cdde
+md"""
+# Saving solutions
+"""
+
+# ╔═╡ ce2d3a1e-c1a5-4b7a-ba34-f65828f7b51e
+function sprint_dimstack(ds, prepend="")
+	string = prepend
+	for (key, val) ∈ pairs(ds)
+		string *= prepend * "  DimVector([\n    " * prepend * join(repr.(val), ", ") * "\n$(prepend)  ], Dim{:t}(0:$(length(val)-1)), name = :$key),\n" * prepend
+	end
+	"DimStack(\n" * string * ")"
+end
+
+# ╔═╡ 6a013a86-5253-4145-89ec-c45ac5809529
+function sprint_matrix(mat)
+
+	string = "[\n"
+	nrows = size(mat, 1)
+	for row ∈ 1:nrows
+		string = string * "  " * join(repr.(mat[row,:]), " ")
+		if row < nrows
+			string = string * ";\n"
+		else
+			string = string * "\n"
+		end
+	end
+	
+	string * " ]"
+end
+
 # ╔═╡ 9ce60f69-d00c-49ee-854f-9e4e0621215f
 md"""
 # Appendix
@@ -166,6 +280,65 @@ md"""
 
 # ╔═╡ fb9489c3-f6af-4ee6-b1f5-de8e786e1cd0
 (; mortality, income_profile, Statespace, get_par₀, ε_chain_AMMR, permanent_states_AMMR, no_inheritances, dimstack_from_nt) = EGMHousingRisk
+
+# ╔═╡ a6f72813-6f0e-4659-8e70-b068a263f246
+let
+	f = Figure()
+	ax = Axis(f[1,1])
+
+	age_min = 25
+	age_max = 100
+	J = age_max - age_min
+	j_dim = Dim{:j}(0:J)
+	# assume peak of bequests distribution is at age 60
+	F = DimVector(pdf(Normal(60, 10), age_min:age_max), j_dim) 
+	lines(F)
+
+	h = income_profile(J+1, 65 - age_min)
+
+	lines(h)
+	
+
+	#F_normal = pdf(Normal(41, 10), 1:76)
+	#F_marcelo .- (F_normal ./ sum(F_normal))
+	
+end
+
+# ╔═╡ f36a7fde-f1b0-48d8-943e-cb240dbbffa3
+function profiles(age_min = 25, age_max = 120)
+	@assert age_max ≤ 120
+
+	J = age_max - age_min
+	j_dim = Dim{:j}(0:J)
+
+	m = let
+		p₀ = collect(MoreDemographics.p_surv_[age = At(age_min:age_max-1)])
+		DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+	end
+
+	F = DimVector(pdf(Normal(60, 10), age_min:age_max), j_dim, name = :F) 
+
+	h = income_profile(J+1, 65 - age_min)
+
+	β = DimVector(0.995 .^ j_dim, name = :β)
+
+	DimStack(m, F, h, β)
+end
+
+# ╔═╡ 166cfd9c-b76d-42b7-855c-7a576b601868
+function profiles_old()
+	age_max = 91
+	age_min = 20
+	J = age_max - age_min
+	j_dim = Dim{:j}(0:J)
+	
+	m = mortality(:marcelo, age_min = 20, age_max = 91)
+	h = income_profile(J+1, 41)
+	F = DimVector(F_marcelo[(1:72) .+ 2], j_dim, name = :F)
+	β = DimVector(0.995 .^ j_dim, name = :β)
+
+	DimStack(m, F, h, β)
+end
 
 # ╔═╡ 5364112f-2207-4e69-8fcd-4b3bf8cd5351
 function get_statespace(; amax = 12.0, na = 100, 
@@ -234,6 +407,28 @@ let
 	#visualize_demographics(m_jborn, π_jt)
 end
 
+# ╔═╡ 989cf7ae-1bc0-426e-963a-3605f583945a
+function adjust_period_profiles((; m, F, y, β), period)
+	(; m_sparse) = adjust_period_mortality(m, period)
+	(; βs_sparse) = adjust_period_discounting(β, period)
+	h_sparse = adjust_period_flow(y, period).flow_sparse
+	F_sparse = adjust_period_flow(F, period).flow_sparse
+
+	DimStack(m_sparse, βs_sparse, h_sparse, F_sparse)
+end
+
+# ╔═╡ 1eb70042-c738-4525-8d82-1a09fd4b85e0
+let
+	(; m, F, y, β) = profiles()
+	(; m, F, y, β) = adjust_period_profiles((; m, F, y, β), 4)
+end
+
+# ╔═╡ 03c9864e-249a-416a-a3f3-60e7e41bc7fb
+let
+	(; m, F, y, β) = profiles_old()
+	(; m, F, y, β) = adjust_period_profiles((; m, F, y, β), 4)
+end
+
 # ╔═╡ 0fc9fa75-8fd5-43b5-b12f-207504829efb
 md"""
 # Move to EGMHousingRisk
@@ -246,6 +441,65 @@ function less_trivial_initial_distribution(statespace; init_state)
 	π₀ = zeros(dims, name = :π₀)
 	π₀[state = Near(init_state)] .= only(stationary_distributions(ε_chain))
 	π₀
+end
+
+# ╔═╡ ad897e47-9932-48ea-adbb-16b90f8d5e68
+function get_cali_test(; 
+					   amax = 12.0, na = 500, exponential = true,
+					   old_profiles = false, risk = true, ξ = 0.0, bequests = false,
+					   n_ε = 3, n_std_ε = 2.0,
+					   n_θ = 3, n_std_θ = 2.0, 
+			 )
+
+	if old_profiles
+		(; m, F, y, β) = profiles_old()
+	else
+		(; m, F, y, β) = profiles()
+	end
+
+	period = 4
+	(; m, F, y, β) = adjust_period_profiles((; m, F, y, β), period)
+
+	δ = 0.1
+	δ = 1 - (1-δ) ^ period
+
+	if !bequests
+		F .= 0.0
+	else
+		F ./= sum(F)
+	end
+
+	statespace = get_statespace(; amax, na, risk, exponential, period,  
+								n_ε, n_std_ε, n_θ, n_std_θ)
+	
+	par = get_par₀(; h=y, m, ξ, δ, β, 
+				   bonds2GDP = 1.0, NFA2GDP = 0.0, τ = 0.0,
+				   F, #ν₀ = 0.0,
+				   annuities = false,
+				   α = 0.35, θ = 0.0, Z̲ = 0.0, a̲ = 0.0)
+
+	π_init = less_trivial_initial_distribution(statespace, init_state = 0.0)
+
+	inheritances = no_inheritances(par, statespace)
+	(; par, statespace, π_init, inheritances, period)
+end
+
+# ╔═╡ b408dea8-cebe-48ea-82cf-4550f820d009
+let
+	old_profiles = false
+	amax = 200
+	na = 100
+	risk = true
+	ξ = 0.15
+	bequests = true
+	
+	(; par, statespace, π_init, period) = get_cali_test(; amax, na, old_profiles, risk, ξ, bequests)
+
+	tmp = DimStack(
+		par.m, par.β, par.h, par.F
+	) |> DataFrame
+
+	#CSV.write(joinpath(@__DIR__(), "pars_for_marcelo.csv"), tmp)
 end
 
 # ╔═╡ 29381123-6de6-4db5-b0bf-e894abaa2646
@@ -279,89 +533,14 @@ function get_demographics_supersimple(m₀, T̃, scale_m = 0.9)
 	)
 end
 
-# ╔═╡ ad897e47-9932-48ea-adbb-16b90f8d5e68
-function get_cali_test(; 
-					   amax = 12.0, na = 500, exponential = true,
-					   J_P = 71, risk = true, ξ = 0.0, bequests = false,
-					   n_ε = 3, n_std_ε = 2.0,
-					   n_θ = 3, n_std_θ = 2.0
-			 )
-
-	J = 71
-	period = (J + 1) / J_P
-	#J_P = J_approx ÷ period
-	J = period * J_P - 1
-	#JR = (J * 3) ÷ 4
-	
-	m = mortality(:marcelo, age_min = 20, age_max = 91)
-
-	j_dim = DD.dims(m, :j)
-	J = maximum(j_dim)
-	#m[j = At(0:J-1)] .= 0.01
-
-	@info J
-	h = income_profile(J+1, 41)
-	F = DimVector(F_marcelo[(1:72) .+ 2], j_dim, name = :F)
-	
-	βs = 0.995 .^ j_dim
-	δ = 0.1
-	δ = 1 - (1-δ) ^ period
-
-	(; m_sparse) = adjust_period_mortality(m, period)
-	(; h_sparse) = adjust_period_income_profile(h, period)
-	(; βs_sparse) = adjust_period_discounting(βs, period)
-	h_sparse2 = adjust_period_flow(h, period).flow_sparse
-	F_sparse = adjust_period_flow(F, period).flow_sparse
-
-	if !bequests
-		F_sparse .= 0.0
-	else
-		F_sparse ./= sum(F_sparse)
-	end
-	
-	@assert h_sparse2 ≈ h_sparse
-
-	statespace = get_statespace(; amax, na, risk, exponential, period,  
-								n_ε, n_std_ε, n_θ, n_std_θ)
-	
-	par = get_par₀(; h=h_sparse, m=m_sparse, ξ, δ, β = βs_sparse, 
-				   bonds2GDP = 1.0, NFA2GDP = 0.0, τ = 0.0,
-				   F = F_sparse, #ν₀ = 0.0,
-				   annuities = false,
-				   α = 0.35, θ = 0.0, Z̲ = 0.0, a̲ = 0.0)
-
-	π_init = less_trivial_initial_distribution(statespace, init_state = 0.0)
-
-	inheritances = no_inheritances(par, statespace)
-	(; par, statespace, π_init, inheritances, period)
-end
-
-# ╔═╡ b408dea8-cebe-48ea-82cf-4550f820d009
-let
-	J_P = 24
-	amax = 200
-	na = 100
-	risk = true
-	ξ = 0.15
-	bequests = true
-	
-	(; par, statespace, π_init, period) = get_cali_test(; amax, na, J_P, risk, ξ, bequests)
-
-	tmp = DimStack(
-		par.m, par.β, DimVector(par.ξ, name = :ξ), par.h
-	) |> DataFrame
-
-	CSV.write(joinpath(@__DIR__(), "pars_for_marcelo.csv"), tmp)
-end
-
 # ╔═╡ f34af52c-2376-4fc5-9a2f-4fc0c6910622
-function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, guesses_trans=nothing, tol_stat = 1e-4, tol_trans = 1e-4, 
+function transition_test(; old_profiles=false, amax = 100, na = 100, risk = true, ξ = 0.15, guesses_trans=nothing, tol_stat = 1e-4, tol_trans = 1e-4, 
 						 λ_trans = 0.02, λ_inherit = 1.0, bequests = false, skip_transition = false, details = 20, 
 						 maxiter_GE = 100, maxiter_trans = 400, PE = true,
 						 scenario = :supersimple
 						)
 	# equivalent to BaselineModel() in models_reduced.jl
-	(; par, statespace, π_init, period) = get_cali_test(; amax, na, J_P, risk, ξ, bequests)
+	(; par, statespace, π_init, period) = get_cali_test(; amax, na, old_profiles, risk, ξ, bequests)
 
 	Mo = HousingModel()
 
@@ -465,8 +644,17 @@ function transition_test(J_P; amax = 100, na = 100, risk = true, ξ = 0.15, gues
 	(; par, out=out.out_PE, GE₀_etc, out_full = out, period, statespace, demographics_transition)
 end
 
+# ╔═╡ 1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0
+out_18_bequests = transition_test(; old_profiles=true, guesses_trans = guesses_18_bequests,
+								  maxiter_GE = 200,
+								  maxiter_trans = 100,
+								  PE = false,
+								  tol_stat = 1e-9, tol_trans = 1e-4,
+								  bequests = true, skip_transition = false, 
+								  details = 1) # 575 s
+
 # ╔═╡ a5aeb7b6-36fc-4010-bd83-0531838550e8
-out_babyboom = transition_test(18,
+out_babyboom = transition_test(guesses_trans = guesses_babyboom,
 								  maxiter_GE = 200,
 								  maxiter_trans = 100,
 								  PE = false,
@@ -475,6 +663,81 @@ out_babyboom = transition_test(18,
 								  details = 1,
 							   	  scenario = :baby_boom
 							  ) # 575 s
+
+# ╔═╡ d890d63a-8f44-4052-8289-263f858ef76c
+out_mortality = transition_test(guesses_trans = guesses_mortality,
+								  maxiter_GE = 200,
+								  maxiter_trans = 200,
+								  PE = false,
+								  tol_stat = 1e-9, tol_trans = 1e-4,
+								  bequests = true, skip_transition = false, 
+								  details = 1,
+							   	  scenario = :mortality_down
+							  )
+
+# ╔═╡ a878af82-bc94-4887-86fb-1db29c119de3
+out_births = transition_test(guesses_trans = guesses_births,
+								  maxiter_GE = 200,
+								  maxiter_trans = 200,
+								  PE = false,
+								  tol_stat = 1e-9, tol_trans = 1e-4,
+								  bequests = true, skip_transition = false, 
+								  details = 1,
+							   	  scenario = :births_down
+							  )
+
+# ╔═╡ b7a6d806-ccb1-45c4-9c35-0a19bbd2658d
+let
+	age_min, age_max = 20, 91
+	
+	m = mortality(:marcelo, age_min = 20, age_max = 91)
+	j_dim = DD.dims(m, :j)
+	J = maximum(j_dim)
+
+	h = income_profile(J+1, 41)
+	F = DimVector(F_marcelo[(1:(J+1)) .+ 2], j_dim, name = :F)
+	βs = 0.995 .^ j_dim
+
+	
+end
+
+# ╔═╡ 00417088-e11e-434f-ac13-384372bbaf2c
+function sprint_inheritances_θt(inheritances_θt)
+	t_range_repr = DD.dims(inheritances_θt, :t) |> parent |> parent |> repr
+	t_dim_repr = "Dim{:t}($t_range_repr)"
+	
+	string = "inheritances_θt = "
+
+	string = string * (inheritances_θt' |> Matrix |> sprint_matrix) 
+
+	string = string * "\n"	
+end
+
+# ╔═╡ 85a425c1-1bc7-4e0e-8621-05dc155dd008
+function sprint_solution(out_trans)
+	(; GE₀_etc, out) = out_trans
+	(; GE₀, guessed_paths, inheritances_θt) = out
+
+	stationary = "  stationary = " * repr(GE₀.guesses)
+
+	transition = "  transition = " * sprint_dimstack(guessed_paths, "  ")
+
+	inheritances_θ =  "  inheritances_θ = " * repr(parent(GE₀_etc.inheritances_etc.inheritances_θ))
+	
+	inheritances_θt = inheritances_θt |> sprint_inheritances_θt
+
+	
+	"(; \n" * stationary * ",\n" * transition * ",\n" * inheritances_θ * ",\n" * inheritances_θt *"\n)" |> Base.Text
+end
+
+# ╔═╡ 36418e79-7e54-4e55-8898-454e08c2a197
+sprint_solution(out_babyboom)
+
+# ╔═╡ 7f462bce-7112-48a4-9087-207cd9d03fc0
+sprint_solution(out_births)
+
+# ╔═╡ c81931cd-503a-4f0b-88fc-06838b46fed6
+sprint_solution(out_mortality)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -486,6 +749,7 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrameMacros = "75880514-38bc-4a95-a458-c2aea5a3a702"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 PlutoLinks = "0ff47ea0-7a50-410d-8455-4348d5de0420"
 PlutoTest = "cb4044da-4d16-4ffa-a6a3-8cad7f73ebdc"
@@ -502,6 +766,7 @@ Chain = "~1.0.0"
 DataFrameMacros = "~0.4.1"
 DataFrames = "~1.8.1"
 DimensionalData = "~0.29.26"
+Distributions = "~0.25.123"
 Interpolations = "~0.16.2"
 PlutoLinks = "~0.1.7"
 PlutoTest = "~0.2.4"
@@ -517,7 +782,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.10"
 manifest_format = "2.0"
-project_hash = "e381b62e6341c8f4ae4d2892f6521e9b4b9e4fba"
+project_hash = "0b2a11f2d68ba1fb1fe44f08de73454d897680cc"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "f7304359109c768cf32dc5fa2d371565bb63b68a"
@@ -2683,20 +2948,44 @@ version = "4.1.0+0"
 # ╠═1e60cff0-8a5c-4f1a-9d9b-da5e4ab075c0
 # ╠═a5aeb7b6-36fc-4010-bd83-0531838550e8
 # ╠═579efb18-a47d-4712-a9e2-d1512ffae808
+# ╠═d890d63a-8f44-4052-8289-263f858ef76c
+# ╠═a878af82-bc94-4887-86fb-1db29c119de3
 # ╠═8b05ca8e-07d4-4331-95a7-3fb87e5b4cc4
 # ╠═5709b531-6050-42d6-8148-95c64796e5eb
 # ╠═6ecf7fb6-35bc-47c0-9199-7d226f02aee3
+# ╠═d43acb49-c37c-4cd7-9562-04a6eb5d761b
 # ╠═21ab5207-7043-4bb0-9b43-03b64aae4b15
 # ╠═b408dea8-cebe-48ea-82cf-4550f820d009
 # ╠═63241b32-ed56-4cfd-909d-6513c0749282
 # ╠═4a1c0f90-5ad2-4fa4-b8d6-2b5d730082a5
 # ╠═b66ff537-5930-43e5-bb5c-2e7ac87b01e4
 # ╠═f34af52c-2376-4fc5-9a2f-4fc0c6910622
+# ╠═b7a6d806-ccb1-45c4-9c35-0a19bbd2658d
+# ╠═143cd722-3d62-4334-a2a1-140f7a22cf3e
+# ╠═d0ffe927-46d8-42b3-987d-4fa942b4459c
+# ╠═e2a760c7-f107-4bcf-9798-f153d813facf
+# ╠═a6f72813-6f0e-4659-8e70-b068a263f246
+# ╠═f36a7fde-f1b0-48d8-943e-cb240dbbffa3
+# ╠═166cfd9c-b76d-42b7-855c-7a576b601868
+# ╠═989cf7ae-1bc0-426e-963a-3605f583945a
+# ╠═1eb70042-c738-4525-8d82-1a09fd4b85e0
+# ╠═03c9864e-249a-416a-a3f3-60e7e41bc7fb
 # ╠═ad897e47-9932-48ea-adbb-16b90f8d5e68
 # ╠═5364112f-2207-4e69-8fcd-4b3bf8cd5351
 # ╟─ee84d90d-89f9-4d13-a25c-8e09d3d5c38d
 # ╠═9f229c73-4fbd-4b90-82cc-3c8ee29ccba5
 # ╠═fdcd7161-a385-4bea-b5a9-f2564d47f2fc
+# ╠═36418e79-7e54-4e55-8898-454e08c2a197
+# ╠═8a23b58a-b04d-400d-8a7e-dd621e593dcc
+# ╠═7f462bce-7112-48a4-9087-207cd9d03fc0
+# ╠═81c2f487-979f-45b4-81e4-480197eb3861
+# ╠═c81931cd-503a-4f0b-88fc-06838b46fed6
+# ╠═a8e0cb51-82d8-4035-a8cc-091dc5636563
+# ╠═c92eae61-0856-4b5e-a117-eb3894c0cdde
+# ╠═85a425c1-1bc7-4e0e-8621-05dc155dd008
+# ╠═ce2d3a1e-c1a5-4b7a-ba34-f65828f7b51e
+# ╠═00417088-e11e-434f-ac13-384372bbaf2c
+# ╠═6a013a86-5253-4145-89ec-c45ac5809529
 # ╟─9ce60f69-d00c-49ee-854f-9e4e0621215f
 # ╠═403b4d7f-820d-4d5d-b773-ef38d954196e
 # ╠═f13686e7-e345-4227-9ac9-b0161e4c82ea
