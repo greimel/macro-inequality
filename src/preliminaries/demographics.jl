@@ -81,8 +81,6 @@ function get_π_jt_df((; demographics, m₀, T̃))
 	
 	pmf₀ = get_π_j(m₀)
 	births = pmf₀[j = At(0)]
-
-	@info births
 	
 	π_jt_df = @chain demographics begin
 		DataFrame
@@ -104,9 +102,6 @@ function get_π_jt_df((; demographics, m₀, T̃))
 
 	(; π_jt_df, π_jt_normalized_df)
 end
-
-# ╔═╡ d8ebf3be-9ccd-49c2-b60e-8c16c025af55
-
 
 # ╔═╡ aa150685-59a8-4f60-99d3-33bfc2fc1646
 md"""
@@ -148,9 +143,6 @@ md"""
 md"""
 # `mortality` from `egm-housing-risk.jl`
 """
-
-# ╔═╡ d617f78f-f001-41ad-b86f-1fb2f9ea9d8d
-
 
 # ╔═╡ 91cb2a2b-c5e7-420d-a004-30fb40f1ff08
 p_surv₀ = DimVector(
@@ -203,9 +195,6 @@ function mortality(model; m = 1/45, age_min = 0, age_max = 100)
 	
 end
 
-# ╔═╡ 1628e170-4680-4492-8b35-b78aca453729
-mortality(:marcelo)
-
 # ╔═╡ 53127dd5-fb72-408f-8625-c1153fcd1112
 md"""
 # Appendix
@@ -246,8 +235,28 @@ function get_π_jt((; demographics, m₀, T̃))
 	(; π_jt, π_jt_normalized)
 end
 
-# ╔═╡ 9ca740fb-66ad-42fb-b922-8e2ad7b9f1d0
-DD.dims(get_π_j(m_j_test), :j)
+# ╔═╡ d8ebf3be-9ccd-49c2-b60e-8c16c025af55
+function get_demographics_supersimple(m₀, T̃, scale_m = 0.9)
+	m₀ = copy(m₀)
+	
+	m_jborn = let		
+		m₁ = scale_m * m₀
+		m₁[end] = 1.0
+		
+		j_dim = DD.dims(m₀, :j)
+		J = maximum(j_dim)
+	
+		borns = -J:1:T̃
+		born_dim = Dim{:born}(borns)
+		ms = DimArray(cat([m₁ for born ∈ born_dim]..., dims = born_dim), name = :m)
+	end
+
+	(; 
+	  m_jborn, 
+	  get_π_jt((; demographics = m_jborn, m₀, T̃=30))...,
+	  π_t     = get_π_t((; demographics = m_jborn, m₀, T̃=30))
+	)
+end
 
 # ╔═╡ 6ad0054a-13f7-462f-874e-2e30c80462bc
 m_jborn_test = let
@@ -302,7 +311,10 @@ demographics_transition = let
 end
 
 # ╔═╡ 0dd4c393-4eb3-446f-85d6-5e611fabeb2e
+# ╠═╡ skip_as_script = true
+#=╠═╡
 get_π_jt((; demographics = m_jborn_test, m₀ = m_j_test, T̃ = 30))
+  ╠═╡ =#
 
 # ╔═╡ 5c9701eb-43df-42d9-b2b4-aee458ec16ca
 #=╠═╡
@@ -344,19 +356,6 @@ function visualize_demographics(m_jborn, π_jt)
 	end
 	
 	f
-end
-  ╠═╡ =#
-
-# ╔═╡ 1549afc8-fbd8-4535-80f4-14ac02bb4929
-#=╠═╡
-let	
-	#m_jborn = demographics_test
-	T̃ = 30
-	π_jt = get_π_jt((; demographics = m_jborn_test, m₀ = m_j_test, T̃))
-
-	π_jt
-	
-	visualize_demographics(m_jborn_test, π_jt)
 end
   ╠═╡ =#
 
@@ -2183,18 +2182,14 @@ version = "4.1.0+0"
 # ╠═36483e0b-cca9-4552-ba64-8a0d2a36a17d
 # ╠═d8ebf3be-9ccd-49c2-b60e-8c16c025af55
 # ╟─aa150685-59a8-4f60-99d3-33bfc2fc1646
-# ╠═9ca740fb-66ad-42fb-b922-8e2ad7b9f1d0
 # ╠═0dd4c393-4eb3-446f-85d6-5e611fabeb2e
 # ╠═6ad0054a-13f7-462f-874e-2e30c80462bc
 # ╠═e44723a8-14cb-4c0b-8952-12fca614963d
 # ╠═966d2c21-aacc-4bf1-9249-51a602a2bfad
 # ╠═3b1d1c53-9db5-466b-86ff-60eca7e8db38
-# ╠═1549afc8-fbd8-4535-80f4-14ac02bb4929
 # ╠═7fc54f06-e142-4f19-9fba-238c5fd8d95d
 # ╠═5c9701eb-43df-42d9-b2b4-aee458ec16ca
 # ╟─a6455cfc-de0b-4316-9487-373638092d44
-# ╠═d617f78f-f001-41ad-b86f-1fb2f9ea9d8d
-# ╠═1628e170-4680-4492-8b35-b78aca453729
 # ╠═a79e39bb-6dba-46fa-98cd-7202d9d7378a
 # ╠═87e91a2d-ff77-4742-a724-c79f9de728bd
 # ╠═91cb2a2b-c5e7-420d-a004-30fb40f1ff08

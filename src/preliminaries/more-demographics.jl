@@ -152,6 +152,9 @@ function get_π_j(m; births = nothing)
 	return pmf
 end
 
+# ╔═╡ 760aaa75-1cdc-4997-ae20-e85c922fb48e
+
+
 # ╔═╡ ccf90874-03e0-41fc-ab45-f6b68734ba03
 function π_jborn_to_π_jt(π_jborn, T̃, J)
 	t_dim = Dim{:t}(0:T̃)
@@ -234,6 +237,8 @@ m_j_test = let
 end
 
 # ╔═╡ ecbaae7a-ed12-4f82-87e1-df8f351035c5
+# ╠═╡ skip_as_script = true
+#=╠═╡
 baseline_period = let
 	m = m_j_test
 
@@ -243,13 +248,12 @@ baseline_period = let
 	period = 4
 
 	J_P = Int((J + 1) / period)
-
-	@info J_P
 	
 	(; m_sparse) = adjust_period_mortality(m, period)
 
 	(; m₀ = m_sparse, period, T̃ = 30)
 end
+  ╠═╡ =#
 
 # ╔═╡ 09310959-3eb6-4767-bd8b-809ff9326a8d
 md"""
@@ -2454,6 +2458,7 @@ version = "4.1.0+0"
 # ╟─2cadefad-d7e7-4a84-a917-424fd8d09cef
 # ╠═3044bbe9-6b76-4759-b868-7557ba1536ad
 # ╠═6163c43b-c42e-412e-9abd-878c708cb129
+# ╠═760aaa75-1cdc-4997-ae20-e85c922fb48e
 # ╠═b47b920e-2202-46d4-af43-a36d1a324869
 # ╠═e78f880b-82ed-4ccc-abf2-cd6041637b37
 # ╠═a3de9e35-b69b-4174-a6bf-3ae1fb21966c
