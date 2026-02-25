@@ -236,7 +236,7 @@ function get_π_jt((; demographics, m₀, T̃))
 end
 
 # ╔═╡ d8ebf3be-9ccd-49c2-b60e-8c16c025af55
-function get_demographics_supersimple(m₀, T̃, scale_m = 0.9)
+function get_demographics_supersimple(m₀, T̃; scale_m = 0.9)
 	m₀ = copy(m₀)
 	
 	m_jborn = let		
