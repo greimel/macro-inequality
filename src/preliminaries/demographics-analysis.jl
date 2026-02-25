@@ -26,7 +26,35 @@ using DimensionalData
 using Chain, DataFrameMacros, DataFrames
 
 # ╔═╡ eb1a06cb-de14-4786-9886-5f8ff9293477
-using CairoMakie, AlgebraOfGraphics
+let
+	using CairoMakie, AlgebraOfGraphics
+	CairoMakie.activate!(px_per_unit = 4.0)
+end
+
+# ╔═╡ 48c29ae6-dcc6-46d8-88e5-5b86ccb47e7e
+md"""
+## Welfare across cohorts
+"""
+
+# ╔═╡ bcac8507-db64-4ea0-9f3f-60d8f3df5c5b
+md"""
+### `compute_welfare_changes`
+"""
+
+# ╔═╡ eab52181-f2b3-4e5d-8e12-3e993c4ebae3
+md"""
+## Disecting the results
+"""
+
+# ╔═╡ 8d6f1d2f-3add-4152-9804-c9f6063bca54
+md"""
+## Aggregates over time
+"""
+
+# ╔═╡ 72850a8b-0e53-4f56-b956-ad90c0072064
+md"""
+## Full objects
+"""
 
 # ╔═╡ 4d2b74d6-c087-4dcb-96df-8364fe3054f0
 guesses_babyboom = 
@@ -148,43 +176,55 @@ ExperimentHelpers = ingredients("./experiment-helpers.jl")
 # ╔═╡ 4c9802ab-a823-4818-8f38-6488e3fad28a
 (; uu) = ExperimentHelpers.EGMHousingRisk
 
-# ╔═╡ a939e516-855a-4dc1-9512-a0eb60934c5a
-function compute_welfare_changes(out)
+# ╔═╡ e79205ac-c40a-4559-8876-3b7b22b76eec
+function compute_welfare_changes(out; by_type = false)
+
 	(; β, σ, ξ) = out.par
+
+	sim_df_x = out.sim_df_x
 	
-	ce_by_born = @chain out.sim_df_x begin
-		@subset(:π_final > 0)
-		@transform(:u = uu(:c, :ho, (; ξ = ξ[j = At(:j)], σ)))
-		@transform(:βu = β[j = At(:j)] .* :u)
-		@groupby(:born)
-		@combine(:W = sum(:βu, weights(:π_final)))
+	if by_type == false
+		sim_df_x = @transform(sim_df_x, :type = "all")
+	else
+		sim_df_x = @transform(sim_df_x, :type = round(:permanent.θ, digits=3))
 	end
 	
-	init_cohort = minimum(ce_by_born.born)
+	welfare_by_cohort = @chain sim_df_x begin
+		@transform(:u = uu(:c, :ho, (; ξ = ξ[j = At(:j)], σ)))
+		@transform(:βu = β[j = At(:j)] .* :u)
+		@groupby(:born, :type)
+		@combine(:W = sum(:βu, weights(:π_final)))
+	end
+
+	init_cohort = minimum(welfare_by_cohort.born)
 	
-	W_ref = @subset(ce_by_born, :born == init_cohort).W |> only
+	W_ref_df = @chain welfare_by_cohort begin
+		@subset(:born == init_cohort) 
+		@select(:type, :W_ref = :W)
+	end
+
+	leftjoin!(welfare_by_cohort, W_ref_df, on = :type)
 
 	# now compute λ per cohort by re-evaluating utility with scaled consumption
 	function cohort_W_scaled(df_born, λ, β, σ, ξ)
  		tmp = @chain df_born begin
-    		@transform(:uλ = uu((1+λ) * :c, :ho, (; ξ = ξ[j = At(:j)], σ)))
-    		@transform(:βuλ = β[j = At(:j)] .* :uλ)
+    		@transform!(:uλ = uu((1+λ) * :c, :ho, (; ξ = ξ[j = At(:j)], σ)))
+    		@transform!(:βuλ = β[j = At(:j)] .* :uλ)
     		@combine(:Wλ = sum(:βuλ, weights(:π_final)))
   		end
 		tmp.Wλ |> only
 	end
 
-	function find_CE(born)
-		b = born
-		df_b = @subset(out.sim_df_x, :born == b, :π_final > 0)
+	function find_CE(born, type, W_ref)
+		df_cohort = @subset(sim_df_x, :born == born, :type == type)
 
-  		f(λ) = cohort_W_scaled(df_b, λ, β, σ, ξ) - W_ref
+  		f(λ) = cohort_W_scaled(df_cohort, λ, β, σ, ξ) - W_ref
 
   		# bracket: allow for big losses/gains
   		find_zero(f, (-0.9, 5.0))
 	end
-
-	@transform(ce_by_born, :ce = find_CE(:born))
+	
+	@transform(welfare_by_cohort, :ce = find_CE(:born, :type, :W_ref))
 end
 
 # ╔═╡ d72c5cc6-f899-4987-b223-c7161a2a81a1
@@ -203,19 +243,48 @@ out_babyboom = transition_test(T̃ = 50, guesses_trans = guesses_babyboom,
 							   	  extend_sim_df = true
 							  )
 
-# ╔═╡ 344500be-5a30-47e5-8233-a04310e1afd2
-@chain out_babyboom begin
- 	compute_welfare_changes
-	@transform(:ce_gain = -:ce)
-	data(_) * mapping(:born, :ce_gain) * visual(Lines)
-	draw
+# ╔═╡ d9a77693-aedd-4764-99b3-e9d669cfc54b
+let
+	(; sim_df_x) = out_babyboom
+
+	@chain sim_df_x begin
+		#@subset(0 ≤ :t ≤ 40)
+		#stack([:ho, :c, :a_next, :π_final], [:j, :t, :born, :π_final])
+		@groupby(:j, :t, :born)
+		@combine(
+			:housing = mean(:ho, weights(:π_final)),
+			:consumption = mean(:c, weights(:π_final)),
+			:saving = mean(:a_next, weights(:π_final)),
+			:population = sum(:π_final)
+		)
+		
+		@subset(:born ∈ -1:10)#[0, 5, 10, 15, 20])
+		stack([:housing, :consumption, :saving, :population], [:t, :j, :born])
+		data(_) * mapping(:t, :value, layout = :variable, color = :born => nonnumeric) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end
 end
 
-# ╔═╡ 075d2f4f-0852-4b18-8e9a-0771af705ef3
-out_babyboom.par.β
+# ╔═╡ fd241277-1a6f-4fb6-9131-4a084dbe3767
+let
+	(; sim_df_x) = out_babyboom
 
-# ╔═╡ e3924ae1-b57c-4863-9d2d-395350199976
-out_babyboom.out.sim_df
+	@chain sim_df_x begin
+		@subset(0 ≤ :t ≤ 40)
+		#stack([:ho, :c, :a_next, :π_final], [:j, :t, :born, :π_final])
+		@groupby(:born_before_zero = :born < 0, :t)
+		@combine(
+			:housing = mean(:ho, weights(:π_final)),
+			:consumption = mean(:c, weights(:π_final)),
+			:saving = mean(:a_next, weights(:π_final)),
+			:population = sum(:π_final)
+		)
+		@subset(:population > 0.0001)
+		stack([:housing, :consumption, :saving, :population], [:t, :born_before_zero])
+		data(_) * mapping(:t, :value, layout = :variable, color = :born_before_zero) * visual(Lines)
+		draw(facet = (; linkyaxes = false))
+	end
+end
 
 # ╔═╡ ed39c465-15b9-4361-8927-c7483c2162ca
 let
@@ -282,14 +351,6 @@ out_mortality = transition_test(guesses_trans = guesses_mortality,
 								extend_sim_df = true,
 							  )
 
-# ╔═╡ 11d2e317-9c5f-4fb4-8515-e9822490ef08
-@chain out_mortality begin
- 	compute_welfare_changes
-	@transform(:ce_gain = -:ce)
-	data(_) * mapping(:born, :ce_gain) * visual(Lines)
-	draw
-end
-
 # ╔═╡ 8ff04230-59ed-483f-84c2-e0dc4d49cb01
 out_births = transition_test(guesses_trans = guesses_births,
 								  T̃ = 50,
@@ -303,14 +364,6 @@ out_births = transition_test(guesses_trans = guesses_births,
 							   	  scenario = :births_down,
 								  extend_sim_df = true,
 							  )
-
-# ╔═╡ 06d49b9c-5de4-41bd-ac6b-376db146944e
-@chain out_births begin
- 	compute_welfare_changes
-	@transform(:ce_gain = -:ce)
-	data(_) * mapping(:born, :ce_gain) * visual(Lines)
-	draw
-end
 
 # ╔═╡ 89b5865b-feb9-490e-a676-f723afc4c27b
 ExperimentHelpers.sprint_solution(out_births)
@@ -328,14 +381,6 @@ out_babyboom_nobeq = transition_test(T̃ = 50, amax = 200, guesses_trans = guess
 									 extend_sim_df = true
 							  )
 
-# ╔═╡ c9f020e0-0db9-488c-8c80-b21382fc1c00
-@chain out_babyboom_nobeq begin
- 	compute_welfare_changes
-	@transform(:ce_gain = -:ce)
-	data(_) * mapping(:born, :ce_gain) * visual(Lines)
-	draw
-end
-
 # ╔═╡ 57e4ba0e-9962-414a-9620-0d0fbeb2955e
 out_18_bequests = transition_test(old_profiles=true, guesses_trans = guesses_18_bequests,
 								  amax = 200,
@@ -349,6 +394,44 @@ out_18_bequests = transition_test(old_profiles=true, guesses_trans = guesses_18_
 
 # ╔═╡ 45a72a71-a1d7-4a7e-bb02-f738fe24242c
 const DD = DimensionalData
+
+# ╔═╡ 16a3e5c6-5d42-45a4-9a7e-fdfea2328fc7
+fonts = (; regular = Makie.MathTeXEngine.texfont(:regular), bold = Makie.MathTeXEngine.texfont(:regular))
+
+# ╔═╡ 7cd959ad-b628-4806-b5a0-a4045c82d0e3
+figure(size = (350, 250); figure_padding = 2, kwargs...) = (; size, fonts, figure_padding, kwargs...)
+
+# ╔═╡ 344500be-5a30-47e5-8233-a04310e1afd2
+@chain out_babyboom begin
+ 	compute_welfare_changes(by_type = true)
+	@transform(:ce_gain = -:ce)
+	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
+	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
+end
+
+# ╔═╡ c9f020e0-0db9-488c-8c80-b21382fc1c00
+@chain out_babyboom_nobeq begin
+ 	compute_welfare_changes(by_type = true)
+	@transform(:ce_gain = -:ce)
+	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
+	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
+end
+
+# ╔═╡ 11d2e317-9c5f-4fb4-8515-e9822490ef08
+@chain out_mortality begin
+	compute_welfare_changes(by_type = true)
+	@transform(:ce_gain = -:ce)
+	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
+	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
+end
+
+# ╔═╡ 06d49b9c-5de4-41bd-ac6b-376db146944e
+@chain out_births begin
+	compute_welfare_changes(by_type = true)
+	@transform(:ce_gain = -:ce)
+	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
+	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2528,18 +2611,23 @@ version = "4.1.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═1b64bc79-8831-4b6f-8e58-77eb8dbbc8ea
-# ╠═c8f20ba9-a079-4dce-a6e2-fb04e4e318b7
-# ╠═928ef319-2abf-4893-bc37-889d57b48e29
+# ╟─48c29ae6-dcc6-46d8-88e5-5b86ccb47e7e
 # ╠═344500be-5a30-47e5-8233-a04310e1afd2
 # ╠═c9f020e0-0db9-488c-8c80-b21382fc1c00
 # ╠═11d2e317-9c5f-4fb4-8515-e9822490ef08
 # ╠═06d49b9c-5de4-41bd-ac6b-376db146944e
-# ╠═a939e516-855a-4dc1-9512-a0eb60934c5a
-# ╠═075d2f4f-0852-4b18-8e9a-0771af705ef3
-# ╠═e3924ae1-b57c-4863-9d2d-395350199976
+# ╟─bcac8507-db64-4ea0-9f3f-60d8f3df5c5b
+# ╠═e79205ac-c40a-4559-8876-3b7b22b76eec
 # ╠═4c9802ab-a823-4818-8f38-6488e3fad28a
+# ╠═1b64bc79-8831-4b6f-8e58-77eb8dbbc8ea
+# ╠═c8f20ba9-a079-4dce-a6e2-fb04e4e318b7
+# ╠═928ef319-2abf-4893-bc37-889d57b48e29
+# ╠═eab52181-f2b3-4e5d-8e12-3e993c4ebae3
+# ╠═d9a77693-aedd-4764-99b3-e9d669cfc54b
+# ╠═fd241277-1a6f-4fb6-9131-4a084dbe3767
+# ╟─8d6f1d2f-3add-4152-9804-c9f6063bca54
 # ╠═ed39c465-15b9-4361-8927-c7483c2162ca
+# ╠═72850a8b-0e53-4f56-b956-ad90c0072064
 # ╠═88ed7c4a-2bf5-4969-b324-916469ba308d
 # ╠═1bacad39-d92f-4533-bdfa-314a56297841
 # ╠═8ff04230-59ed-483f-84c2-e0dc4d49cb01
@@ -2563,5 +2651,7 @@ version = "4.1.0+0"
 # ╠═45a72a71-a1d7-4a7e-bb02-f738fe24242c
 # ╠═86eae007-9dec-48d9-888b-7a6a7f08f597
 # ╠═eb1a06cb-de14-4786-9886-5f8ff9293477
+# ╠═16a3e5c6-5d42-45a4-9a7e-fdfea2328fc7
+# ╠═7cd959ad-b628-4806-b5a0-a4045c82d0e3
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
