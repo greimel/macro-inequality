@@ -28,6 +28,11 @@ using Chain, DataFrameMacros, DataFrames
 using CairoMakie, AlgebraOfGraphics
   ╠═╡ =#
 
+# ╔═╡ 405050ca-b3cb-4cc9-808f-6d5c0dc65deb
+md"""
+move `age_bin_df(⋅)` to `demographics.jl`? (It's currently disabled-in-file)
+"""
+
 # ╔═╡ c8626b6a-1706-4e89-ad29-234b6dd5d234
 md"""
 # Adjust period of mortality, income, discounting, etc
@@ -137,6 +142,39 @@ function adjust_period_mortality(m, period; j₀=period)
 	
 end
 
+# ╔═╡ 64060b9b-b7b6-49eb-8271-a0fef04ee0db
+#=╠═╡
+function age_bin_df(; age_min=20, age_max=99, period=4, age_R=65)
+
+	J_P = ((age_max + 1) - age_min) ÷ period
+	J = period * J_P - 1
+	JR = age_R - age_min
+
+	demo = let
+		j_dim = Dim{:j}(0:(age_max - age_min))
+		p₀ = p_surv[j = At(age_min:age_max-1)]
+		m = DimVector([1 .- p₀; 1.0], j_dim, name = :m)
+ 
+		(; m_sparse) = adjust_period_mortality(m, period, j₀ = period)
+
+		m = m_sparse
+		pmf = cumprod(1 .- m)
+		pmf = DimVector(pmf ./ sum(pmf), name = :pmf)
+
+		DimStack(m, pmf)
+	end
+	
+	sparse_js = period-1:period:J
+
+	df = @chain demo begin
+		DataFrame
+		@transform(:lb = @bycol sparse_js .+ age_min .- (period - 1))
+		@transform(:ub = @bycol sparse_js .+ age_min)
+		@transform(:bin = "[$(:lb), $(:ub)]")	
+	end	
+end
+  ╠═╡ =#
+
 # ╔═╡ bd3a1aa8-a11e-41dd-b4dd-5b6d5385d19b
 function adjust_period_flow(flow, period; extend = false)
 	j_dim = DD.dims(flow, :j)
@@ -172,6 +210,49 @@ function adjust_period_income_profile(h, period; kwargs...)
 
 	(; h_sparse = flow_sparse, sparse_js)
 end
+
+# ╔═╡ 8a13ccc9-57f4-4c7d-bed3-1e18ef583b39
+#=╠═╡
+let
+	age_min = 20
+	age_max = 99
+	period = 4
+	J_P = ((age_max + 1) - age_min) ÷ 4
+	J = period * J_P - 1
+	JR = 65 - age_min
+	
+	h = income_profile(J+1, JR)
+	(; flow_sparse, sparse_js) = adjust_period_flow(h, period; extend = true)
+	
+	ages = age_min:age_min+J
+
+	fig = Figure(size = (600, 200))
+	ax = Axis(fig[1,1], title = "Compare cumulative flow")
+	
+	#lines(ages, parent(h))
+	lines!(ax, (0:J) .+ age_min, parent(cumsum(h)))
+	scatter!(ax, sparse_js .+ age_min, parent(cumsum(flow_sparse)))
+
+	sparse_js .+ 20
+#	fig
+
+	df = DataFrame(; 
+			  j = 0:length(sparse_js)-1,
+			  #sparse_age = sparse_js .+ age_min, 
+			  lb = sparse_js .+ age_min .- (period - 1) , 
+			  ub = sparse_js .+ age_min)
+
+	@chain df begin
+		@transform(
+			:bin = "[$(:lb), $(:ub)]",
+			
+		)
+		
+	end
+
+end
+	
+  ╠═╡ =#
 
 # ╔═╡ 808f9bb4-672f-4b5e-a997-fdb4b40ad58c
 #=╠═╡
@@ -2080,6 +2161,8 @@ version = "4.1.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─405050ca-b3cb-4cc9-808f-6d5c0dc65deb
+# ╠═64060b9b-b7b6-49eb-8271-a0fef04ee0db
 # ╟─c8626b6a-1706-4e89-ad29-234b6dd5d234
 # ╠═3f285da1-3cbb-4909-8491-aba0c2df01c1
 # ╠═03a32d58-a1d7-4564-b749-63218f6d3fd7
@@ -2090,6 +2173,7 @@ version = "4.1.0+0"
 # ╠═9cb38fa2-4a27-43ac-b964-17903539223d
 # ╠═ca2dfcd1-8a24-4687-9cc0-72b8276b5247
 # ╠═591e6284-da49-4d5b-aff3-ff6597f0ac30
+# ╠═8a13ccc9-57f4-4c7d-bed3-1e18ef583b39
 # ╠═808f9bb4-672f-4b5e-a997-fdb4b40ad58c
 # ╠═9c0df7ba-123d-471a-b0ba-3fc825f6c92e
 # ╠═80aa74dd-e3e7-42f7-911a-3f0dccaba243
