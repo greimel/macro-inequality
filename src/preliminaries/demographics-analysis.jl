@@ -179,7 +179,7 @@ ExperimentHelpers = ingredients("./experiment-helpers.jl")
 # ╔═╡ e79205ac-c40a-4559-8876-3b7b22b76eec
 function compute_welfare_changes(out; by_type = false)
 
-	(; β, σ, ξ) = out.par
+	(; β, σ, ξ, v) = out.par
 
 	sim_df_x = out.sim_df_x
 	
@@ -190,8 +190,10 @@ function compute_welfare_changes(out; by_type = false)
 	end
 	
 	welfare_by_cohort = @chain sim_df_x begin
-		@transform(:u = uu(:c, :ho, (; ξ = ξ[j = At(:j)], σ)))
-		@transform(:βu = β[j = At(:j)] .* :u)
+		@transform(
+			:u = uu(:c, :ho, (; ξ = ξ[j = At(:j)], σ)),
+		)
+		@transform(:βu = β[j = At(:j)] .* (:u + :m * v(:a_next)))
 		@groupby(:born, :type)
 		@combine(:W = sum(:βu, weights(:π_final)))
 	end
@@ -209,7 +211,7 @@ function compute_welfare_changes(out; by_type = false)
 	function cohort_W_scaled(df_born, λ, β, σ, ξ)
  		tmp = @chain df_born begin
     		@transform!(:uλ = uu((1+λ) * :c, :ho, (; ξ = ξ[j = At(:j)], σ)))
-    		@transform!(:βuλ = β[j = At(:j)] .* :uλ)
+    		@transform!(:βuλ = β[j = At(:j)] .* (:uλ + :m * v(:a_next)))
     		@combine(:Wλ = sum(:βuλ, weights(:π_final)))
   		end
 		tmp.Wλ |> only
@@ -286,57 +288,6 @@ let
 	end
 end
 
-# ╔═╡ ed39c465-15b9-4361-8927-c7483c2162ca
-let
-	big_df = leftjoin(
-		DataFrame(out_babyboom.out.raw_aggregate_paths),
-		DataFrame(out_babyboom.out.price_paths), on = :t
-	)
-
-	big_df = leftjoin(
-		big_df, 
-		DataFrame(out_babyboom.out.aggregate_paths.aggregates), on = :t,
-		makeunique = true
-	)
-	
-	#DataFrame()
-	vars1 = @chain big_df begin
-		#DataFrame
-		stack([:ho, :a_next, :c, :bequests, :K_supply], [:t, :population])
-		@transform(:value = :value / :population)
-		select(Not(:population))
-		@groupby(:variable)
-		@transform(:value = @bycol :value ./ first(:value) .- 1)
-		@transform(:variable = :variable .* " (p.c., rel.)")
-		#data(_) * mapping(:t, :value, layout = :variable) * visual(Lines)
-		#draw #(; facet = (; linkyaxes = false))
-	end
-
-	vars2 = @chain big_df begin
-		stack([:p, :K_supply], :t)
-		@transform(:variable = :variable .* " (rel.)")
-		@groupby(:variable)
-		@transform(:value = @bycol :value ./ first(:value) .- 1)
-	end
-
-	vars3 = @chain big_df begin
-		stack([:r, :population], :t)
-		@transform(:variable = :variable .* " (level)")
-		#@groupby(:variable)
-		#@transform(:value = @bycol :value ./ first(:value) .- 1)
-	end
-	
-
-	@chain [vars1; vars2; vars3] begin
-		#@subset(:t < 3)
-		data(_) * mapping(:t, :value, layout = :variable) * visual(Lines)
-		draw(; facet = (; linkyaxes = false))
-	end
-	#.H_hh
-		
-	#p ./ first(p) |> lines
-end
-
 # ╔═╡ 1bacad39-d92f-4533-bdfa-314a56297841
 out_mortality = transition_test(guesses_trans = guesses_mortality,
 								  T̃ = 50,
@@ -381,6 +332,59 @@ out_babyboom_nobeq = transition_test(T̃ = 50, amax = 200, guesses_trans = guess
 									 extend_sim_df = true
 							  )
 
+# ╔═╡ ed39c465-15b9-4361-8927-c7483c2162ca
+let
+	out = out_babyboom_nobeq
+	
+	big_df = leftjoin(
+		DataFrame(out.out.raw_aggregate_paths),
+		DataFrame(out.out.price_paths), on = :t
+	)
+
+	big_df = leftjoin(
+		big_df, 
+		DataFrame(out.out.aggregate_paths.aggregates), on = :t,
+		makeunique = true
+	)
+	
+	#DataFrame()
+	vars1 = @chain big_df begin
+		#DataFrame
+		stack([:ho, :a_next, :c, :bequests, :K_supply], [:t, :population])
+		@transform(:value = :value / :population)
+		select(Not(:population))
+		@groupby(:variable)
+		@transform(:value = @bycol :value ./ first(:value) .- 1)
+		@transform(:variable = :variable .* " (p.c., rel.)")
+		#data(_) * mapping(:t, :value, layout = :variable) * visual(Lines)
+		#draw #(; facet = (; linkyaxes = false))
+	end
+
+	vars2 = @chain big_df begin
+		stack([:p, :K_supply], :t)
+		@transform(:variable = :variable .* " (rel.)")
+		@groupby(:variable)
+		@transform(:value = @bycol :value ./ first(:value) .- 1)
+	end
+
+	vars3 = @chain big_df begin
+		stack([:r, :population], :t)
+		@transform(:variable = :variable .* " (level)")
+		#@groupby(:variable)
+		#@transform(:value = @bycol :value ./ first(:value) .- 1)
+	end
+	
+
+	@chain [vars1; vars2; vars3] begin
+		#@subset(:t < 3)
+		data(_) * mapping(:t, :value, layout = :variable) * visual(Lines)
+		draw(; facet = (; linkyaxes = false))
+	end
+	#.H_hh
+		
+	#p ./ first(p) |> lines
+end
+
 # ╔═╡ 57e4ba0e-9962-414a-9620-0d0fbeb2955e
 out_18_bequests = transition_test(old_profiles=true, guesses_trans = guesses_18_bequests,
 								  amax = 200,
@@ -401,13 +405,27 @@ fonts = (; regular = Makie.MathTeXEngine.texfont(:regular), bold = Makie.MathTeX
 # ╔═╡ 7cd959ad-b628-4806-b5a0-a4045c82d0e3
 figure(size = (350, 250); figure_padding = 2, kwargs...) = (; size, fonts, figure_padding, kwargs...)
 
-# ╔═╡ 344500be-5a30-47e5-8233-a04310e1afd2
+# ╔═╡ 6fb4a314-7648-4f79-9073-14666736e42e
+# ╠═╡ disabled = true
+#=╠═╡
 @chain out_babyboom begin
  	compute_welfare_changes(by_type = true)
 	@transform(:ce_gain = -:ce)
 	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
 	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
 end
+  ╠═╡ =#
+
+# ╔═╡ 344500be-5a30-47e5-8233-a04310e1afd2
+# ╠═╡ disabled = true
+#=╠═╡
+@chain out_babyboom begin
+ 	compute_welfare_changes(by_type = true)
+	@transform(:ce_gain = -:ce)
+	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
+	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
+end
+  ╠═╡ =#
 
 # ╔═╡ c9f020e0-0db9-488c-8c80-b21382fc1c00
 @chain out_babyboom_nobeq begin
@@ -418,20 +436,26 @@ end
 end
 
 # ╔═╡ 11d2e317-9c5f-4fb4-8515-e9822490ef08
+# ╠═╡ disabled = true
+#=╠═╡
 @chain out_mortality begin
 	compute_welfare_changes(by_type = true)
 	@transform(:ce_gain = -:ce)
 	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
 	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
 end
+  ╠═╡ =#
 
 # ╔═╡ 06d49b9c-5de4-41bd-ac6b-376db146944e
+# ╠═╡ disabled = true
+#=╠═╡
 @chain out_births begin
 	compute_welfare_changes(by_type = true)
 	@transform(:ce_gain = -:ce)
 	data(_) * mapping(:born, :ce_gain, color = :type => nonnumeric) * visual(Lines)
 	draw(; figure=figure(), legend = (; position = :top, titleposition = :left))
 end
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -2612,6 +2636,7 @@ version = "4.1.0+0"
 
 # ╔═╡ Cell order:
 # ╟─48c29ae6-dcc6-46d8-88e5-5b86ccb47e7e
+# ╠═6fb4a314-7648-4f79-9073-14666736e42e
 # ╠═344500be-5a30-47e5-8233-a04310e1afd2
 # ╠═c9f020e0-0db9-488c-8c80-b21382fc1c00
 # ╠═11d2e317-9c5f-4fb4-8515-e9822490ef08
