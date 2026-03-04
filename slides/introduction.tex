@@ -41,7 +41,8 @@
 \newcommand{\credittoben}{\blfootnote{Taken from Ben Moll's slides with only minor adjustments}}
 
  \author{Fabian Greimel}
-\title{Macroeconomics and Inequality}
+\title{Macroeconomics and Inequality (MA)}
+\date{University of Vienna \\ Summer term 2026}
 
 \begin{document}
  
@@ -50,53 +51,47 @@
 \begin{frame}{About me}
 
   \begin{itemize}
-  \item Austrian, married, two kids (4 and 7)
-  \item Assistant Prof. in Vienna since September 2024
-  \item before
+  \item Austrian, married, two kids (5 and 8)
+  \item Post-PhD experience
   \begin{itemize}
-    \item 2010-13: BSc in Economics from WU Vienna
-    \item 2013-15: MSc in Economics (Research) from IHS/TU Vienna
-    \item 2015-20: PhD in Economics from University of Mannheim
+    \item since 2024: Assistant Prof. at University of Vienna
     \item 2020-24: Assistant Prof. (TT) at University of Amsterdam
+  \end{itemize}
+  \item Pre-PhD experience
+  \begin{itemize}
+    \item 2015-20: PhD in Economics from University of Mannheim
+    \item 2013-15: MSc in Economics (Research) from IHS/TU Vienna
+    \item 2010-13: BSc in Economics from WU Vienna
   \end{itemize}
 \end{itemize}
 \end{frame}
+\begin{frame}{Plan for this course}
 
-\begin{frame}{What is \emph{Distributional Macroeconomics}?}
-
+\begin{block}{Methods}
   \begin{itemize}
-  \item basic point of view: the \alert{macroeconomy is a distribution} (of productivities, incomes, wealth)
-  \item Goals
-    \begin{enumerate}
-    \item study of \alert{macroeconomic questions in terms of distributions} rather than just aggregates
-      
-    \item study \alert{rich intereactions} of heterogeneity and macroeconomic aggregates
-    \end{enumerate}
-  \item Methods
-    \begin{enumerate}
-    \item \alert{models with heteregeneous agents} (agents or firms)
-    \item use \alert{micro data} (e.g. household surveys) and \alert{macro data} (e.g. time series and country panels) to inform models
-    \end{enumerate}
+    \item Markov Chains
+    \item numerical dynamic programming
+    \item heterogeneous agent models (Bewley-Huggett-Aiyagari)
+    \item overlapping generations models
   \end{itemize}
+\end{block}
+
+\begin{block}{Questions}
+    \begin{enumerate}
+      \item Does inequality matter for macroeconomic outcomes and policies?
+      \item What are the sources of wealth inequality?
+      \item Why is wealth inequality so different across countries? (Housing markets!)
+      \item Should we tax wealth? Should we tax capital gains?
+    \end{enumerate}
+  \end{block}
 \end{frame}
 
-%\begin{frame}{Questions we address in this course}
-  % \begin{enumerate}
-  % \item Why have household debt and bankruptcies risen prior to 2007?
-  % \item How do bankruptcy laws affect social welfare?
-  % \item (How) has the housing boom prior to 2007 amplified the Great Recession?
-  % \item Where did the housing boom come from?
-  % \item ... And what role does inequality play in all theses questions?
-  % \end{enumerate}
-%\end{frame}
-
-\begin{frame}{Background}
+\begin{frame}{Disclaimer: Under construction}
 
         \begin{itemize}
         \item \emph{the course that I've always wanted}
         \item started in 2022 as 5-session PhD course in Amsterdam
-        \item extended to 24-session MSc course \emph{this year} 
-        \item designed from scratch
+        \item extended to 24-session MSc course \emph{last year} 
         \begin{itemize}
           \item \dots{} but good things take time
           \item your feedback will shape this course     
@@ -113,29 +108,34 @@
       \begin{enumerate}
       \item interact with me (participation)
       \item graded assignments
-      \item midterm exam (during class of May 8)
+      \item midterm \& final exams
       \end{enumerate}
     \end{block} 
-    \begin{block}{Participation points (20\%)}
+    
+    \begin{block}{Participation points}
       \begin{itemize}
-      \item each percentage point needs to be earned ...
-      \item ... with \emph{active} participation (question, answer or comment)
-      \item collect percentage point at my desk after each lecture
+      \item need to be earned (!)
+      \item (question, answer or comment)
+      \item collect point at my desk after class
+      \item actively participate in 15 sessions to get full points
       \end{itemize}
     \end{block}
   \end{column}
+
   \begin{column}{0.5\linewidth}
-    \begin{block}{Assignments (40\%)}
+    \begin{block}{Computer assignments}
       \begin{itemize}
       \item using Pluto.jl notebooks and the Julia programming language
       \item focus on content, not methods
       \item start from runnable code
       \end{itemize}
     \end{block}
-     \begin{block}{Midterm Exam (May 8, 40\%)}
+
+     \begin{block}{Reading assignments}
       \begin{itemize}
-      \item exercises \& derivations
-      \item sample exercises will be covered in the course
+      \item read a paper
+      \item answer questions (in writing)
+      \item discuss answers in class
       \end{itemize} 
      \end{block}
   \end{column}
@@ -242,6 +242,24 @@
   \item Typical finding: distribution matters for macro (\alert{``inequality  $\implies$ macro'' })
   \item Will see a number of examples throughout the course
 \end{itemize}
+\end{frame}
+
+\begin{frame}{What is \emph{Distributional Macroeconomics}?}
+
+  \begin{itemize}
+  \item basic point of view: the \alert{macroeconomy is a distribution} (of productivities, incomes, wealth)
+  \item Goals
+    \begin{enumerate}
+    \item study of \alert{macroeconomic questions in terms of distributions} rather than just aggregates
+      
+    \item study \alert{rich intereactions} of heterogeneity and macroeconomic aggregates
+    \end{enumerate}
+  \item Methods
+    \begin{enumerate}
+    \item \alert{models with heteregeneous agents} (agents or firms)
+    \item use \alert{micro data} (e.g. household surveys) and \alert{macro data} (e.g. time series and country panels) to inform models
+    \end{enumerate}
+  \end{itemize}
 \end{frame}
 
 % \begin{frame}{This course is about ``3rd generation'' models\credittoben}
