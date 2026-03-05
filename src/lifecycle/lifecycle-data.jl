@@ -58,7 +58,7 @@ begin
 	formattern(from, to, i; kwargs...) = "Q$i"
 	
 	cut2(x, w) = cut(x, weights(w), [0.5]; extend=true, labels = formatter2)
-	cut3(x, w) = cut(x, weights(w), [0.4, 0.9]; extend=true, labels = formatter3)
+	cut3(x, w) = cut(x, weights(w), [0.5, 0.9]; extend=true, labels = formatter3)
 	cutn(x, w, n) = cut(x, weights(w), n; labels = formattern)
 end
 
@@ -70,7 +70,7 @@ using HypertextLiteral
 
 # ╔═╡ ad88559d-0a46-4532-abae-adcab075c7de
 md"""
-`lifecycle-data.jl` | **Version 1.0** | *last updated: March 10 2025*
+`lifecycle-data.jl` | **Version 1.1** | *last updated: March 5 2026*
 """
 
 # ╔═╡ ba4d03bf-43ff-4f18-8b0e-6f4d7e2b29ab
@@ -148,10 +148,13 @@ md"""
 ## Appendix to Task 3
 """
 
-# ╔═╡ 9b6558d8-d3be-43bf-a0e6-bc8e761e0c93
+# ╔═╡ 00664734-c059-44eb-9d75-d7d708de0d22
 md"""
 ## End of Assignment
+"""
 
+# ╔═╡ 9b6558d8-d3be-43bf-a0e6-bc8e761e0c93
+md"""
 # Some more stuff (dis-organized)
 """
 
@@ -159,9 +162,6 @@ md"""
 md"""
 ## Incomes / Consumption
 """
-
-# ╔═╡ 00326ebb-567c-4f97-bcd6-aaa2dfadfa3b
-
 
 # ╔═╡ 3cc3ee46-ca0d-43a4-9a97-86df5aa481ec
 cex_categories = [
@@ -287,8 +287,8 @@ cex_df = @chain get_cex() begin
 			:value = mean(:value, weights(:weight)),
 			:weight = sum(:weight)
 		)
-		@transform(:weight = @bycol :weight / sum(:weight))
 		unstack(:variable, :value) 
+		@transform(:weight = @bycol :weight / sum(:weight))
 end
 
 # ╔═╡ 98692001-b5fa-4dcb-a15f-2994fbab4270
@@ -459,9 +459,10 @@ scf_df = let
 			:value = mean(:value ./ 100_000, weights(:WGT)),
 			:weight = sum(:WGT)
 		)
-		@transform(:weight = @bycol :weight / sum(:weight))
 		sort(:binned_age)
-		unstack(:variable, :value) # =#
+		unstack(:variable, :value)
+		@transform(:weight = @bycol :weight / sum(:weight))
+		
 	end
 end
 
@@ -2664,8 +2665,6 @@ version = "3.6.0+0"
 # ╟─ad88559d-0a46-4532-abae-adcab075c7de
 # ╟─ba4d03bf-43ff-4f18-8b0e-6f4d7e2b29ab
 # ╟─aac31c6f-07ab-4d21-b55c-c5034473bc2a
-# ╠═7200f59c-f171-4b4d-9590-42a5ee5cd409
-# ╠═0ac3d9d5-df3d-4481-81ce-ea372dc56d7b
 # ╠═28dc963b-39ab-4f16-9939-7813cb3c791f
 # ╟─bd111234-9de9-4c09-a9c9-77072c5cabfb
 # ╠═b41697cb-36ec-43d7-896b-63dd0063c202
@@ -2699,10 +2698,12 @@ version = "3.6.0+0"
 # ╠═0c43f1de-50b1-4c36-b61d-42433a320317
 # ╠═a1a2f373-feb6-4e2d-8289-08df2ec7f290
 # ╠═ca8ae372-e6c3-4d19-88a5-bd9c7236ac50
-# ╠═9b6558d8-d3be-43bf-a0e6-bc8e761e0c93
-# ╠═b8a3a91f-3340-48ff-9cb3-d179ec6810e2
+# ╟─00664734-c059-44eb-9d75-d7d708de0d22
+# ╠═7200f59c-f171-4b4d-9590-42a5ee5cd409
+# ╠═0ac3d9d5-df3d-4481-81ce-ea372dc56d7b
+# ╟─9b6558d8-d3be-43bf-a0e6-bc8e761e0c93
+# ╟─b8a3a91f-3340-48ff-9cb3-d179ec6810e2
 # ╠═98692001-b5fa-4dcb-a15f-2994fbab4270
-# ╠═00326ebb-567c-4f97-bcd6-aaa2dfadfa3b
 # ╠═ba70ddf6-1e3c-4349-ae70-0c8a0c4198ad
 # ╠═9a336cf7-29f8-41a6-8b12-317c9469966f
 # ╠═3cc3ee46-ca0d-43a4-9a97-86df5aa481ec
