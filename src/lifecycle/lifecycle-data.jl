@@ -70,7 +70,7 @@ using HypertextLiteral
 
 # ╔═╡ ad88559d-0a46-4532-abae-adcab075c7de
 md"""
-`lifecycle-data.jl` | **Version 1.1** | *last updated: March 5 2026*
+`lifecycle-data.jl` | **Version 1.2** | *last updated: March 10 2026*
 """
 
 # ╔═╡ ba4d03bf-43ff-4f18-8b0e-6f4d7e2b29ab
@@ -135,7 +135,7 @@ The dataframe `data_df₀` collects shows (partially) aggregated data from the S
 
 # ╔═╡ 82278b45-0fdf-403b-ab2a-4a7878a5411a
 md"""
-👉 (3.1 | 1 point) Rename the columns so that they match the variable names of our model. _(The cell below has it wrong, please fix!)_
+👉 (3.1 | 1 point) Rename the columns so that they match the variable names of _simple overlapping generations model_ from the lecture. _(The cell below has it wrong, please fix!)_
 """
 
 # ╔═╡ 23c035a7-01ed-47ab-bc4e-b846f43bc29c
@@ -469,24 +469,27 @@ end
 # ╔═╡ 0c43f1de-50b1-4c36-b61d-42433a320317
 data_df₀ = @chain begin
 	leftjoin(scf_df, cex_df, on = [:age_bin, :income_bin], makeunique = true)
-	@select(:income_bin, :weight, :NETWORTH, :INCOME, :totexp, :binned_age)
+	@select(:income_bin, :weight, :NETWORTH, :INCOME, :EXPENDITURES = :totexp / :ave_inc99 * :INCOME, :binned_age)
 end
 
 # ╔═╡ a69a22c0-bc07-44dd-8d88-ff08e136a584
-@chain data_df₀ begin
-	data(_) * mapping(:binned_age, [:NETWORTH, :INCOME, :totexp, :weight] .=> "", 
-		layout = dims(1) => renamer( [:NETWORTH, :INCOME, :totexp, :weight]),
-		color = :income_bin) * visual(ScatterLines)
-	draw(facet = (; linkyaxes = false) )
+let
+	vars = [:NETWORTH, :INCOME, :EXPENDITURES, :weight]
+	@chain data_df₀ begin
+		data(_) * mapping(:binned_age, vars .=> "", 
+			layout = dims(1) => renamer(vars),
+			color = :income_bin) * visual(ScatterLines)
+		draw(facet = (; linkyaxes = false) )
+	end
 end
 
 # ╔═╡ 467f5107-bff0-4a26-9707-1304128c77cb
 data_df = rename(data_df₀,
-	:INCOME     => :pmf,
-	:totexp     => :a,
-	:binned_age => :y,
-	:NETWORTH   => :c,
-	:weight     => :j	
+	:INCOME       => :pmf,
+	:EXPENDITURES => :a,
+	:binned_age   => :y,
+	:NETWORTH     => :c,
+	:weight       => :j	
 )
 
 # ╔═╡ 786435af-e9e2-4a52-91aa-82348afb471c
