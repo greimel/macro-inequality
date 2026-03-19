@@ -93,13 +93,11 @@ function solve_household_analytical((; γ, β, J), (; r, w), (; y, a₀))
 
 	inc = w*y
 	# note how to use `sum()` like a ∑ operator!
-	𝒴 = sum(
-			(1/(1+r))^j * inc for j ∈ 0:J-1
-		) + (1+r) * a₀
+	𝒴 = sum((1/(1+r))^j * inc for j ∈ 0:J-1) + (1+r) * a₀
 
 	# compute optimal consumption in the initial period
 	c₀ = 𝒴 / sum(
-		1.0 # FIX!
+		1/(1+r)^j * (β * (1+r))^(j/γ) # FIX!
 		for j ∈ 0:J-1)
 
 	# Create `DimVector`s to save consumption and saving
@@ -116,8 +114,8 @@ function solve_household_analytical((; γ, β, J), (; r, w), (; y, a₀))
 		aⱼ   = a_next[j = At(j-1)]
 
 		# Compute optimal choices in period j
-		cⱼ   = 1.0 # FIX!
-		aⱼ₊₁ = 0.0 # FIX!
+		cⱼ   = c₀ * (β * (1+r))^(j/γ) # FIX!
+		aⱼ₊₁ = (1+r)*aⱼ + inc - cⱼ # FIX!
 
 		# Save optimal choices to containers
 		a_next[j = At(j)] = aⱼ₊₁
@@ -225,7 +223,7 @@ function fill_last_period!(container, a_grid, par, prices, income)
 	# COMMENT!
 	savings[    j = At(J-1)] .= 0.0
 	# COMMENT!
-	consumption[j = At(J-1)] .= inc .+ a_grid # FIX!
+	consumption[j = At(J-1)] .= y .* w .+ (1+r) .* a_grid # FIX!
 	# COMMENT!
 	value[      j = At(J-1)] .= u.(consumption[j = At(J-1)], Ref(par))
 
@@ -247,7 +245,7 @@ function solve_backwards_VFI!(container, a_grid, par, prices, income)
 	inc = y * w
 	# For levels of current wealth aⱼ (a) and intended savings aⱼ₊₁ (a_next) how much can the household consume
 	# Hint: Use the budget constraint for age j
-	c(a, a_next) = 0.0 # FIX!
+	c(a, a_next) = inc + (1+r) * a - a_next
 
 	for j ∈ (J-2):-1:0
 		for a ∈ a_grid
@@ -255,7 +253,7 @@ function solve_backwards_VFI!(container, a_grid, par, prices, income)
 			
 			# try all possible choices for next period
 			cs = c.(a, a_grid)
-			R = u.(cs, Ref(par)) .* value[j = At(j+1)] # FIX!
+			R = u.(cs, Ref(par)) .+ β .* value[j = At(j+1)] # FIX!
 			# find the best one
 			(v, a_i_opt) = findmax(R)
 			a_next_opt = a_grid[a_i_opt]
@@ -283,24 +281,24 @@ function solve_backwards_EGM!(container, a_grid, par, prices, income)
 	inc = y * w
 
 	# Euler equation
-	get_cⱼ₋₁(cⱼ)       = cⱼ * (1+r)^0 # FIX!
+	get_cⱼ₋₁(cⱼ)       = cⱼ * (β * (1+r))^(-1/γ) # FIX!
 	# Budget constraint
-	get_aⱼ₋₁(aⱼ, cⱼ₋₁) = cⱼ₋₁ + aⱼ + 0 * inc # FIX!
+	get_aⱼ₋₁(aⱼ, cⱼ₋₁) = (cⱼ₋₁ + aⱼ - inc)/(1+r) # FIX!
 	
 	for j ∈ (J-1):-1:1
 		aⱼ_endo = a_grid
 		cⱼ = consumption[a = At(a_grid), j = At(j)]
 
 		# COMMENT!
-		cⱼ₋₁_endo = get_cⱼ₋₁.(cⱼ)            
-		aⱼ₋₁ = get_aⱼ₋₁.(aⱼ_endo, cⱼ₋₁_endo) 
+		cⱼ₋₁_endo = get_cⱼ₋₁.(cⱼ)            # consumption on endogenous grid
+		aⱼ₋₁ = get_aⱼ₋₁.(aⱼ_endo, cⱼ₋₁_endo) #     savings on endogenous grid 
 
 		cⱼ₋₁_itp = linear_interpolation(aⱼ₋₁, cⱼ₋₁_endo, extrapolation_bc = Line())
 		aⱼ_itp   = linear_interpolation(aⱼ₋₁, aⱼ_endo,   extrapolation_bc = Line())
 
 		# COMMENT!
-		cⱼ₋₁_exo = cⱼ₋₁_itp.(a_grid) 
-		aⱼ_exo   = aⱼ_itp.(a_grid)   
+		cⱼ₋₁_exo = cⱼ₋₁_itp.(a_grid) # consumption on exogenous grid
+		aⱼ_exo   = aⱼ_itp.(a_grid)   #     savings on exogenous grid
 		
 		savings[    a = At(a_grid), j = At(j-1)] .= aⱼ_exo
 		consumption[a = At(a_grid), j = At(j-1)] .= cⱼ₋₁_exo
