@@ -3,9 +3,9 @@
 
 #> [frontmatter]
 #> chapter = 2
-#> section = 5
-#> order = 5
-#> title = "Assignment 4: Housing Wealth Effects"
+#> section = 6
+#> order = 6
+#> title = "Housing Wealth Effects"
 #> layout = "layout.jlhtml"
 #> tags = ["lifecycle"]
 #> description = ""
