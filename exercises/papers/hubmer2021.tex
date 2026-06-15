@@ -1,0 +1,31 @@
+% !TeX root = ../collection-solutions.tex
+
+\titledquestion{Sources of US wealth inequality}
+
+\citet{hubmer2021sources} ask which forces account for the rise in US top wealth shares since the 1960s.
+
+\begin{parts}
+    \part[4] What is the key takeaway of the paper? Explain how the authors arrive at this conclusion: what kind of model do they use, what disciplines it, and what is the experiment behind the headline result?
+
+    \begin{solutionorbox}[12cm]
+        \emph{Takeaway} (2 points): Two complementary results — one about the \emph{level}, one about the \emph{change}. (i)~Return heterogeneity is needed to match the \emph{level} of US wealth concentration: with portfolio returns whose mean and risk rise with wealth, the model reproduces the 1967 distribution, including its thick top tail (steady-state decomposition). (ii)~The decline in US tax progressivity is by far the largest driver of the \emph{rise} in top wealth shares since the 1960s (dynamic decomposition) — return heterogeneity is the engine that makes the wealthy able to pull away, and falling progressivity is what unleashed it. Side results: rising \emph{earnings risk} actually \emph{reduces} top wealth shares, and movements in asset-class return premia explain the medium-run U-shape of top shares but contribute negatively on net over the whole period.
+
+        \emph{How they get there} (2 points):
+        \begin{itemize}
+            \item A standard incomplete-markets (Aiyagari-style) model extended with \emph{wealth-dependent return heterogeneity}: both the mean and the idiosyncratic risk of portfolio returns rise with wealth. These return schedules are disciplined by administrative portfolio data (rather than calibrated to wealth moments), which lets the model match the 1967 US wealth distribution — including the thick top tail — as a steady state.
+            \item The model is then fed the observed historical \emph{paths} of (i) effective tax schedules, (ii) top earnings inequality, (iii) earnings risk, and (iv) asset-class return premia, and the implied transition 1967--2012 is compared with the data: the model reproduces most of the observed rise in the top 1\% share.
+            \item Decomposition: feeding in one channel at a time shows taxes account for (more than) the entire explained rise, top earnings inequality for a small positive part, while earnings risk and return premia contribute \emph{negatively}.
+        \end{itemize}
+        Grading: 1 point for the level result (return heterogeneity matches the 1967 distribution), 1 point for the change result (declining tax progressivity drives the rise); 1 point for model + data discipline of the return schedules, 1 point for the feed-in-historical-paths / one-channel-at-a-time experiment. Mentioning a counterintuitive side result (earnings risk negative; return premia generate the U-shape) can substitute for one of the first two points.
+    \end{solutionorbox}
+
+    \part[4] Explain intuitively why a \emph{less progressive} tax system increases top wealth concentration so powerfully in this model. Your answer should explain how the model generates a thick upper tail of the wealth distribution, and how tax progressivity interacts with that force.
+
+    \begin{solutionorbox}[12cm]
+        \begin{itemize}
+            \item (2 points) \emph{Where the thick tail comes from:} for rich, well-insured households, saving is approximately proportional to wealth, with a random coefficient — wealth grows multiplicatively at a stochastic rate determined by the (heterogeneous, risky) portfolio return. Random multiplicative growth of this kind generates a Pareto upper tail, and the thickness of the tail increases with the \emph{dispersion} of after-tax returns.
+            \item (1 point) \emph{What progressivity does:} a progressive tax compresses \emph{after-tax} returns and resources across households — the rich face persistently higher marginal rates. This acts exactly like a reduction in return dispersion: it is the glue that keeps the top of the distribution together.
+            \item (1 point) \emph{Hence the result:} cutting progressivity removes that glue. After-tax returns and the resources available for saving fan out again, the saving propensities of the richest rise relative to everyone else's, and the Pareto tail thickens — top wealth shares rise strongly. (Bonus insight: the same logic explains why \emph{more} earnings risk lowers top shares — precautionary saving compresses the bottom and, in general equilibrium, depresses the interest rate and thins the tail.)
+        \end{itemize}
+    \end{solutionorbox}
+\end{parts}

@@ -1,0 +1,110 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(2, 1; y = 0.0, yR = 0.0)
+a_grid = range(0.0, 1.5, length = 3001)
+
+par_no_annuity = get_par(; demo = :perpetual_youth, mm = 0.5, annuities = false, y, β = 1.0, γ = 2.0, a̲ = 0.0)
+par_annuity = get_par(; demo = :perpetual_youth, mm = 0.5, annuities = true, y, β = 1.0, γ = 2.0, a̲ = 0.0)
+
+sol_no_annuity = solve_backward_forward(EGM(), par_no_annuity, a_grid; r = 0.0, w = 1.0, a_init = 1.0)
+sol_annuity = solve_backward_forward(EGM(), par_annuity, a_grid; r = 0.0, w = 1.0, a_init = 1.0)
+
+@assert isapprox(sol_no_annuity.sim_df.c[1], 1 / (1 + sqrt(0.5)); atol = 2e-3)
+@assert isapprox(sol_no_annuity.sim_df.c[2], sqrt(0.5) / (1 + sqrt(0.5)); atol = 2e-3)
+@assert isapprox(sol_annuity.sim_df.c[1], 2 / 3; atol = 2e-3)
+@assert isapprox(sol_annuity.sim_df.c[2], 2 / 3; atol = 2e-3)
+@
+
+\titledquestion{Actuarially Fair Annuities}
+
+A household lives for at most two periods, $j \in \{0, 1\}$, has deterministic income $y_0, y_1$,
+initial assets $a_0$, and preferences $u(c) = c^{1-\gamma}/(1-\gamma)$. The household survives from
+age $0$ to age $1$ with probability $1-m$. It saves through an actuarially fair annuity: let $a_1$
+denote annuity savings, which pay the gross return $(1+r)/(1-m)$ to surviving households. The
+problem is
+\begin{align*}
+    &\max_{c_0, c_1, a_1} u(c_0) + \beta(1-m)u(c_1) \\
+    &\begin{aligned}
+        \text{s.t. } & c_0 + a_1 = (1+r)a_0 + y_0, \\
+        & c_1 = \frac{1+r}{1-m}\,a_1 + y_1.
+    \end{aligned}
+\end{align*}
+
+\begin{parts}
+\part[4]
+What is $m$? Explain why an actuarially fair annuity pays the gross return $(1+r)/(1-m)$ to
+survivors.
+
+\begin{solution}
+$m$ is the probability of dying between ages $0$ and $1$, i.e. $1 - m$ is the age-$0$ survival
+probability.
+
+Imagine a large pool of ex-ante identical households, each depositing $a_1$ in a competitive
+annuity provider that invests at gross return $1+r$. By the law of large numbers, a fraction
+$1-m$ of the pool survives into age $1$, while the deposits of the fraction $m$ who die are
+forfeited to the pool. Total pool resources at age $1$ are $(1+r)\,a_1$ per depositor; these must
+be shared among the surviving fraction $1-m$. Zero-profit, competitive pricing therefore delivers
+$$
+\frac{(1+r)\,a_1}{1-m}
+$$
+to each survivor, i.e. a gross return of $(1+r)/(1-m)$ per unit deposited.
+
+(1 point for defining $m$, 1 point for the pooling argument, 1 point for the zero-profit/survivor
+share calculation, 1 point for stating the resulting gross return.)
+\end{solution}
+
+\part[4]
+Derive the first-order conditions and the Euler equation. What is the role of $m$?
+
+\begin{solution}
+Combining the two period budgets gives the lifetime BC
+$$
+c_0 + \frac{1-m}{1+r}\,c_1 = (1+r)a_0 + y_0 + \frac{1-m}{1+r}\,y_1 \equiv \mathcal{Y}.
+$$
+The Lagrangian is
+$$
+\mathcal{L} = u(c_0) + \beta(1-m)u(c_1)
++ \lambda\left(\mathcal{Y} - c_0 - \frac{1-m}{1+r}\,c_1\right).
+$$
+The first-order conditions are
+$$
+u'(c_0) = \lambda,
+\qquad
+\beta(1-m)u'(c_1) = \lambda\,\frac{1-m}{1+r}.
+$$
+The factor $(1-m)$ appears on both sides of the second FOC and cancels. Eliminating $\lambda$
+yields the Euler equation
+$$
+u'(c_0) = \beta(1+r)u'(c_1).
+$$
+Mortality cancels in the Euler equation: the actuarially fair annuity embeds the survival
+probability into the effective price of future consumption, exactly offsetting the $(1-m)$ discount
+in the objective. The effective return to saving is no longer depressed by mortality risk.
+
+(1 point for the lifetime BC, 1 point for the FOCs, 1 point for the cancellation, 1 point for
+interpreting the role of $m$.)
+\end{solution}
+
+\part[4]
+Take the following package results as given for $\beta = 1$, $r = 0$, $\gamma = 2$, $m = 0.5$,
+$a_0 = 1$, and $y_0 = y_1 = 0$. Without annuities, the solution is
+$c_0 = `j fmt(sol_no_annuity.sim_df.c[1])`$ and $c_1 = `j fmt(sol_no_annuity.sim_df.c[2])`$. With
+an actuarially fair annuity (gross return $(1+r)/(1-m)$ to survivors), the solution is
+$c_0 = c_1 = `j fmt(sol_annuity.sim_df.c[1])`$. Interpret this comparison.
+
+\begin{solution}
+Without annuities, households save less for old age because the payoff from old-age consumption is
+discounted by survival risk. That is why the package solution has $c_0 > c_1$: the household tilts
+consumption toward the present.
+
+With annuities, survivors receive the assets of those who die, so the effective return to saving is
+higher. This offsets the mortality wedge and restores a smoother consumption profile, which is why
+the package solution has $c_0 = c_1$.
+
+(2 points for interpreting the no-annuity allocation, 2 points for explaining why annuities restore
+smoothing.)
+\end{solution}
+\end{parts}

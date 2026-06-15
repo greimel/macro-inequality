@@ -1,0 +1,32 @@
+% !TeX root = ../collection-solutions.tex
+
+\titledquestion{Rental markets and wealth inequality}
+
+\citet{huber2026rental} document that across European countries, wealth inequality is strongly \emph{negatively} correlated with the homeownership rate.
+
+\begin{parts}
+    \part[4] What is the key takeaway of the paper? Explain how the authors arrive at this conclusion: what data and what kind of model do they use, and which experiments establish the result?
+
+    \begin{solutionorbox}[12cm]
+        \emph{Takeaway} (2 points): The causes of cross-country differences in \emph{homeownership} are not the same as the causes of the homeownership--inequality relationship. Differences in homeownership are driven by the efficiency of \emph{rental markets} (a rental wedge, validated against rent-control data), while the negative link between homeownership and \emph{wealth inequality} is driven mainly by \emph{mortgage market frictions} — above all the spread between deposit and mortgage interest rates. Moreover, the equality observed in high-homeownership countries is a symptom of frictions, not of desirable outcomes: welfare there is substantially \emph{lower}.
+
+        \emph{How they get there} (2 points):
+        \begin{itemize}
+            \item Data: household survey data (HFCS) for 18 euro-area countries; homeownership ranges from $\approx 43\%$ (Germany) to $\approx 93\%$ (Lithuania), and the bottom-99\% wealth inequality correlates with homeownership at $\rho \approx -0.9$.
+            \item Model: 18 separately calibrated life-cycle economies with housing, rental wedge, minimum house size, down-payment requirements, deposit--mortgage spread, and transaction costs; the country-specific rental wedge is calibrated to match each country's homeownership rate and lines up with independent rent-regulation data.
+            \item Two decompositions: varying \emph{only} the rental wedge across countries reproduces $\approx 84\%$ of the cross-country variation in homeownership (everything else combined reproduces essentially none); removing mortgage frictions — especially the interest spread — flattens the model's homeownership--inequality slope by roughly half.
+            \item A welfare experiment shows households in high-homeownership (low-inequality) countries are up to $20$--$25\%$ worse off in consumption-equivalent terms.
+        \end{itemize}
+        Grading: 1 point for the decoupling (rental markets explain ownership; mortgage frictions explain the inequality link), 1 point for the welfare punchline; 1 point for data + calibrated multi-country model, 1 point for the decomposition logic with an approximate magnitude.
+    \end{solutionorbox}
+
+    \part[4] Explain intuitively why countries in which more households are pushed into homeownership end up with \emph{lower} wealth inequality — and why this measured equality does not mean those households are better off.
+
+    \begin{solutionorbox}[12cm]
+        \begin{itemize}
+            \item (1 point) When the rental market works badly, renting is expensive relative to owning, so almost everyone buys — and buys early in life.
+            \item (2 points) Buying exposes households to frictions that act as \emph{forced-saving} devices: the down-payment requirement together with a minimum house size forces young buyers into a saving sprint before purchase; after purchase, the deposit--mortgage spread makes paying down the mortgage the best available investment, so indebted owners keep saving fast; transaction costs slow downsizing in old age. Nearly all households go through the same accumulation path and end up with substantial, similar net wealth — the distribution is compressed. Where renting is a lifelong option, income-poor households stay renters with near-zero wealth while owners accumulate, so measured inequality is high.
+            \item (1 point) The equality is a by-product of distorted choices: households are forced to buy early, over-save in illiquid housing, and smooth consumption poorly. The welfare analysis confirms that households in the most ``equal'' high-homeownership countries are substantially worse off (up to $20$--$25\%$ in consumption-equivalent terms) — more wealth equality can be a symptom of inefficiency.
+        \end{itemize}
+    \end{solutionorbox}
+\end{parts}

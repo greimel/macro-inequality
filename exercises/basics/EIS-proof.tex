@@ -1,0 +1,66 @@
+% !TeX root = ../exams/exam-2025.tex
+
+\titledquestion{Elasticity of Intertemporal Substitution: Derivation}
+
+\begin{parts}
+    \part[3] Let $u$ be twice differentiable. Consider the function $f = {\ln} \circ {u'}$. (That is, $f(x) = \ln(u'(x))$.) Derive the linear approximation $\tilde f$ of $f$ around the point $x_0$.
+    
+    \begin{solution}[10.5cm]
+        \begin{itemize}
+            \item (1 point) General formula: $\tilde f(x) = f(x_0) + f'(x_0)(x - x_0)$
+            \item (1 point) Derivative $({\ln} \circ {u'})'(x_0) = \frac{1}{u'(x_0)}\cdot u''(x_0)$
+            \item (1 point) Solution $\tilde f(x) = \ln(u'(x_0)) + \frac{u''(x_0)}{u'(x_0)}(x - x_0)$
+        \end{itemize}
+    \end{solution}
+
+    \part[1] Let $x_0 = c_j$. Compute $\tilde f(c_{j+1})$.
+
+    \begin{solution}[7.5cm]
+        $\tilde f(c_{j+1}) =  \ln(u'(c_j)) + \frac{u''(c_j)}{u'(c_j)}(c_{j+1} - c_j)$
+    \end{solution}
+
+    \part[4] Use (b) to show that
+    \begin{equation*}
+       \ln \biggl( \frac{u'(c_{j+1})}{u'(c_j)} \biggr) \approx \frac{c_{j+1} - c_j}{c_j} \frac{u''(c_j)}{u'(c_j)} c_j.
+    \end{equation*}
+   
+    \begin{solution}[8cm]
+        \begin{enumerate}
+            \item (1.5 points) $f(c_{j+1}) \approx \tilde f(c_{j+1}) \implies  \ln(u'(c_{j+1})) \approx  \ln(u'(c_j)) + (c_{j+1} - c_j)\frac{u''(c_j)}{u'(c_j)}$
+            \item (1.5 points) $\ln(a) - \ln(b) = \ln\bigl(\frac{a}{b}\bigr) \implies \ln\bigl(\frac{u'(c_{j+1})}{u'(c_j)}\bigr) \approx (c_{j+1} - c_j) \frac{u''(c_j)}{u'(c_j)}$
+            \item (1 point) multiply $\frac{c_j}{c_j}$: $\ln\bigl(\frac{u'(c_{j+1})}{u'(c_j)}\bigr) \approx \frac{(c_{j+1} - c_j)}{c_j} \frac{u''(c_j)}{u'(c_j)} c_j$
+        \end{enumerate}
+    \end{solution}
+    \part[4] Use the Euler equation $\beta (1+r) = \frac{u'(c_j)}{u'(c_{j+1})}$ and (c) to show that 
+    \begin{equation*}
+        \frac{d \frac{c_{j+1}- c_j}{c_j}}{d r} \approx  - \frac{u'(c_j)}{u''(c_j)c_j} 
+    \end{equation*}
+    \begin{solution}[8cm]
+        \begin{enumerate}
+            \item (1 point) Take logs $\ln(\beta (1+r)) = \ln\Bigl(\frac{u'(c_j)}{u'(c_{j+1})}\Bigr)$ 
+            \item (1 point) Use $\ln(1+r) \approx r \implies \ln \beta + r \approx \ln\Bigl(\frac{u'(c_j)}{u'(c_{j+1})}\Bigr) = - \ln\Bigl(\frac{u'(c_{j+1})}{u'(c_j)}\Bigr)$ 
+            \item (1 point) Use (c)
+            \begin{align*}
+                \ln \beta + r &\approx - \ln\Bigl(\frac{u'(c_{j+1})}{u'(c_j)}\Bigr) = - \frac{c_{j+1} - c_j}{c_j} \frac{u''(c_j)}{u'(c_j)} c_j \\
+                \frac{c_{j+1} - c_j}{c_j} &\approx - \frac{u'(c_j)}{u''(c_j)c_j} \ln \beta + r
+            \end{align*}
+            \item (1 point) Take Derivative, done!
+        \end{enumerate}
+    \end{solution}
+    \part[3] Interpret the expression in (d). 
+    \begin{solution}[9cm]
+        \begin{enumerate}
+            \item (1 point) The right-hand side is the elasticity of intertemporal substitution.
+            \item (2 points) It measures how does the steepness of the consumption profile (= growth rate of consumption) change when the interest rate (the relative price of consuming tomorrow) changes.
+        \end{enumerate}
+       
+    \end{solution}
+    \part[3] What is the sign of the elasticity of intertemporal substitution for concave $u$?
+    \begin{solution}[9cm]
+        \begin{enumerate}
+            \item (1 point) Concave $u \implies u'' < 0$
+            \item (1 point) We need the standard assumptions that $u' > 0$ and $c_j > 0$ 
+            \item (1 point) Then $- \frac{u'(c_j)}{u''(c_j)c_j} > 0$.
+        \end{enumerate} 
+    \end{solution}
+\end{parts}

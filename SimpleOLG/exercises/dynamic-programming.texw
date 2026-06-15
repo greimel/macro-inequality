@@ -1,0 +1,132 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG, DimensionalData
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(3, 3; y = 1.0)
+par = get_par(; demo = :perpetual_youth, mm = 0.0, y, β = 0.96, γ = 2.0, a̲ = 0.0)
+a_grid = 0.0:0.25:2.0
+rs = DimArray(fill(0.02, par.J + 1), Dim{:t}(0:par.J))
+ws = DimArray(fill(1.0, par.J + 1), Dim{:t}(0:par.J))
+out = solve_backward(par, a_grid; r = rs, w = ws)
+
+for policy in collect(out.policy_plus[j = At(par.J)])
+    @assert policy.a_next == 0.0
+    @assert isapprox(policy.c, policy.w * policy.y + (1 + policy.r) * policy.a; atol = 1e-12)
+end
+@
+
+\titledquestion{The $J$-Period Problem in Recursive Form}
+
+Consider the benchmark $J$-period lifecycle model
+
+\begin{align*}
+    &\max_{(c_j, a_{j+1})_{j=0}^{J-1}} \sum_{j=0}^{J-1} \beta^j u(c_j) \\
+    &\begin{aligned}
+        \text{s.t. } & c_j + a_{j+1} = wy_j + (1+r)a_j
+        \quad \text{for all } j \in \{0, \ldots, J-1\}, \\
+        & a_J \geq 0,
+    \end{aligned}
+\end{align*}
+
+where $a_0$ is given and $u(c) = \ln(c)$.
+
+\begin{parts}
+\part[2]
+How does the age-0 value function $v_0(a_0)$ relate to the sequence problem above?
+
+\begin{solution}[5cm]
+The value function $v_0(a_0)$ is the maximum lifetime utility attainable from the sequence problem
+when initial assets are fixed at $a_0$. Substituting the budget constraint
+$c_j = wy_j + (1+r)a_j - a_{j+1}$ into the objective,
+$$
+v_0(a_0)
+= \max_{(a_{j+1})_{j=0}^{J-1}}
+  \sum_{j=0}^{J-1} \beta^j \ln\bigl(wy_j + (1+r)a_j - a_{j+1}\bigr)
+$$
+subject to $a_J \geq 0$.
+
+(1 point for identifying $v_0(a_0)$ as the maximized value of the sequence problem, 1 point for
+stating it either as the formula above or equivalently by noting that it summarizes all feasible
+continuation opportunities from $a_0$.)
+\end{solution}
+
+\part[2]
+What is the terminal-age value function $v_{J-1}(a_{J-1})$?
+
+\begin{solution}[5cm]
+In the last decision period there is no continuation value beyond $J-1$, so the household solves
+$$
+v_{J-1}(a_{J-1}) = \max_{c_{J-1}, a_J} \left\{ \ln(c_{J-1}) \right\}
+$$
+subject to
+$$
+c_{J-1} + a_J = wy_{J-1} + (1+r)a_{J-1},
+\qquad
+a_J \geq 0.
+$$
+
+(1 point for writing the terminal problem, 1 point for noting the absence of continuation value.)
+\end{solution}
+
+\part[3]
+Solve the terminal policy functions $c_{J-1}^*(a_{J-1})$ and $a_J^*(a_{J-1})$.
+
+\begin{solution}[6cm]
+Because utility is increasing in consumption and assets after age $J-1$ have no value beyond the
+terminal non-negativity constraint, the household sets
+$$
+a_J^*(a_{J-1}) = 0.
+$$
+Therefore
+$$
+c_{J-1}^*(a_{J-1}) = wy_{J-1} + (1+r)a_{J-1}.
+$$
+
+(1 point for $a_J^*(a_{J-1}) = 0$, 2 points for deriving the terminal consumption policy.)
+\end{solution}
+
+\part[2]
+What is the Bellman equation for a given age $0 \leq j < J-1$?
+
+\begin{solution}[6cm]
+For $j < J-1$, the Bellman equation is
+$$
+v_j(a_j) = \max_{c_j, a_{j+1}} \left\{ \ln(c_j) + \beta v_{j+1}(a_{j+1}) \right\}
+$$
+subject to
+$$
+c_j + a_{j+1} = wy_j + (1+r)a_j.
+$$
+
+(1 point for the Bellman equation, 1 point for the correct constraint.)
+\end{solution}
+
+\part[2]
+Briefly describe a computational algorithm to compute the value function and policy functions for all
+ages.
+
+\begin{solution}[8cm]
+Use (backward) value function iteration. Start at the terminal age $J - 1$ using the terminal value
+function and policy functions from parts (b) and (c). Then move backward age by age: at each
+$j < J - 1$, treat $v_{j+1}$ as known and solve the Bellman equation from part (d) over the asset
+grid, storing the resulting value and policy functions.
+
+(1 point for naming value function iteration and initializing at the terminal age using (b) and (c),
+1 point for describing the backward recursion using (d).)
+\end{solution}
+
+\part[2]
+Suppose the algorithm has already produced the optimal value and policy functions for all ages. How
+would you compute optimal lifecycle paths for a household with given initial assets $a_0$?
+
+\begin{solution}[8cm]
+Start from the given initial asset level $a_0$. Evaluate the policy function $a_1^*(a_0)$, then use
+that choice as next period's state to compute $a_2^*(a_1)$, and continue forward recursively. Once
+the asset path is known, recover consumption in each age from the corresponding policy function or
+budget constraint.
+
+(1 point for describing forward simulation of assets, 1 point for recovering consumption along the
+path.)
+\end{solution}
+\end{parts}

@@ -1,0 +1,120 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+β = 0.96
+r = 0.05
+γ = 2.0
+ν = 1.3
+bbar = 0.4
+
+y = simple_income_profile(2, 1; y = 4.5, yR = 0.0)
+par = get_par(; demo = :perpetual_youth, mm = 0.0, y, β, γ, phi = β * ν, b_floor = bbar, a̲ = 0.0)
+a_grid = range(0.0, 5.0, length = 4001)
+sol = solve_backward_forward(EGM(), par, a_grid; r, w = 1.0, a_init = 0.0)
+
+@assert isapprox(sol.sim_df.c[2] / sol.sim_df.c[1], (β * (1 + r))^(1 / γ); atol = 5e-3)
+@assert isapprox((sol.sim_df.a_next[2] + bbar) / sol.sim_df.c[1], (β^2 * ν * (1 + r))^(1 / γ); atol = 5e-3)
+@
+
+\titledquestion{Warm-Glow Bequests: First-Order Conditions}
+
+A household's lifetime budget constraint is
+
+\begin{align*}
+    &c_0 + \frac{1}{1+r}(c_1 + a_2) = \mathcal{Y},
+\end{align*}
+
+and preferences are represented by
+
+\begin{align*}
+    &u(c_0) + \beta u(c_1) + \beta^2 v(a_2), \\
+    &u(c) = \frac{c^{1-\gamma}}{1-\gamma},
+    \qquad
+    v(a) = \nu \frac{(a + \underline{b})^{1-\gamma}}{1-\gamma}.
+\end{align*}
+
+\begin{parts}
+\part[2]
+What model assumptions, relative to the baseline two-period model, are represented by these
+equations?
+
+\begin{solution}
+The household now has an explicit bequest motive: terminal assets $a_2$ enter utility directly
+through $v(a_2)$. The parameter $\nu$ scales the strength of the warm-glow motive, while
+$\underline{b}$ shifts the utility from bequests and can make small bequests especially valuable.
+
+(1 point for identifying the warm-glow bequest motive, 1 point for interpreting $\nu$ and
+$\underline{b}$.)
+\end{solution}
+
+\part[2]
+Write down the Lagrangian for the household's problem.
+
+\begin{solution}
+The Lagrangian is
+$$
+\mathcal{L}
+= u(c_0) + \beta u(c_1) + \beta^2 v(a_2)
++ \lambda\left(\mathcal{Y} - c_0 - \frac{1}{1+r}(c_1 + a_2)\right).
+$$
+
+(2 points for the correct Lagrangian.)
+\end{solution}
+
+\part[3]
+Derive the first-order conditions.
+
+\begin{solution}
+The first-order conditions are
+$$
+u'(c_0) = \lambda,
+\qquad
+\beta u'(c_1) = \frac{\lambda}{1+r},
+\qquad
+\beta^2 v'(a_2) = \frac{\lambda}{1+r}.
+$$
+Equivalently,
+$$
+u'(c_0) = \beta(1+r)u'(c_1),
+\qquad
+u'(c_0) = \beta^2(1+r)v'(a_2).
+$$
+
+(1 point for the FOC with respect to $c_0$, 1 point for the FOC with respect to $c_1$,
+1 point for the FOC with respect to $a_2$.)
+\end{solution}
+
+\part[3]
+Write $c_1$ and $a_2$ as functions of $c_0$.
+
+\begin{solution}
+With CRRA utility, the Euler equation implies
+$$
+c_1^* = c_0^* \bigl(\beta(1+r)\bigr)^{1/\gamma}.
+$$
+Using the bequest FOC and $v'(a) = \nu(a+\underline{b})^{-\gamma}$ gives
+$$
+a_2^* + \underline{b} = c_0^* \bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma},
+$$
+so
+$$
+a_2^* = c_0^* \bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma} - \underline{b}.
+$$
+
+(1 point for deriving $c_1^*(c_0^*)$, 2 points for deriving $a_2^*(c_0^*)$.)
+\end{solution}
+
+\part[2]
+Interpret the role of $\nu$.
+
+\begin{solution}
+The parameter $\nu$ governs how much the household values leaving bequests relative to own
+consumption. A larger $\nu$ raises desired terminal assets $a_2$ for a given current consumption
+level, so the household shifts more lifetime resources toward bequests.
+
+(2 points for interpreting $\nu$ as the strength of the bequest motive and linking it to the
+allocation.)
+\end{solution}
+\end{parts}

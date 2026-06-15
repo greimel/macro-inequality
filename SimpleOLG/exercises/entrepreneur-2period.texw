@@ -1,0 +1,171 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(2, 2; y = 0.0, yR = 0.0)
+par = get_par(; demo = :perpetual_youth, annuities = false, mm = 0.5, y, β = 1.0, γ = 2.0, a̲ = 0.0)
+a_grid = 0.0:0.5:4.0
+w = 0.0
+
+z_unc = 2.0
+r_unc = 0.0
+a0_unc = 3.0
+epar_unc = EntrepreneurParams(alpha = 0.5, delta = 1.0, theta = 10.0, f = 0.5)
+sol_unc = solve_entrepreneur_lifecycle(VFI(), par, epar_unc, a_grid; z = z_unc, r = r_unc, w, tax = NoTax(), a_init = a0_unc)
+
+z_con = 4.0
+r_con = 0.0
+a0_con = 1.0
+epar_con = EntrepreneurParams(alpha = 1.0, delta = 1.0, theta = 1.0, f = 0.5)
+sol_con = solve_entrepreneur_lifecycle(VFI(), par, epar_con, a_grid; z = z_con, r = r_con, w, tax = NoTax(), a_init = a0_con)
+ret_con = SimpleOLG.effective_return_entrepreneur(a0_con, z_con, epar_con, NoTax(); r = r_con)
+@
+
+\titledquestion{Two-Period Entrepreneur}
+
+Consider a two-period entrepreneur who chooses occupation and savings over the lifecycle. Let
+$O_j \in \{W, E\}$ denote the occupation in age $j$, let $a_0$ be initial wealth, and let $a_1$
+denote next period's assets. The problem is
+
+\begin{align*}
+    &\max_{c_0, c_1, a_1, k_0, k_1} u(c_0) + \beta(1-m_0)u(c_1) \\
+    &\begin{aligned}
+        \text{s.t. } & c_0 + a_1 = R_{O_0}(a_0), \\
+        & c_1 = R_{O_1}(a_1), \\
+        & R_W(a) = (1+r)a, \\
+        & R_E(a) = (1+r)a + \pi(a) - f, \\
+        & k \leq \theta a, \\
+        & k \geq 0.
+    \end{aligned}
+\end{align*}
+
+Here $\pi(a)$ denotes entrepreneurial profits, a worker has no access to the entrepreneurial
+technology, and the household chooses the branch that yields higher lifetime utility.
+
+\begin{parts}
+\part[2]
+Explain the optimization problem. What is the role of $(1-m_0)$ in the objective function?
+
+\begin{solution}
+The household chooses current consumption $c_0$, old-age consumption $c_1$, next period assets $a_1$
+and, in the entrepreneurial branch, capital choices $k_0$ and $k_1$. Initial wealth $a_0$,
+ability $z$, the interest rate $r$, mortality $m_0$, and the entrepreneurial parameters are given.
+
+The term $(1-m_0)$ in the objective multiplies continuation utility because only surviving households
+enjoy age-1 utility. Mortality therefore lowers the expected benefit of future consumption, while
+the period-0 budget remains the standard asset-accumulation equation without annuity payments.
+
+(1 point for correctly identifying choices versus given objects, 1 point for correctly interpreting
+the role of $(1-m_0)$ in expected continuation utility.)
+\end{solution}
+
+\part[3]
+Derive the Euler equation from the first-order conditions.
+
+\begin{solution}
+Write the Lagrangian for the two-period problem and differentiate with respect to $c_0$, $c_1$, and
+$a_1$. The first-order conditions are
+$$
+u'(c_0) = \lambda,
+\qquad
+\beta(1-m_0)u'(c_1)R'(a_1) = \lambda.
+$$
+Combining the two first-order conditions gives
+$$
+u'(c_0) = \beta(1-m_0)R'(a_1)u'(c_1).
+$$
+Mortality does not cancel here because saving costs one unit today but pays off only if the
+household survives into the second period.
+
+(1 point for the FOCs, 1 point for the Euler equation, 1 point for interpreting the survival term.)
+\end{solution}
+
+\part[3]
+Derive $R_E(a)$ in the unconstrained case. Show that constant profits imply consumption smoothing.
+
+\begin{solution}
+If the entrepreneur is unconstrained, capital is set at the efficient level
+$$
+k^* = \left(\frac{\alpha z}{r+\delta}\right)^{\frac{1}{1-\alpha}},
+$$
+so profits are constant in wealth,
+$$
+\pi^* = z(k^*)^\alpha - (r+\delta)k^*.
+$$
+Therefore entrepreneurial resources are
+$$
+R_E(a) = (1+r)a + \pi^* - f.
+$$
+The marginal return to saving is then just $R_E'(a_1) = 1+r$, so the Euler equation becomes
+$$
+u'(c_0) = \beta(1-m_0)(1+r)u'(c_1).
+$$
+Consumption is smoothed across ages only if $\beta(1-m_0)(1+r)=1$.
+
+(1 point for deriving constant profits, 1 point for writing $R_E(a)$, 1 point for linking
+$R_E'(a)=1+r$ to consumption smoothing.)
+\end{solution}
+
+\part[3]
+Now suppose the entrepreneur is constrained and $\alpha = 1$, so $k = \theta a$. Derive $R_E(a)$,
+the effective return $R_E'(a)$, and the modified Euler equation.
+
+\begin{solution}
+With $\alpha = 1$ and a binding collateral constraint, profits are
+$$
+\pi(a) = z\theta a - (r+\delta)\theta a = \theta(z-r-\delta)a.
+$$
+Hence entrepreneurial resources become
+$$
+R_E(a) = \left[1+r+\theta(z-r-\delta)\right]a - f.
+$$
+The effective return is therefore
+$$
+R_E'(a) = 1+r+\theta(z-r-\delta),
+$$
+which exceeds $1+r$ whenever higher wealth relaxes the collateral constraint strongly enough. The
+Euler equation becomes
+$$
+u'(c_0) = \beta(1-m_0)R_E'(a_1)u'(c_1).
+$$
+
+(1 point for $\pi(a)$, 1 point for $R_E(a)$ and $R_E'(a)$, 1 point for the modified Euler
+equation.)
+\end{solution}
+
+\part[2]
+Take the following results as given. In the unconstrained case, the optimal allocation is
+$c_0 = `j fmt(sol_unc.sim_df.c[1])`$ and $c_1 = `j fmt(sol_unc.sim_df.c[2])`$. In the constrained case with $\alpha = 1$ and
+$\theta = 1$, the optimal allocation is $c_0 = `j fmt(sol_con.sim_df.c[1])`$ and
+$c_1 = `j fmt(sol_con.sim_df.c[2])`$. Interpret these results. Why is consumption increasing when
+the entrepreneur is constrained?
+
+\begin{solution}
+In the unconstrained case, profits do not depend on wealth, so the return to saving is the standard
+return $1+r$. Because mortality still discounts continuation utility when annuities are absent, the
+household consumes more in period 0 than in period 1. In the constrained case, saving today raises
+tomorrow's collateral and therefore tomorrow's scale of production. The effective return to saving is
+`j fmt(ret_con)`, which is above $1+r = 1$, so the household optimally tilts consumption toward the
+future and ends up with $c_1 > c_0$.
+
+(1 point for contrasting the unconstrained and constrained cases, 1 point for connecting increasing
+consumption to the higher effective return under collateral constraints.)
+\end{solution}
+
+\part[3]
+Discuss the implications of the constrained case for savings incentives and wealth inequality.
+
+\begin{solution}
+When entrepreneurial scale is tied to wealth, saving has a double payoff: it transfers resources to
+the future and relaxes tomorrow's production constraint. That raises savings incentives for
+constrained entrepreneurs relative to workers or unconstrained entrepreneurs.
+
+Because richer households can finance larger businesses and earn higher returns while poor
+households remain constrained, wealth accumulation diverges over time. This creates a mechanism
+through which collateral frictions can generate persistent wealth inequality.
+
+(1 point for identifying the stronger savings motive, 1 point for explaining the wealth-dependent
+return channel, 1 point for linking both to wealth inequality.)
+\end{solution}
+\end{parts}

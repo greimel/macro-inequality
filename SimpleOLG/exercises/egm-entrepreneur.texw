@@ -1,0 +1,159 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+r = 0.0
+epar_con = EntrepreneurParams(alpha = 1.0, delta = 1.0, theta = 1.0, f = 0.0)
+epar_unc = EntrepreneurParams(alpha = 0.5, delta = 0.0, theta = 10.0, f = 0.0)
+
+ret_worker = SimpleOLG.effective_return_worker(NoTax(); r = 0.04)
+ret_e_con = SimpleOLG.effective_return_entrepreneur(1.0, 4.0, epar_con, NoTax(); r)
+ret_e_cap = SimpleOLG.effective_return_entrepreneur(1.0, 4.0, epar_con, CapitalIncomeTax(0.25); r)
+ret_e_wealth = SimpleOLG.effective_return_entrepreneur(1.0, 4.0, epar_con, WealthTax(0.10); r)
+ret_e_unc = SimpleOLG.effective_return_entrepreneur(1.0, 2.0, epar_unc, NoTax(); r = 0.5)
+@
+
+\titledquestion{Entrepreneur EGM}
+
+Consider a $J$-period entrepreneurial problem solved with EGM:
+
+\begin{align*}
+    &V_j(a_j) = \max \left\{ V_j^W(a_j), V_j^E(a_j) \right\} \\
+    &\begin{aligned}
+        V_j^W(a_j) = \max_{c_j, a_{j+1}} \; & u(c_j) + \beta(1-m_j)V_{j+1}(a_{j+1}) \\
+        \text{s.t. } & c_j + a_{j+1} = (1+r)a_j + wy_j + \text{inh}_j, \\
+        & a_{j+1} \geq \underline{a}, \\
+        V_j^E(a_j) = \max_{c_j, a_{j+1}, k_j} \; & u(c_j) + \beta(1-m_j)V_{j+1}(a_{j+1}) \\
+        \text{s.t. } & c_j + a_{j+1} = (1+r)a_j + zk_j^\alpha - (r+\delta)k_j - f + wy_j + \text{inh}_j, \\
+        & k_j \leq \theta a_j, \\
+        & k_j \geq 0, \\
+        & a_{j+1} \geq \underline{a}.
+    \end{aligned}
+\end{align*}
+
+\begin{parts}
+\part[2]
+Explain the occupation-choice problem. What changes between the worker and entrepreneur branches?
+
+\begin{solution}
+The state is current assets $a_j$ and age $j$. The household compares two value functions: a worker
+branch and an entrepreneur branch. In both branches the household chooses consumption and next period
+assets, but only the entrepreneur branch includes a capital choice $k_j$, entrepreneurial profits,
+the fixed cost $f$, and the collateral constraint $k_j \leq \theta a_j$.
+
+Occupation choice therefore changes both current resources and the marginal return to saving. The
+worker branch has a linear budget with return $1+r$, while the entrepreneur branch can have a
+wealth-dependent return when collateral binds.
+
+(1 point for explaining the two branches, 1 point for identifying the key additional objects in the
+entrepreneur branch.)
+\end{solution}
+
+\part[3]
+Derive the Euler equation for a constrained entrepreneur. Derive the effective return $R_E'(a)$.
+
+\begin{solution}
+If the entrepreneur is constrained, capital is $k = \theta a$. Profits are therefore
+$$
+\pi(a) = z(\theta a)^\alpha - (r+\delta)\theta a.
+$$
+Entrepreneurial resources are
+$$
+R_E(a) = (1+r)a + \pi(a) - f.
+$$
+Differentiating gives the effective entrepreneurial return
+$$
+R_E'(a) = 1+r + \theta\left[\alpha z(\theta a)^{\alpha-1} - (r+\delta)\right].
+$$
+The Euler equation is
+$$
+u'(c_j) = \beta(1-m_j)R_E'(a_{j+1})u'(c_{j+1}).
+$$
+
+(1 point for $\pi(a)$, 1 point for $R_E'(a)$, 1 point for the Euler equation.)
+\end{solution}
+
+\part[3]
+Derive the EGM inversion for the entrepreneur branch. Why does root-finding arise?
+
+\begin{solution}
+Given a grid over $a_{j+1}$ and the implied current consumption $c_j(a_{j+1})$, the entrepreneur
+must satisfy
+$$
+c_j(a_{j+1}) + a_{j+1} = R_E(a_j) + wy_j + \text{inh}_j.
+$$
+Equivalently,
+$$
+R_E(a_j) = c_j(a_{j+1}) + a_{j+1} - wy_j - \text{inh}_j.
+$$
+In the unconstrained region $R_E(a_j)$ is affine in $a_j$, so inversion is linear. In the
+constrained region $R_E(a_j)$ contains the nonlinear profit term $z(\theta a_j)^\alpha$, so there is
+generally no closed-form inverse for $a_j$. EGM therefore uses root-finding to recover the current
+asset level consistent with a given required wealth.
+
+(1 point for the inversion equation, 1 point for the affine unconstrained case, 1 point for
+explaining why the constrained case requires root-finding.)
+\end{solution}
+
+\part[2]
+Show that when the entrepreneur is unconstrained, $R_E'(a) = 1+r$. Why is the constrained return
+higher?
+
+\begin{solution}
+When the entrepreneur is unconstrained, capital is fixed at the efficient level $k^*$ and profits do
+not vary with wealth. Hence
+$$
+R_E(a) = (1+r)a + \pi^* - f,
+$$
+so
+$$
+R_E'(a) = 1+r.
+$$
+When the collateral constraint binds, more wealth relaxes the production limit $k \leq \theta a$,
+which raises future profits as well as future asset income. That extra profit derivative makes
+$R_E'(a)$ exceed the worker return.
+
+(1 point for the unconstrained derivative, 1 point for the intuition behind the higher constrained
+return.)
+\end{solution}
+
+\part[3]
+Take the following returns as given. Under no tax, the constrained entrepreneurial return is
+`j fmt(ret_e_con)`; under a capital-income tax of $25\%$, it is `j fmt(ret_e_cap)`; under a wealth
+tax of $10\%$, it is `j fmt(ret_e_wealth)`. In the unconstrained case, the entrepreneurial return is
+`j fmt(ret_e_unc)`, which matches $1+r$. Interpret these results. What do they imply for
+consumption profiles and wealth accumulation?
+
+\begin{solution}
+The constrained entrepreneur earns a return above the worker benchmark because extra wealth expands
+productive scale. Taxes compress that return, but they do so differently: the capital-income tax
+reduces the payoff from profits, while the wealth tax subtracts directly from asset holdings. In the
+example, both reduce the incentive to save relative to the no-tax case.
+
+Because constrained entrepreneurial returns are high, constrained entrepreneurs optimally tilt
+consumption toward the future and accumulate more wealth. In the unconstrained case the return falls
+back to $1+r$, so the intertemporal tradeoff looks like the standard worker problem.
+
+(1 point for interpreting the tax differences, 1 point for linking high returns to steeper
+consumption growth, 1 point for linking them to stronger wealth accumulation.)
+\end{solution}
+
+\part[2]
+Why does the EGM algorithm need an upper envelope across occupations rather than a pointwise update
+within one branch?
+
+\begin{solution}
+Worker and entrepreneur branches generate different endogenous grids because they imply different
+resource mappings and different inverse asset calculations. After constructing the branch-specific
+candidate policies, the algorithm must compare the two value functions and keep the branch that
+delivers the higher value at each current asset level.
+
+That upper-envelope step is essential because the occupation choice is itself discrete. A pointwise
+update within only one branch would miss the possibility that the other branch dominates at some
+assets and would therefore produce the wrong policy frontier.
+
+(1 point for explaining why branch-specific grids are needed, 1 point for explaining why the upper
+envelope is required for occupation choice.)
+\end{solution}
+\end{parts}

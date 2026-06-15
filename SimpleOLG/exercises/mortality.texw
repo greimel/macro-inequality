@@ -1,0 +1,99 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(2, 1; y = 0.0, yR = 0.0)
+a_grid = range(0.0, 1.5, length = 3001)
+
+par_no_annuity = get_par(; demo = :perpetual_youth, mm = 0.5, annuities = false, y, β = 1.0, γ = 2.0, a̲ = 0.0)
+par_annuity = get_par(; demo = :perpetual_youth, mm = 0.5, annuities = true, y, β = 1.0, γ = 2.0, a̲ = 0.0)
+
+sol_no_annuity = solve_backward_forward(EGM(), par_no_annuity, a_grid; r = 0.0, w = 1.0, a_init = 1.0)
+sol_annuity = solve_backward_forward(EGM(), par_annuity, a_grid; r = 0.0, w = 1.0, a_init = 1.0)
+
+@assert isapprox(sol_no_annuity.sim_df.c[1], 1 / (1 + sqrt(0.5)); atol = 2e-3)
+@assert isapprox(sol_no_annuity.sim_df.c[2], sqrt(0.5) / (1 + sqrt(0.5)); atol = 2e-3)
+@assert isapprox(sol_annuity.sim_df.c[1], 2 / 3; atol = 2e-3)
+@assert isapprox(sol_annuity.sim_df.c[2], 2 / 3; atol = 2e-3)
+@
+
+\titledquestion{Mortality Risk without Annuities}
+
+A household lives for at most two periods, $j \in \{0, 1\}$, has deterministic income $y_0, y_1$,
+initial assets $a_0$, and preferences $u(c) = c^{1-\gamma}/(1-\gamma)$. The household survives from
+age $0$ to age $1$ with probability $1-m$. It solves
+
+\begin{align*}
+    &\max_{c_0, c_1, a_1, a_2} u(c_0) + \beta(1-m)u(c_1) \\
+    &\begin{aligned}
+        \text{s.t. } & c_0 + a_1 = (1+r)a_0 + y_0, \\
+        & c_1 + a_2 = (1+r)a_1 + y_1, \\
+        & a_1, a_2 \geq 0.
+    \end{aligned}
+\end{align*}
+
+\begin{parts}
+\part[2]
+Explain the role of $m$ in the objective function. What do we know about $a_2$ at the optimum?
+
+\begin{solution}
+The factor $(1-m)$ is the probability of surviving into age $1$, so age-$1$ utility is discounted by
+both patience $\beta$ and survival. Because marginal utility is strictly positive and there is no
+continuation value or warm-glow motive attached to $a_2$, leaving terminal assets is pure waste: any
+$a_2 > 0$ could be consumed in period $1$ and strictly raise utility. Hence $a_2^* = 0$.
+
+(1 point for interpreting $(1-m)$ as the survival probability, 1 point for concluding $a_2^* = 0$.)
+\end{solution}
+
+\part[4]
+Derive the first-order conditions and the Euler equation. What is the role of $m$?
+
+\begin{solution}
+Using $a_2^* = 0$ and combining the two period budgets gives the lifetime BC
+$$
+c_0 + \frac{c_1}{1+r} = (1+r)a_0 + y_0 + \frac{y_1}{1+r} \equiv \mathcal{Y}.
+$$
+The Lagrangian is
+$$
+\mathcal{L} = u(c_0) + \beta(1-m)u(c_1)
++ \lambda\left(\mathcal{Y} - c_0 - \frac{c_1}{1+r}\right).
+$$
+The first-order conditions are
+$$
+u'(c_0) = \lambda,
+\qquad
+\beta(1-m)u'(c_1) = \frac{\lambda}{1+r}.
+$$
+Eliminating $\lambda$ yields the Euler equation
+$$
+u'(c_0) = \beta(1-m)(1+r)u'(c_1).
+$$
+Mortality remains in the Euler equation: the effective discount factor on future consumption is
+$\beta(1-m)$, while the price of transferring resources across periods is still $1/(1+r)$. Hence
+$m$ lowers the effective return to saving and tilts consumption toward the present.
+
+(1 point for the lifetime BC, 1 point for the FOCs, 1 point for the Euler equation, 1 point for
+interpreting the role of $m$.)
+\end{solution}
+
+\part[4]
+Take the following package results as given for $\beta = 1$, $r = 0$, $\gamma = 2$, $m = 0.5$,
+$a_0 = 1$, and $y_0 = y_1 = 0$. Without annuities, the solution is
+$c_0 = `j fmt(sol_no_annuity.sim_df.c[1])`$ and $c_1 = `j fmt(sol_no_annuity.sim_df.c[2])`$. With
+an actuarially fair annuity (gross return $(1+r)/(1-m)$ to survivors), the solution is
+$c_0 = c_1 = `j fmt(sol_annuity.sim_df.c[1])`$. Interpret this comparison.
+
+\begin{solution}
+Without annuities, households save less for old age because the payoff from old-age consumption is
+discounted by survival risk. That is why the package solution has $c_0 > c_1$: the household tilts
+consumption toward the present.
+
+With annuities, survivors receive the assets of those who die, so the effective return to saving is
+higher. This offsets the mortality wedge and restores a smoother consumption profile, which is why
+the package solution has $c_0 = c_1$.
+
+(2 points for interpreting the no-annuity allocation, 2 points for explaining why annuities restore
+smoothing.)
+\end{solution}
+\end{parts}

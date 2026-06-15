@@ -1,0 +1,14 @@
+collection-exercises.*
+collection-solutions.*
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.bbl
+*.blg
+
+# Figure PDFs for the comparisons exercises (overrides root *.pdf rule)
+!comparisons/comparison-network-*.pdf

@@ -1,0 +1,85 @@
+\titledquestion{$J$-period problem: Derivation}
+
+A household lives for $J$ periods. The household maximizes
+
+\begin{align*}
+    & \max_{(c_j, a_{j+1})_j}\sum_{j=0}^{J-1} \beta^j u(c_j) \\
+    & \begin{aligned}
+        \text{subject to }
+        & c_{j} + a_{j+1} = w \cdot y_{j} + a_j (1+r) \text{ for all $j \in \{0, \ldots, J-1$\}}, \\
+        & a_J \geq 0, \\
+        & a_0 = 0.
+\end{aligned}
+\end{align*}
+
+\begin{parts}
+    \part[3] State the household's lifetime budget constraint.
+
+    \begin{solution}[14cm]
+        \begin{align*}
+            \intertext{[1 point] Use $a_0 = 0$; under positive marginal utility, $a_J = 0$ at the optimum.}
+                a_{j+1} &= w \cdot y_j + (1+r) a_j - c_j
+            \intertext{[1 point] Iterate forward from $j=0$:}
+                0 = a_J &= \sum_{j=0}^{J-1} (1+r)^{J-1-j} (w y_j - c_j)
+            \intertext{[1 point] Divide by $(1+r)^{J-1}$ to get the canonical form:}
+                \sum_{j=0}^{J-1} \left(\frac{1}{1+r}\right)^{j} c_j &= \sum_{j=0}^{J-1} \left(\frac{1}{1+r}\right)^{j} w y_j.
+        \end{align*}
+    \end{solution}
+
+    \part[2] What is the Lagrangian of this problem?
+
+    \begin{solution}[5cm]
+        \begin{align*}
+            \intertext{[1 point] Objective:}
+                \mathcal{L} &= \sum_{j=0}^{J-1} \beta^j u(c_j)
+            \intertext{[1 point] add the multiplier on the lifetime budget constraint:}
+                &\phantom{=} + \lambda \left[ \sum_{j=0}^{J-1} (1+r)^{-j} w y_j - \sum_{j=0}^{J-1} (1+r)^{-j} c_j \right].
+        \end{align*}
+    \end{solution}
+
+    \part[2] What is the first-order condition with respect to $c_j$?
+
+    \begin{solution}[5cm]
+        \begin{align*}
+            \intertext{[1 point] Differentiate $\mathcal{L}$ with respect to $c_j$:}
+                \beta^j u'(c_j) - \lambda (1+r)^{-j} &= 0.
+            \intertext{[1 point] Solve for $u'(c_j)$:}
+                u'(c_j) &= \lambda \bigl[\beta (1+r)\bigr]^{-j}.
+        \end{align*}
+    \end{solution}
+
+    \uplevel{From now on assume that $u(c) = \frac{c^{1-\sigma}}{1-\sigma}$, $\sigma > 0$.}
+
+    \part[3] Write $c^*_j$ in terms of $c^*_{0}$.
+
+    \begin{solution}[7cm]
+        \begin{align*}
+            \intertext{[1 point] Substitute $u'(c) = c^{-\sigma}$ into the FOC:}
+                (c^*_j)^{-\sigma} &= \lambda \bigl[\beta (1+r)\bigr]^{-j}.
+            \intertext{[1 point] Evaluate at $j=0$ to eliminate $\lambda$: $\lambda = (c^*_0)^{-\sigma}$. Divide the two:}
+                \left(\frac{c^*_j}{c^*_0}\right)^{-\sigma} &= \bigl[\beta (1+r)\bigr]^{-j}.
+            \intertext{[1 point] Solve for $c^*_j$:}
+                c^*_j &= c^*_0 \bigl[\beta (1+r)\bigr]^{j/\sigma}.
+        \end{align*}
+    \end{solution}
+
+    \part[2] Derive the Euler equation.
+
+    \begin{solution}[6cm]
+        \begin{align*}
+            \intertext{[1 point] Take the ratio of the FOC at ages $j$ and $j+1$:}
+                \frac{u'(c_j)}{u'(c_{j+1})} &= \frac{\lambda [\beta(1+r)]^{-j}}{\lambda [\beta(1+r)]^{-(j+1)}} = \beta(1+r).
+            \intertext{[1 point] Rearrange:}
+                u'(c_j) &= \beta (1+r) u'(c_{j+1}).
+        \end{align*}
+    \end{solution}
+
+    \part[2] Interpret the Euler equation.
+
+    \begin{solution}[7cm]
+        \begin{itemize}
+            \item [1 point] In the optimum the household is indifferent between consuming one unit today (marginal benefit $u'(c_j)$) and saving it to earn the gross return $1+r$, receiving $\beta(1+r)u'(c_{j+1})$ in discounted marginal utility tomorrow.
+            \item [1 point] The sign of $\beta(1+r) - 1$ pins down the consumption profile: $\beta(1+r) > 1$ ($< 1$, $= 1$) yields an upward-sloping (downward-sloping, flat) path of consumption.
+        \end{itemize}
+    \end{solution}
+\end{parts}

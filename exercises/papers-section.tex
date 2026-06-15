@@ -1,0 +1,33 @@
+% The "Required Reading" section: exercises paired with the reading assignments.
+% This file is \input inside collection.tex's top-level questions environment,
+% so it must NOT open its own questions environment (the exercises-repo original
+% did; this public copy deliberately drops that wrapper and the \section name).
+
+\section{Required Reading}
+
+% Paired paper exercises: question n' repeats the previous number with a prime.
+\newcommand{\primedquestion}{\addtocounter{question}{-1}\renewcommand{\thequestion}{\arabic{question}$'$}}
+\newcommand{\unprimedquestion}{\renewcommand{\thequestion}{\arabic{question}}}
+
+Like the reading assignments, the exercises in this section come in pairs:
+exercises $n$ and $n'$ cover the two papers of one assignment pair. Answer the
+questions for the paper that you have read. The wealth-tax contrast exercise can
+be answered with either paper of its pair.
+
+\input{papers/hubmer2021}
+\primedquestion
+\input{papers/hubmer2026}
+\unprimedquestion
+\input{papers/guvenen2023}
+\primedquestion
+\input{papers/boar-midrigan2023}
+\unprimedquestion
+\input{papers/wealth-tax-contrast}
+\input{papers/huber2026}
+\primedquestion
+\input{papers/drechsel-grau2026}
+\unprimedquestion
+\input{papers/deb2022}
+\primedquestion
+\input{papers/deb2024}
+\unprimedquestion

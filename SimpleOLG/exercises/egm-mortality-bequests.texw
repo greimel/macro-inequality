@@ -1,0 +1,134 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(2, 1; y = 0.0, yR = 0.0)
+par = get_par(; demo = :perpetual_youth, mm = 0.5, y, β = 1.0, γ = 2.0, phi = 1.0, b_floor = 1.0, a̲ = 0.0)
+allocation = SimpleOLG.terminal_allocation(4.5, par)
+
+@assert isapprox(allocation.c, (4.5 + 1.0) / (1 + 1.0); atol = 1e-12)
+@assert isapprox(allocation.a_next, 4.5 - allocation.c; atol = 1e-12)
+@
+
+\titledquestion{EGM with Mortality and Warm-Glow Bequests}
+
+Consider the lifecycle problem
+
+\begin{align*}
+    &V_j(a_j) = \max_{c_j, a_{j+1}} \left\{ u(c_j) + \beta(1-m_j)V_{j+1}(a_{j+1}) \right\} \\
+    &\begin{aligned}
+        \text{s.t. } & c_j + (1-m_j)a_{j+1} = (1+r)a_j + wy_j + \text{inh}_j, \\
+        & a_{j+1} \geq \underline{a}.
+    \end{aligned}
+\end{align*}
+
+with terminal condition
+\begin{align*}
+    &V_J(a_J) = \max_{c_J, a_{J+1}} \left\{ u(c_J) + \varphi u(a_{J+1} + \underline{b}) \right\} \\
+    &\begin{aligned}
+        \text{s.t. } & c_J + a_{J+1} = (1+r)a_J + wy_J + \text{inh}_J, \\
+        & a_{J+1} \geq 0.
+    \end{aligned}
+\end{align*}
+
+Here $\varphi$ is the warm-glow bequest weight and $\underline{b}$ is the bequest floor.
+
+\begin{parts}
+\part[2]
+Explain the problem. What is the role of survival probabilities and of terminal bequest utility?
+
+\begin{solution}
+The household chooses consumption and savings at each age. Survival probabilities weight the value of
+continuing into the next age and also determine how much saving is effectively carried forward in the
+budget. The household values own consumption while alive and values terminal assets only in the last
+period through warm-glow bequest utility.
+
+The terminal bequest term $\varphi u(a_{J+1} + \underline{b})$ makes leaving assets valuable even
+though there is no further personal consumption after age $J$. The floor $\underline{b}$ shifts the
+bequest utility argument and changes how attractive small bequests are.
+
+(1 point for the role of survival, 1 point for the role of terminal bequest utility.)
+\end{solution}
+
+\part[3]
+Derive the Euler equation and show that $(1-m_j)$ cancels.
+
+\begin{solution}
+For an interior choice, the first-order conditions are
+$$
+u'(c_j) = \lambda_j
+$$
+and
+$$
+\beta(1-m_j)V_{j+1}'(a_{j+1}) = \lambda_j(1-m_j).
+$$
+If $1-m_j > 0$, division yields
+$$
+u'(c_j) = \beta V_{j+1}'(a_{j+1}).
+$$
+Using the envelope condition in the next period gives the usual Euler form, so mortality does not
+appear in the Euler equation. It cancels because it discounts the gain from future utility and the
+resource cost of transferring assets by the same factor.
+
+(1 point for the FOCs, 1 point for the cancellation, 1 point for the economic interpretation.)
+\end{solution}
+
+\part[2]
+Derive the modified budget inversion used by EGM. Where does $(1-m_j)$ appear?
+
+\begin{solution}
+Once the Euler equation has implied current consumption $c_j(a_{j+1})$, the current asset state is
+recovered from the budget constraint:
+$$
+a_j(a_{j+1}) = \frac{c_j(a_{j+1}) + (1-m_j)a_{j+1} - wy_j - \text{inh}_j}{1+r}.
+$$
+The survival term therefore enters the EGM inversion through the quantity of assets that must be
+financed today in order to deliver a given $a_{j+1}$ to survivors tomorrow.
+
+(1 point for the correct inversion, 1 point for identifying where $(1-m_j)$ enters.)
+\end{solution}
+
+\part[3]
+Derive the terminal allocation between $c_J$ and $a_{J+1}$ when the warm-glow motive is active.
+
+\begin{solution}
+The terminal first-order condition is
+$$
+u'(c_J) = \varphi u'(a_{J+1} + \underline{b}).
+$$
+With CRRA utility, this implies
+$$
+c_J = \varphi^{-1/\gamma}(a_{J+1} + \underline{b}).
+$$
+Combining this relation with
+$$
+c_J + a_{J+1} = R_J,
+\qquad
+R_J = (1+r)a_J + wy_J + \text{inh}_J,
+$$
+gives
+$$
+c_J = \frac{R_J + \underline{b}}{1 + \varphi^{1/\gamma}},
+\qquad
+a_{J+1} = R_J - c_J.
+$$
+
+(1 point for the FOC, 1 point for the CRRA relation, 1 point for the closed-form allocation.)
+\end{solution}
+
+\part[2]
+Discuss the role of the bequest floor $\underline{b}$ for homotheticity.
+
+\begin{solution}
+If $\underline{b} = 0$, the terminal problem is homothetic: scaling total resources scales optimal
+consumption and bequests proportionally. A positive floor breaks that exact proportionality because
+the utility from bequests depends on $a_{J+1} + \underline{b}$ rather than on $a_{J+1}$ alone.
+
+As a result, the marginal value of a small bequest is higher than in the zero-floor case, and the
+allocation no longer scales linearly with resources near the lower end of the wealth distribution.
+
+(1 point for explaining homotheticity when $\underline{b} = 0$, 1 point for explaining how a
+positive floor breaks it.)
+\end{solution}
+\end{parts}

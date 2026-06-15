@@ -1,0 +1,146 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG, DimensionalData
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(3, 3; y = 1.0)
+par = get_par(; demo = :perpetual_youth, mm = 0.2, y, β = 0.96, γ = 2.0, a̲ = 0.0)
+a_grid = range(0.0, 4.0, length = 401)
+sol = solve_backward_forward(EGM(), par, a_grid; r = 0.04, w = 1.0, a_init = 0.0)
+
+a_next_choice = a_grid[250]
+c_next = sol.c[a = At(a_next_choice), j = At(1)]
+inversion = a_prev_c_prev(
+    c_next,
+    a_next_choice,
+    par;
+    r = 0.04,
+    r_prev = 0.04,
+    y_prev = par.y[j = At(0)],
+    w_prev = 1.0,
+    m_prev = par.m[j = At(0)],
+)
+
+c_manual = SimpleOLG.inv_u_prime(par.β * (1 + 0.04) * SimpleOLG.u_prime(c_next, par), par)
+a_manual = (c_manual + (1 - par.m[j = At(0)]) * a_next_choice - 1.0 * par.y[j = At(0)]) / (1 + 0.04)
+
+@assert inversion.aⱼ₋₁ > par.a̲ + 1e-3
+@assert isapprox(inversion.cⱼ₋₁, c_manual; atol = 1e-10)
+@assert isapprox(inversion.aⱼ₋₁, a_manual; atol = 1e-10)
+@
+
+\titledquestion{EGM with a Borrowing Constraint}
+
+Consider a standard $J$-period consumption-savings problem solved with the endogenous grid method
+(EGM). The Bellman equation is
+
+\begin{align*}
+    &V_j(a_j) = \max_{c_j, a_{j+1}} \left\{ u(c_j) + \beta(1-m_j)V_{j+1}(a_{j+1}) \right\} \\
+    &\begin{aligned}
+        \text{s.t. } & c_j + (1-m_j)a_{j+1} = (1+r)a_j + wy_j, \\
+        & a_{j+1} \geq \underline{a}.
+    \end{aligned}
+\end{align*}
+
+Assume interior choices unless the borrowing constraint binds.
+
+\begin{parts}
+\part[2]
+Explain the Bellman equation. What is the state, what is the choice, and what role does the
+borrowing limit play?
+
+\begin{solution}
+The state is current assets $a_j$ together with age $j$. The household chooses current consumption
+$c_j$ and next period assets $a_{j+1}$. Current resources equal labor income plus the return on
+assets, while future value is discounted by time preference and survival.
+
+The borrowing limit $a_{j+1} \geq \underline{a}$ rules out asset choices below the lower bound. It
+is the source of the corner solution that EGM must treat separately from the interior Euler
+equation.
+
+(1 point for identifying the state and choices, 1 point for explaining the role of the borrowing
+constraint.)
+\end{solution}
+
+\part[3]
+Derive the Euler equation from the first-order conditions.
+
+\begin{solution}
+The first-order conditions are
+$$
+u'(c_j) = \lambda_j
+$$
+and
+$$
+\beta(1-m_j)V_{j+1}'(a_{j+1}) = \lambda_j(1-m_j).
+$$
+Using the envelope condition
+$$
+V_{j+1}'(a_{j+1}) = (1+r)u'(c_{j+1}),
+$$
+we obtain
+$$
+u'(c_j) = \beta(1+r)u'(c_{j+1}).
+$$
+
+(1 point for the FOCs, 1 point for the envelope condition, 1 point for the Euler equation.)
+\end{solution}
+
+\part[3]
+Derive the EGM inversion: express $c_j(a_{j+1})$ and then $a_j(a_{j+1})$.
+
+\begin{solution}
+Given a grid over next period assets $a_{j+1}$, the Euler equation implies current consumption
+$$
+c_j(a_{j+1}) = \left[\beta(1+r)u'(c_{j+1}(a_{j+1}))\right]^{-1/\gamma}
+$$
+for CRRA utility. More generally,
+$$
+c_j(a_{j+1}) = u'^{-1}\!\left(\beta(1+r)u'(c_{j+1}(a_{j+1}))\right).
+$$
+Substituting into the budget constraint gives the endogenous current asset grid
+$$
+a_j(a_{j+1}) = \frac{c_j(a_{j+1}) + (1-m_j)a_{j+1} - wy_j}{1+r}.
+$$
+
+(1 point for inverting the Euler equation, 1 point for substituting into the budget, 1 point for
+obtaining the endogenous grid.)
+\end{solution}
+
+\part[3]
+Derive what happens when the borrowing constraint binds.
+
+\begin{solution}
+If the endogenous current asset value implied by the interior solution falls below the admissible
+domain, the Euler equation no longer pins down the optimum. Instead the household chooses the corner
+solution
+$$
+a_{j+1} = \underline{a}.
+$$
+Consumption is then determined directly from the budget constraint:
+$$
+c_j = (1+r)a_j + wy_j - (1-m_j)\underline{a}.
+$$
+The Kuhn-Tucker multiplier on the borrowing constraint is positive, so the Euler equation holds with
+inequality rather than equality.
+
+(1 point for identifying the corner condition, 1 point for deriving corner consumption, 1 point for
+explaining the complementary-slackness interpretation.)
+\end{solution}
+
+\part[2]
+Why does EGM avoid one-dimensional optimization at each grid point? What is the computational
+advantage?
+
+\begin{solution}
+EGM starts from a grid of future assets and uses the Euler equation plus the budget constraint to
+construct current states directly. Because this replaces a search over $a_{j+1}$ by inversion, the
+method avoids solving a separate optimization problem at every current grid point.
+
+The computational gain is that interpolation and inversion are typically much cheaper than repeated
+value maximization, especially on fine grids or in lifecycle problems with many ages.
+
+(1 point for explaining why optimization is avoided, 1 point for stating the computational
+advantage.)
+\end{solution}
+\end{parts}

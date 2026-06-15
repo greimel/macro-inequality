@@ -1,0 +1,31 @@
+% !TeX root = ../collection-solutions.tex
+
+\titledquestion{Market structure, entrepreneurship and inequality}
+
+\citet{deb2024market} documents three US trends since the late 1980s: the entrepreneurship rate \emph{fell} (from about $11\%$ to $8\%$), markups \emph{rose}, and the top-1\% income share \emph{rose}.
+
+\begin{parts}
+    \part[4] What is the key takeaway of the paper? Explain how the author arrives at this conclusion: what kind of model is used, how is it taken to the data, and how is the contribution of each force quantified?
+
+    \begin{solutionorbox}[12cm]
+        \emph{Takeaway} (2 points): One force — the growing dominance of highly productive ``superstar'' entrepreneurs and firms, who deter the entry of other productive agents into their markets — jointly explains all three trends. Falling entrepreneurship, rising markups and rising top income inequality are three faces of the same phenomenon, not separate puzzles.
+
+        \emph{How he gets there} (2 points):
+        \begin{itemize}
+            \item A general-equilibrium occupational-choice model (\`a la Lucas) in which a finite number of agents per market choose between being a worker and being an entrepreneur, and entrepreneurs compete \emph{strategically} (Cournot) with each other and with a large corporate firm.
+            \item Estimated by simulated method of moments: six structural parameters are re-estimated for every survey wave 1988--2018 to match six moments from the SCF (entrepreneurship rate, top-1\% income share, share of entrepreneurs in the top 1\%) and from Compustat (markups, fixed-cost share).
+            \item Counterfactual decomposition: moving one parameter at a time from its 1988 to its 2018 value. Rising fixed costs explain about $90\%$ of the entrepreneurship decline; the rising productivity premium of large corporate firms and falling number of agents per market each explain about half of the markup rise; rising productivity dispersion explains most of the top-1\% increase.
+        \end{itemize}
+        Grading: 1 point for the one-force-explains-three-trends takeaway, 1 point for entry deterrence by dominant firms; 1 point for the model + estimation strategy (SMM, SCF + Compustat), 1 point for the counterfactual logic with at least one magnitude.
+    \end{solutionorbox}
+
+    \part[4] A common intuition says: if markups and top incomes are rising, running a firm has become more lucrative — so \emph{more} people should become entrepreneurs. Explain intuitively why the opposite happens in this model. How does strategic competition break the entry logic of the standard (Lucas-type) occupational choice model?
+
+    \begin{solutionorbox}[12cm]
+        \begin{itemize}
+            \item (1 point) In the standard Lucas model, the entry decision depends only on one's \emph{own} productivity and aggregate prices: there is a single economy-wide threshold, and anyone above it becomes an entrepreneur. More lucrative entrepreneurship then indeed attracts entry.
+            \item (2 points) With strategic (Cournot) competition in finite markets, an agent's profit depends on \emph{who else} is in the market: it is own productivity \emph{relative to} competitors' that determines the achievable market share and markup. A productive agent facing a much more productive rival sees their prospective market share driven toward zero, so staying a worker becomes the best response — even though the same agent would profitably enter a weaker market. Dominant entrepreneurs thus \emph{deter} the entry of other productive agents: the stronger a market's superstar, the more productive the best agent who chooses to remain a worker.
+            \item (1 point) As technology becomes more dispersed and fixed costs rise, entry falls; the surviving dominant few hold larger market shares, charge higher markups, and capture more income. Falling entrepreneurship, rising markups and a rising top-1\% share therefore emerge \emph{together} — and part of workers' productivity gains is absorbed by markups into entrepreneurial profits, amplifying top inequality.
+        \end{itemize}
+    \end{solutionorbox}
+\end{parts}

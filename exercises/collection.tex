@@ -1,0 +1,132 @@
+\documentclass[12pt,a4paper,addpoints]{exam}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[shortlabels]{enumitem}
+\usepackage{hyperref}
+\usepackage[longnamesfirst]{natbib}
+\bibliographystyle{ecta}
+
+\renewcommand{\vec}{\bm}
+\renewcommand{\phi}{\varphi}
+
+\shadedsolutions
+\definecolor{SolutionColor}{rgb}{0.9,0.95,1}
+\renewcommand{\solutiontitle}{\noindent\emph{Solution} \par \noindent}
+
+% Ignore any optional length argument on \begin{solution}[Xcm] — those
+% annotations exist so the same source can be reused as a student exam
+% (see exam.tex) where they become answer-box heights.
+\cancelspacetrue
+
+\newif\ifshowsolutions
+\showsolutionsfalse % overridden by build script
+\ifshowsolutions
+\printanswers
+\fi
+\makeatletter
+\qformat{%
+    \thequestion. \bfseries\thequestiontitle
+    \@ifundefined{pointsofq@\romannumeral\value{question}}{}{~(\totalpoints~points)}%
+    \hfill}
+\makeatother
+
+\runningfooter{}{}{\copyright~Fabian Greimel, 2026}
+\runningheader{{\sc Macroeconomics and Inequality}}{}{\thepage}
+
+\title{Exercise Collection}
+\author{Macroeconomics and Inequality}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\clearpage
+
+\begin{questions}
+
+\section{Elasticity of Intertemporal Substitution}
+\input{basics/EIS-proof.tex}
+\clearpage
+\input{basics/EIS-compute.tex}
+\clearpage
+
+\section{Household Decision Problems}
+\input{../SimpleOLG/exercises/generated/mortality.tex}
+\clearpage
+\input{../SimpleOLG/exercises/generated/annuities.tex}
+\clearpage
+\input{../SimpleOLG/exercises/generated/bequests-warmglow-focs.tex}
+\clearpage
+\input{../SimpleOLG/exercises/generated/bequests-warmglow-solve.tex}
+\clearpage
+\input{../SimpleOLG/exercises/generated/entrepreneur-1period.tex}
+\clearpage
+
+% ---- Deferred exercises -------------------------------------------------
+% Commented out for the initial student release. These exercises are sound
+% in principle but need polish and consistency checks against the lecture
+% notes before the final exam or next year's version:
+%   - entrepreneur-2period (§2 Household Decision Problems)
+%   - bequests-accidental, bequests-aggregation, bequests-equilibrium,
+%     bequests-types (§3 OLG Aggregation and Stationary Equilibrium)
+% olg-algorithm remains active so §3 still has one exercise.
+% -------------------------------------------------------------------------
+%\input{../SimpleOLG/exercises/generated/entrepreneur-2period.tex}
+%\clearpage
+
+\section{OLG Aggregation and Stationary Equilibrium}
+%\input{../SimpleOLG/exercises/generated/bequests-accidental.tex}
+%\clearpage
+%\input{../SimpleOLG/exercises/generated/bequests-aggregation.tex}
+%\clearpage
+%\input{../SimpleOLG/exercises/generated/bequests-equilibrium.tex}
+%\clearpage
+%\input{../SimpleOLG/exercises/generated/bequests-types.tex}
+%\clearpage
+\input{../SimpleOLG/exercises/generated/olg-algorithm.tex}
+\clearpage
+
+\section{$J$-Period Lifecycle Problem}
+\input{basics/J-period-bc.tex}
+\clearpage
+\input{basics/J-period-model.tex}
+\clearpage
+\input{../SimpleOLG/exercises/generated/dynamic-programming.tex}
+\clearpage
+
+%\section{EGM Implementation}
+%\input{../SimpleOLG/exercises/generated/egm-credit-constraint.tex}
+%\clearpage
+%\input{../SimpleOLG/exercises/generated/egm-mortality-bequests.tex}
+%\clearpage
+%\input{../SimpleOLG/exercises/generated/egm-entrepreneur.tex}
+%\clearpage
+
+%\section{Social Comparisons}
+%\input{comparisons/comparisons1.tex}
+%\clearpage
+%\input{comparisons/comparisons2.tex}
+%\clearpage
+%\input{comparisons/comparisons3.tex}
+%\clearpage
+%\input{comparisons/comparisons4-mean.tex}
+%\clearpage
+%\input{comparisons/comparisons4-poorer.tex}
+
+\clearpage
+\input{papers-section}
+
+\end{questions}
+
+% Required-Reading exercises cite papers, so the bibliography is enabled.
+\bibliography{../inequality}
+
+\end{document}

@@ -1,0 +1,31 @@
+% !TeX root = ../collection-solutions.tex
+
+\titledquestion{Wage stagnation: monopsony or monopoly?}
+
+\citet{deb2022stagnation} ask why US wages have decoupled from productivity since the late 1990s: is it firms' power in the \emph{labor} market (monopsony) or in the \emph{goods} market (monopoly)?
+
+\begin{parts}
+    \part[4] What is the key takeaway of the paper? Explain how the authors arrive at this conclusion: what kind of model and data do they use, and what comparison produces the headline number?
+
+    \begin{solutionorbox}[12cm]
+        \emph{Takeaway} (2 points): Wage stagnation is driven primarily by rising goods-market power, not labor-market power: by 2016, monopoly accounts for about $75\%$ of the market-power-induced wage reduction, monopsony for $25\%$. Monopsony is real — workers are paid well below their marginal revenue product — but the markdown has been roughly \emph{constant} over time, so it cannot explain the \emph{widening} gap between productivity and wages.
+
+        \emph{How they get there} (2 points):
+        \begin{itemize}
+            \item A general-equilibrium model where firms compete oligopolistically in both the goods market (markup $\mu$) and the labor market (markdown $\delta$), so wages satisfy $W = \frac{PA}{\mu\,\delta}$: pay equals marginal revenue product divided by the two wedges.
+            \item Estimated on US Census establishment-level data (1997--2016). Labor-supply elasticities are estimated by IV; the number of competitors per market is estimated to fall sharply over the period (concentration rises). The estimated markups rise from $\approx 1.7$ to $\approx 2.2$, while markdowns stay flat at $\approx 1.4$.
+            \item The headline split comes from counterfactuals: solve the model shutting down goods-market power only, or labor-market power only, and compare the implied wages to the baseline. Goods-market power accounts for $\approx 75\%$ of the wage loss in 2016.
+        \end{itemize}
+        Grading: 1 point for ``mostly monopoly'' with an approximate magnitude, 1 point for ``monopsony present but constant''; 1 point for the model and the wage equation $W = PA/(\mu\delta)$, 1 point for the counterfactual logic.
+    \end{solutionorbox}
+
+    \part[4] Explain intuitively (i) the channel through which \emph{labor}-market power lowers wages and the channel through which \emph{goods}-market power lowers wages — including for workers not employed by dominant firms — and (ii) why monopsony contributes almost nothing to the widening of the productivity--wage gap.
+
+    \begin{solutionorbox}[12cm]
+        \begin{itemize}
+            \item (1 point) \emph{Monopsony works directly:} a dominant employer faces an upward-sloping labor supply curve and hires fewer workers at a wage below their marginal revenue product. The wedge hits the firm's own workers.
+            \item (2 points) \emph{Monopoly works indirectly, in general equilibrium:} a dominant firm raises its price, which reduces demand for its output, so it produces less and demands less labor. When this happens in many markets at once, \emph{economy-wide} labor demand falls and the equilibrium wage falls — for all workers, including those at competitive firms.
+            \item (1 point) \emph{Why monopsony does not drive the trend:} the markdown is pinned down by workers' willingness to switch employers (the estimated labor-supply elasticities), which confines it to a narrow band — and it barely moved between 1997 and 2016. Markups, by contrast, rose substantially as concentration increased. A constant wedge lowers the \emph{level} of wages but cannot widen the productivity--wage \emph{gap} over time.
+        \end{itemize}
+    \end{solutionorbox}
+\end{parts}

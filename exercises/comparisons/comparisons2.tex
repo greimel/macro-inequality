@@ -1,0 +1,59 @@
+% !TeX root = ../collection-solutions.tex
+
+% Comparisons 2
+\titledquestion{Social comparisons} Consider the model of social comparisons by \citet{drechsel2025falling-behind}
+with three types ($P$, $M$, $R$), weights $\vec \omega = (\omega_P, \omega_M, \omega_R)$ 
+and 
+%XXXXX
+some comparison network $G$.
+
+    Consider a \emph{low inequality} steady state 
+    with incomes $\underline{\vec y} = (\underline y^P, \underline y^M, \underline y^R)$
+    and a \emph{high inequality} steady state 
+    with incomes $\overline{\vec y} = (\overline y^P, \overline y^M, \overline y^R)$.
+    
+    In the \emph{high inequality} steady state $R$ is richer, and $P$ is poorer than in the \emph{low inequality} state:%
+    %
+    \begin{equation*}
+        \omega_R \Delta y^R = - \omega_P \Delta y^P > 0, \quad \text{and } \Delta y^M = 0.
+    \end{equation*}
+    where $\Delta y^i = \overline y^i - \underline y^i$.
+    
+    Recall that aggregate debt can be written as $D(\vec y) = \kappa_3 (\vec \omega + \vec b)^T \vec y$, where $\vec b$ is the vector of popularities.
+
+    \begin{parts}
+        \part Derive the condition, under which debt is higher in the \emph{high inequality steady state}: $D(\overline{ \vec y}) > D(\underline{\vec y})$
+
+        \begin{solution}
+            \begin{enumerate}
+                \item Note that $$(\overline{ \vec y}) > D(\underline{\vec y}) \iff D(\overline{ \vec y}) - D(\underline{\vec y}) = \textcolor{gray}{\kappa_3} \sum_{i = 1}^n (\omega_i + b_i) \Delta y^i  > 0$$
+                \item This sum has only two positive entries, because only $y^P, y^R \neq 0$. Hence
+                $$\iff (\omega_P + b_P) \Delta y^P + (\omega_R + b_R) \Delta y^R  > 0$$
+            
+                \item Use that $\Delta y^R = - \frac{\omega_P}{\omega_R} \Delta y^P$. Then
+                $$ (\omega_P + b_P) \Delta y^P - (\omega_R + b_R) \frac{\omega_P}{\omega_R}\Delta y^P  > 0 $$
+
+                (or, alternatively, $ -(\omega_P + b_P) \frac{\omega_R}{\omega_P}\Delta y^R + (\omega_R + b_R) \Delta y^R  > 0 $)
+
+                \item This simplifies to
+                
+                $$D(\overline{ \vec y}) > D(\underline{\vec y}) \iff \frac{b_P}{\omega_P} < \frac{b_R}{\omega_R}.$$
+
+                (Note that $\Delta y^P < 0 < \Delta y^R$!)
+            \end{enumerate}
+        \end{solution}
+
+        \part Interpret this result and discuss its relevance.
+
+        \begin{solution}
+            \begin{itemize}
+                \item Income inequality has been rising in the past decades: The income share of the bottom 50\% has fallen, while the income share of the top 10\% has increased. 
+
+                \item Empirically, social comparisons tend to be upward looking, that means that $R$ is more popular than $P$. Thus the condition $\frac{b_P}{\omega_P} < \frac{b_R}{\omega_R}$ is satisfied.
+    
+                \item This model predicts that increasing inequality \emph{causes} a rise in household debt. 
+                
+                \item Consistent with this, the data show that there is a positive \emph{correlation} between debt and inequality.
+            \end{itemize}
+        \end{solution}
+    \end{parts}

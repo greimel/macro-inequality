@@ -1,0 +1,31 @@
+% !TeX root = ../collection-solutions.tex
+
+\titledquestion{Why are the wealthiest so wealthy?}
+
+\citet{hubmer2026wealthiest} use Norwegian administrative panel data to trace how the top 0.1\% accumulated their wealth over 26 years.
+
+\begin{parts}
+    \part[4] What is the key takeaway of the paper? Explain how the authors arrive at this conclusion: what is the decomposition method, what are the headline magnitudes, and how do the authors use these facts to discriminate between theories of wealth inequality?
+
+    \begin{solutionorbox}[12cm]
+        \emph{Takeaway} (2 points): The excess wealth of the top 0.1\% over the median household is accounted for by higher \emph{saving rates} ($\approx 36\%$), \emph{inheritances} ($\approx 31\%$), higher \emph{returns} ($\approx 28\%$) and higher labor income ($\approx 5\%$). These \emph{dynamic} facts reject all standard single-channel models of wealth inequality — even though each of them (suitably augmented) can match the cross-sectional concentration of wealth. Only a model combining entrepreneurship with decreasing returns to scale and non-homothetic (``capitalist spirit'') saving preferences fits the dynamics.
+
+        \emph{How they get there} (2 points):
+        \begin{itemize}
+            \item Method: track households backward over 26 years through their \emph{budget identity} (wealth growth $=$ returns $+$ labor income $+$ inheritances, scaled by the saving rate). Replace one component at a time with the value of the middle class and recompute the counterfactual wealth path; average over all replacement orderings (Shapley--Owen) so the contributions sum to 100\%. This is an \emph{accounting} decomposition — it deliberately holds behavior fixed.
+            \item A quarter of the top 0.1\% are ``New Money'': they start with roughly zero (on average negative) wealth and rise on extremely high returns and saving rates; ``Old Money'' heirs grow already-large fortunes mainly through inheritances and persistently high saving, with only modest returns.
+            \item Model horse race: standard models (superstar earnings, heterogeneous returns, discount-factor heterogeneity, bequest motives) are each recalibrated to match cross-sectional wealth concentration, then confronted with the decomposition. Each fails in a characteristic way — e.g.\ the bequest and return-heterogeneity models attribute far too much to inheritances, the superstar model far too much to labor income and produces no Old Money.
+        \end{itemize}
+        Grading: 1 point for the four shares (approximate), 1 point for ``dynamics reject models that match the cross-section''; 1 point for the budget-identity/counterfactual-replacement method (incl.\ its accounting nature), 1 point for New vs.\ Old Money or a concrete model failure.
+    \end{solutionorbox}
+
+    \part[4] The data demand two things at once: self-made households that reach the top 0.1\% within $\sim$25 years (``New Money''), and heirs who keep growing large fortunes at high saving rates but moderate returns (``Old Money''). Explain intuitively how (i) entrepreneurship with decreasing returns to scale and a collateral constraint and (ii) non-homothetic ``capitalist spirit'' preferences jointly deliver both.
+
+    \begin{solutionorbox}[12cm]
+        \begin{itemize}
+            \item (2 points) \emph{Decreasing returns + collateral constraint make returns non-monotone in wealth.} Across households, productivity and wealth are positively correlated, so \emph{average} returns rise with wealth (as in the data). But for a \emph{given} entrepreneur, the marginal return falls as the firm grows. A young, highly productive but collateral-constrained entrepreneur earns very high returns on a small base — the New Money rocket — while the same decreasing returns cap returns once the firm matures, so fortunes do not diverge without bound and established wealth earns only moderate returns (as Old Money does).
+            \item (1 point) \emph{Non-homothetic preferences keep rich households saving.} With wealth in the utility function, the saving rate \emph{rises} with resources, so rich households — including heirs whose returns are unspectacular — keep saving large fractions of their income throughout life. This is what generates Old Money's high saving contribution, which returns alone cannot explain.
+            \item (1 point) \emph{Timing matters:} unlike a warm-glow bequest motive, which only becomes relevant near the end of life (it is weighted by the probability of dying), the capitalist-spirit motive operates from the start — so \emph{young} wealthy households already save at high rates, as in the data. In a pure bequest model, young heirs would instead run down their wealth first.
+        \end{itemize}
+    \end{solutionorbox}
+\end{parts}

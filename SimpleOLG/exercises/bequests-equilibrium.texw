@@ -1,0 +1,150 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG, DimensionalData
+
+include("exercise_helpers.jl")
+
+r = 0.03
+β = 1 / (1 + r)
+γ = 2.0
+ν = 1 / β
+w = 1.0
+
+y = simple_income_profile(2, 1; y = 1.0, yR = 0.1)
+par = get_par(; demo = :perpetual_youth, mm = 0.0, annuities = true, y, β, γ, phi = β * ν, b_floor = 0.0, a̲ = 0.0)
+a_grid = range(1e-3, 4.0, length = 1001)
+
+function a2_closed(F_vec; r = r, w = w, θ = 1.0, y0 = 1.0, y1 = 0.1)
+    D = (3 + r) - (1 + r)^2 * F_vec[1] - (1 + r) * F_vec[2]
+    w * θ * ((1 + r) * y0 + y1) / D
+end
+
+function a2_numeric(F_vec)
+    F = DimVector(Float64.(F_vec), Dim{:j}(0:1), name = :F)
+    bpar = BequestParams(P_z = [1.0;;], π_z = [1.0], F = F)
+    res = solve_worker_with_bequests(EGM(), par, bpar, a_grid;
+        type_grid = [LaborProductivity(1.0)], r, w, tol = 1e-10, maxiter = 500, λ_inherit = 0.5)
+    return res.sim_df[res.sim_df.j .== 1, :a_next][1]
+end
+
+a2_00   = a2_numeric([0.0, 0.0])
+a2_10   = a2_numeric([1.0, 0.0])
+a2_0802 = a2_numeric([0.8, 0.2])
+
+@assert isapprox(a2_00,   a2_closed([0.0, 0.0]);  atol = 5e-3)
+@assert isapprox(a2_10,   a2_closed([1.0, 0.0]);  atol = 5e-3)
+@assert isapprox(a2_0802, a2_closed([0.8, 0.2]);  atol = 5e-3)
+@
+
+\titledquestion{Stationary Equilibrium with Warm-Glow Bequests: Single Type}
+
+Consider a two-period OLG economy with one permanent type. At prices $(r, w) = (0.03, 1)$ and
+income $(y_0, y_1) = (1, 0.1)$, suppose the household's optimum given the inheritance schedule
+$(\mathrm{inh}_0, \mathrm{inh}_1)$ is $c_0 = c_1 = a_2$ with
+$$
+a_2
+= \frac{(1+r)\, y_0 + y_1 + (1+r)^2\, \mathrm{inh}_0 + (1+r)\, \mathrm{inh}_1}{3 + r}.
+$$
+
+In this economy, the stationary age distribution is $\pi_0 = \pi_1 = 1/2$, per-capita bequests are
+$b = a_2 / 2$, and inheritance income received at age $j$ is $\mathrm{inh}_j = b\, F_j / \pi_j$,
+where $F = (F_0, F_1)$ with $F_0 + F_1 = 1$ is the age profile of inheritance receipts.
+
+A \emph{stationary equilibrium} requires the inheritance schedule used by the household to be
+consistent with the bequest flow it generates.
+
+\begin{parts}
+\part[2]
+Which objects are endogenous and which are exogenous in the stationary equilibrium? Explain
+briefly.
+
+\begin{solution}
+Endogenous: terminal assets $a_2$ (and therefore the per-capita bequest $b = a_2/2$) and the
+aggregate inheritance schedule $(\mathrm{inh}_0, \mathrm{inh}_1)$. These are pinned down jointly by
+(i) the household's optimum at given $\mathrm{inh}_j$ and (ii) the stationary-consistency condition
+$\mathrm{inh}_j = b\, F_j / \pi_j$.
+
+Exogenous: prices $(r, w)$, the income profile $(y_0, y_1)$, the age distribution $\pi$, and the
+inheritance age profile $F$.
+
+(1 point for identifying the endogenous allocation and inheritances, 1 point for correctly listing
+the exogenous primitives.)
+\end{solution}
+
+\part[4]
+Impose stationary consistency. Substitute $\mathrm{inh}_j = b\, F_j / \pi_j$ with $b = a_2/2$ and
+$\pi_0 = \pi_1 = 1/2$ into the given expression for $a_2$, and show that
+$$
+a_2 = \frac{(1+r)\, y_0 + y_1}{D},
+\qquad
+D \equiv (3 + r) - (1+r)^2 F_0 - (1+r) F_1.
+$$
+
+\begin{solution}
+With $\pi_j = 1/2$ and $b = a_2/2$, $\mathrm{inh}_j = a_2 F_j$. Substituting into the given
+expression:
+$$
+(3 + r)\, a_2
+= (1+r)\, y_0 + y_1
++ (1+r)^2 F_0\, a_2 + (1+r) F_1\, a_2.
+$$
+Collecting the $a_2$ terms:
+$$
+\bigl[(3+r) - (1+r)^2 F_0 - (1+r) F_1\bigr]\, a_2
+= (1+r)\, y_0 + y_1,
+$$
+which is the stated result.
+
+(1 point for evaluating $\mathrm{inh}_j = a_2 F_j$, 1 point for substituting, 2 points for
+collecting the $a_2$ coefficient and identifying $D$.)
+\end{solution}
+
+\part[3]
+Interpret the structure of $D$. Why does $F_0$ enter with a $(1+r)^2$ coefficient while $F_1$
+enters with only $(1+r)$?
+
+\begin{solution}
+An inheritance received at age $0$ is added to beginning-of-period wealth and compounds once
+within age $0$ (as part of the age-$0$ budget, where it is scaled by $(1+r)$) and again within
+age $1$ (as part of savings $a_1$, which are scaled by $(1+r)$ in the age-$1$ budget). Hence it
+earns the gross return twice before it shows up in $a_2$. An inheritance received at age $1$
+compounds only once before becoming part of the terminal bequest.
+
+The denominator $D$ encodes the self-reinforcing nature of the stationary inheritance loop: the
+same aggregate bequest pays back more to the household when $F$ is tilted toward young ages,
+because the household then compounds the transfer over a longer horizon.
+
+(1 point for explaining the two compounding horizons, 1 point for linking the exponent on $(1+r)$
+to horizon length, 1 point for the general intuition.)
+\end{solution}
+
+\part[5]
+Take the following package output as given. For $r = 0.03$, $(y_0, y_1) = (1, 0.1)$, and three
+configurations of the inheritance age profile, terminal assets are
+\begin{align*}
+F = (0, 0):& \quad a_2 = `j fmt(a2_00)`, \\
+F = (1, 0):& \quad a_2 = `j fmt(a2_10)`, \\
+F = (0.8, 0.2):& \quad a_2 = `j fmt(a2_0802)`.
+\end{align*}
+Interpret the three numbers. Why are the two positive-$F$ allocations so close to each other, and
+both substantially higher than $F = (0, 0)$?
+
+\begin{solution}
+\textbf{$F = (0, 0)$.} No bequest feedback: every generation's savings are supported by its own
+labor income alone. This produces the smallest $a_2$.
+
+\textbf{Positive $F$.} Any positive mass on $F$ activates the stationary inheritance loop. Each
+generation receives the previous generation's bequests, which it saves and partially bequeaths,
+producing amplified steady-state wealth. Terminal assets jump substantially relative to the
+$F = (0, 0)$ benchmark.
+
+\textbf{$F = (1, 0)$ vs. $F = (0.8, 0.2)$.} Shifting mass from $F_0$ to $F_1$ replaces a weight of
+$(1+r)^2$ with $(1+r)$ in the denominator $D$. For $r = 0.03$ this is a difference of about $3\%$
+in the weight, so $D$ barely moves and the two allocations are numerically close. At much higher
+interest rates the two configurations would differ more visibly: the age at which inheritances
+arrive matters more when compounding is powerful.
+
+(1 point for interpreting $F = (0, 0)$, 1 point for interpreting the jump to positive $F$,
+2 points for explaining the small gap between $F = (1, 0)$ and $F = (0.8, 0.2)$ via the structure
+of $D$, 1 point for the $r$-comparative statics.)
+\end{solution}
+\end{parts}

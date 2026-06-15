@@ -1,0 +1,28 @@
+% !TeX root = ../exams/exam-2025.tex
+
+\titledquestion{Lifetime budget contraint}[7]
+
+A household lives for $J = 4$ periods. The within-period budget constraint is given by
+
+\begin{equation*}
+    c_{j} + a_{j+1} = w \cdot y_{j} + a_j (1+r).
+\end{equation*}
+
+Derive the lifetime budget constraint of the household.
+
+\begin{solution}[18cm]
+    (1 point) Start with initial within-period budget constraint.
+    \begin{align*}
+        a_0 (1+r) &= c_{0} - w \cdot y_{0} + a_{1} \\
+        \intertext{[1 point] Plug in for $a_1$}
+                  &= c_{0} - w \cdot y_{0} + \frac{1}{1+r}(c_{1} - w \cdot y_{j} + a_{2})
+        \intertext{[1 point] Plug in for $a_2$}
+                  &= c_{0} - w \cdot y_{0} + \frac{1}{1+r}\Bigl((c_{1} - w \cdot y_{1} + \frac{1}{1+r}(c_{2} - w \cdot y_{2} + a_{3})\Bigr)
+        \intertext{[1 point] Notice the pattern (note powers of 0 and 1)}
+                  &= \Bigl(\frac{1}{1+r}\Bigr)^0(c_{0} - w \cdot y_{0}) + \Bigl(\frac{1}{1+r}\Bigr)^1(c_{1} - w \cdot y_{1}) + \Bigl(\frac{1}{1+r}\Bigr)^2(c_{2} - w \cdot y_{2}) + \Bigl(\frac{1}{1+r}\Bigr)^2 a_{3}
+        \intertext{[1 point] Write in sum notation}
+                  &= \sum_{j = 0}^3 \Bigl(\frac{1}{1+r}\Bigr)^j (c_j - w \cdot y_j) + \Bigl(\frac{1}{1+r}\Bigr)^3 a_4
+        \intertext{[2 point] Write in canonical form; $0.5$ points for each correct term}
+         &\implies \underbrace{\sum_{j = 0}^3 \Bigl(\frac{1}{1+r}\Bigr)^j c_j}_\text{consumption expenditures} + \underbrace{\Bigl(\frac{1}{1+r}\Bigr)^3 a_4}_\text{bequest} = \underbrace{\sum_{j = 0}^3 \Bigl(\frac{1}{1+r}\Bigr)^j (w \cdot y_j)}_\text{income} + \underbrace{a_0 (1+r)}_\text{inheritance}
+    \end{align*}
+\end{solution}

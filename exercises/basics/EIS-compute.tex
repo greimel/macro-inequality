@@ -1,0 +1,43 @@
+\titledquestion{Elasticity of Intertemporal Substitution: Computation}
+
+\begin{parts}
+    \part[2] State the definition of the elasticity of intertemporal substitution.
+
+    \begin{solution}[6cm]
+        \begin{enumerate}
+            \item (1 point) The EIS is the percentage response of the consumption growth rate $(c_{j+1} - c_j)/c_j$ to a percentage change in the gross interest rate (equivalently, the elasticity of the consumption ratio $c_{j+1}/c_j$ with respect to $1+r$).
+            \item (1 point) Equivalently, for a smooth utility $u$,
+            \begin{equation*}
+                \text{EIS} = -\frac{u'(c)}{u''(c) \cdot c}.
+            \end{equation*}
+        \end{enumerate}
+    \end{solution}
+
+    \uplevel{From now on consider a household with utility function $u(c) = \frac{c^{1-\sigma}}{1-\sigma}$, $\sigma > 0$.}
+
+    \part[4] Derive the elasticity of intertemporal substitution for that household.
+
+    \begin{solution}[8cm]
+        \begin{enumerate}
+            \item (1 point) $u'(c) = c^{-\sigma}$
+            \item (1 point) $u''(c) = -\sigma c^{-\sigma - 1}$
+            \item (1 point) Substitute into $-\dfrac{u'(c)}{u''(c) \cdot c}$:
+            \begin{equation*}
+                -\frac{c^{-\sigma}}{-\sigma c^{-\sigma - 1} \cdot c} = \frac{c^{-\sigma}}{\sigma c^{-\sigma}}.
+            \end{equation*}
+            \item (1 point) Simplify: $\text{EIS} = \dfrac{1}{\sigma}$.
+        \end{enumerate}
+    \end{solution}
+
+    \part[2] Discuss the role of the elasticity of intertemporal substitution in the Euler equation $\beta (1+r) = \frac{u'(c_j)}{u'(c_{j+1})}$.
+
+    \begin{solution}[8cm]
+        \begin{enumerate}
+            \item (1 point) For CRRA utility the Euler equation becomes $\beta(1+r) = (c_{j+1}/c_j)^\sigma$. Taking logs and solving for consumption growth gives
+            \begin{equation*}
+                \ln\bigl(c_{j+1}/c_j\bigr) = \frac{1}{\sigma} \bigl[\ln \beta + \ln(1+r)\bigr] = \text{EIS} \cdot \bigl[\ln \beta + \ln(1+r)\bigr].
+            \end{equation*}
+            \item (1 point) The EIS is the slope of consumption growth with respect to $\ln(1+r)$. Households with a \emph{higher} EIS (smaller $\sigma$) readily substitute consumption across time, so their consumption profile tilts more steeply when the interest rate changes. Households with a \emph{lower} EIS (larger $\sigma$) prefer smooth consumption and respond less.
+        \end{enumerate}
+    \end{solution}
+\end{parts}

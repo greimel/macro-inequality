@@ -1,0 +1,180 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(1, 1; y = 0.0, yR = 0.0)
+par = get_par(; demo = :perpetual_youth, annuities = false, y, β = 1.0, γ = 2.0, a̲ = 0.0)
+a_grid = [0.0, 1.0]
+z = 2.0
+r = 0.5
+w = 0.0
+a0 = 1.0
+
+epar_uncon = EntrepreneurParams(alpha = 0.5, delta = 0.0, theta = 10.0, f = 1.0)
+epar_con_enter = EntrepreneurParams(alpha = 0.5, delta = 0.0, theta = 1.0, f = 1.0)
+epar_con_work = EntrepreneurParams(alpha = 0.5, delta = 0.0, theta = 1.0, f = 2.0)
+
+k_star = efficient_entrepreneur_capital(z, epar_uncon; r)
+pi_star = entrepreneur_profit(a0, z, epar_uncon; r)
+worker_resources = disposable_resources(a0, 0.0, epar_uncon, NoTax(); r, w, y = 0.0)
+
+theta_bind = epar_con_enter.theta
+profit_constrained(a) = z * (theta_bind * a)^epar_con_enter.alpha - (r + epar_con_enter.delta) * theta_bind * a
+resources_constrained(a, f) = (1 + r) * a + profit_constrained(a) - f
+
+sol_con_enter = solve_entrepreneur_lifecycle(VFI(), par, epar_con_enter, a_grid; z, r, w, tax = NoTax(), a_init = a0)
+row_con_enter = only(eachrow(sol_con_enter.sim_df))
+
+sol_con_work = solve_entrepreneur_lifecycle(VFI(), par, epar_con_work, a_grid; z, r, w, tax = NoTax(), a_init = a0)
+row_con_work = only(eachrow(sol_con_work.sim_df))
+
+pi_net_uncon = pi_star - epar_uncon.f
+pi_net_con_f1 = profit_constrained(a0) - epar_con_enter.f
+pi_net_con_f2 = profit_constrained(a0) - epar_con_work.f
+@
+
+\titledquestion{One-Period Entrepreneur}
+
+An agent endowed with $a_0$ and $z$ solves
+\begin{align*}
+    &\max_{c, k} u(c) \\
+    &\begin{aligned}
+        \text{s.t. } & c = (1+r)a_0 + \pi(z, k), \\
+        & k \leq \theta a_0, \\
+        & k \geq 0,
+    \end{aligned}
+\end{align*}
+where
+$$
+\pi(z, k) = \begin{cases}
+zk^\alpha - (r+\delta)k - f & \text{if } k > 0, \\
+0 & \text{if } k = 0.
+\end{cases}
+$$
+We call an agent with $k > 0$ an \emph{entrepreneur} and an agent with $k = 0$ a \emph{worker}.
+
+\begin{parts}
+\part[2]
+Explain the optimization problem. What is the role of each constraint? What are the endowments and
+what are the choices? What is $\theta$? What is $f$?
+
+\begin{solution}[13cm]
+The choices are $c$ and $k$. The endowments are initial assets $a_0$ and entrepreneurial ability
+$z$, while $r$ and $\delta$ are prices taken as given by the agent. The agent has access to a
+production technology $y = zk^\alpha$ with capital cost $(r+\delta)k$; operating the technology
+($k > 0$) additionally requires paying the fixed cost $f$. Entrepreneurial profit $\pi(z, k)$ is
+therefore revenue net of capital and fixed costs for an entrepreneur, and zero for a worker (who
+pays no fixed cost). The budget constraint says that consumption equals asset income $(1+r)a_0$
+plus entrepreneurial profit. The constraint $k \leq \theta a_0$ is the collateral constraint:
+$k/a_0$ is the agent's leverage and $\theta$ is the maximal leverage. The constraint $k \geq 0$
+rules out negative capital.
+
+(1 point for correctly separating endowments from choices and explaining the production
+technology, 1 point for correctly explaining the constraints, $\theta$, and $f$.)
+\end{solution}
+
+\part[3]
+Derive the profit-maximizing capital stock $k^*$ for an unconstrained entrepreneur.
+
+\begin{solution}[6cm]
+An unconstrained entrepreneur chooses capital to maximize profits,
+$$
+\max_k \; \pi(z, k) = zk^\alpha - (r+\delta)k - f.
+$$
+Because $f$ does not depend on $k$, the first-order condition is
+$$
+\alpha z k^{\alpha-1} = r+\delta.
+$$
+Solving for capital gives
+$$
+k^* = \left(\frac{\alpha z}{r+\delta}\right)^{\frac{1}{1-\alpha}}.
+$$
+
+(1 point for writing the profit maximization problem, 1 point for the first-order condition,
+1 point for solving for $k^*$.)
+\end{solution}
+
+\part[2]
+Show that the occupation choice depends on the sign of $\pi(z, k^*)$.
+
+\begin{solution}[4cm]
+Worker and entrepreneur resources are
+$$
+R_W = (1+r)a_0,
+\qquad
+R_E = (1+r)a_0 + \pi(z, k^*).
+$$
+Therefore
+$$
+R_E - R_W = \pi(z, k^*).
+$$
+The household chooses entrepreneurship if and only if $\pi(z, k^*) > 0$.
+
+(1 point for writing $R_E$ and $R_W$, 1 point for showing that occupation depends on the sign of
+$\pi(z, k^*)$.)
+\end{solution}
+
+\part[3]
+Now suppose $k \leq \theta a_0$ binds. Derive profits and resources as functions of $a_0$. How does
+the occupation threshold change compared to part (c)?
+
+\begin{solution}[11cm]
+If the collateral constraint binds, then capital is
+$$
+k = \theta a_0.
+$$
+Substituting this into the profit function gives
+$$
+\pi(z, \theta a_0) = z(\theta a_0)^\alpha - (r+\delta)\theta a_0 - f.
+$$
+Entrepreneurial resources are therefore
+$$
+R_E(a_0) = (1+r)a_0 + \pi(z, \theta a_0).
+$$
+Unlike the unconstrained case, the entry condition now depends on wealth because the marginal
+entrepreneur solves $\pi(z, \theta a_0) = 0$. Lower collateral capacity reduces $\pi(z, \theta a_0)$
+at any given asset level, so the wealth threshold for entry rises.
+
+(1 point for imposing $k = \theta a_0$, 1 point for deriving $\pi(z, \theta a_0)$, 1 point for
+explaining why the entry threshold becomes wealth-dependent.)
+\end{solution}
+
+\uplevel{
+For $\alpha = 0.5$, $z = 2$, $r = 0.5$, $\delta = 0$, and $a_0 = 1$, take the following results
+as given.
+
+\begin{center}
+\begin{tabular}{@{} lcccc @{}}
+\toprule
+Scenario & $k$ & $\pi(z, k)$ & Occupation & $c$ \\
+\midrule
+Unconstrained, $f = 1$ & `j fmt(k_star)` & `j fmt(pi_net_uncon)` & --- & --- \\
+$\theta = 1$, $f = 1$  & `j fmt(theta_bind * a0)` & `j fmt(pi_net_con_f1)` & $E$ & `j fmt(row_con_enter.c)` \\
+$\theta = 1$, $f = 2$  & `j fmt(theta_bind * a0)` & `j fmt(pi_net_con_f2)` & $W$ & `j fmt(row_con_work.c)` \\
+\bottomrule
+\end{tabular}
+\end{center}
+}
+
+\part[3]
+Interpret these results. How does the collateral constraint affect who becomes an entrepreneur?
+What role does initial wealth play?
+
+\begin{solution}[15cm]
+The collateral constraint lowers entrepreneurial scale from $k^* = `j fmt(k_star)`$ to
+$k = `j fmt(theta_bind * a0)`$, so profits fall from `j fmt(pi_net_uncon)` to `j fmt(pi_net_con_f1)`
+at $f = 1$. Because constrained profits depend on wealth through $k = \theta a_0$, households with
+more initial wealth can operate at a larger scale and are more likely to become entrepreneurs.
+
+When $f$ rises from $1$ to $2$, profit turns negative ($\pi = `j fmt(pi_net_con_f2)`$), so the
+household switches to working.
+
+Together, tight collateral and high fixed costs generate occupational sorting by wealth: richer
+households can finance larger businesses and absorb the fixed cost, while poorer households are
+screened out of entrepreneurship.
+
+(1 point for explaining how collateral lowers profits and entry, 1 point for explaining how higher
+fixed costs change occupation choice, 1 point for connecting both to occupational sorting by wealth.)
+\end{solution}
+\end{parts}

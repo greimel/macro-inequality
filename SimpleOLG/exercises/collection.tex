@@ -1,0 +1,66 @@
+\documentclass[12pt,addpoints]{exam}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{bm}
+\usepackage{hyperref}
+
+\newif\ifshowsolutions
+\showsolutionsfalse % overridden by build script
+\ifshowsolutions
+\printanswers
+\fi
+\qformat{\textbf{Question \thequestion: \thequestiontitle}\hfill\emph{\totalpoints\ points}}
+
+\title{SimpleOLG Exercise Collection}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\clearpage
+
+\begin{questions}
+
+\section{Household Decision Problems}
+\input{mortality.tex}
+\clearpage
+\input{bequests-warmglow-focs.tex}
+\clearpage
+\input{bequests-warmglow-solve.tex}
+\clearpage
+\input{entrepreneur-1period.tex}
+\clearpage
+\input{entrepreneur-2period.tex}
+\clearpage
+
+\section{OLG Aggregation and Stationary Equilibrium}
+\input{bequests-accidental.tex}
+\clearpage
+\input{bequests-aggregation.tex}
+\clearpage
+\input{bequests-equilibrium.tex}
+\clearpage
+\input{bequests-types.tex}
+\clearpage
+
+\section{Computational Methods}
+\input{dynamic-programming.tex}
+\clearpage
+\input{olg-algorithm.tex}
+\clearpage
+
+\section{EGM Implementation}
+\input{egm-credit-constraint.tex}
+\clearpage
+\input{egm-mortality-bequests.tex}
+\clearpage
+\input{egm-entrepreneur.tex}
+
+\end{questions}
+
+\end{document}

@@ -1,0 +1,161 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG, DimensionalData
+
+include("exercise_helpers.jl")
+
+r = 0.03
+β = 1 / (1 + r)
+γ = 2.0
+ν = 1 / β
+w = 1.0
+
+y = simple_income_profile(2, 1; y = 1.0, yR = 0.1)
+par = get_par(; demo = :perpetual_youth, mm = 0.0, annuities = true, y, β, γ, phi = β * ν, b_floor = 0.0, a̲ = 0.0)
+a_grid = range(1e-3, 4.0, length = 1001)
+
+F_vec = [0.8, 0.2]
+F = DimVector(Float64.(F_vec), Dim{:j}(0:1), name = :F)
+bpar = BequestParams(P_z = [1.0;;], π_z = [1.0], F = F)
+res = solve_worker_with_bequests(EGM(), par, bpar, a_grid;
+    type_grid = [LaborProductivity(1.0)], r, w, tol = 1e-10, maxiter = 500, λ_inherit = 0.5)
+
+a2_val   = res.sim_df[res.sim_df.j .== 1, :a_next][1]
+b_val    = only(res.bequests_z)
+inh_val  = only(res.inheritances_z)
+inh0_val = inheritance_income(1, 0, res.inh_zj)
+inh1_val = inheritance_income(1, 1, res.inh_zj)
+pi_j     = Float64.(collect(pmf(par.m)))
+
+@assert isapprox(b_val, 0.5 * a2_val; atol = 1e-8)
+@assert isapprox(inh0_val, b_val * F_vec[1] / pi_j[1]; atol = 1e-8)
+@assert isapprox(inh1_val, b_val * F_vec[2] / pi_j[2]; atol = 1e-8)
+@
+
+\titledquestion{OLG Aggregation: Bequests and Inheritances}
+
+Consider a two-period overlapping-generations economy. Households live through
+ages $j \in \{0, 1\}$ with mortality $m_0 = 0$ and $m_1 = 1$: every household
+survives age $0$, saves $a_1$, and leaves terminal assets $a_2$ as a bequest at
+the end of age $1$. Each cohort has unit mass.
+
+Take as given the household saving policy $a_{j+1}$. The inheritance age profile
+$F = (F_0, F_1)$ satisfies $F_0 + F_1 = 1$.
+
+\begin{parts}
+\part[2]
+Derive the stationary age distribution $\pi_j$ in this economy.
+
+\begin{solution}
+With unit births the population evolves according to the recursion
+$\pi_{j+1} = (1 - m_j) \pi_j$. Starting from $\pi_0 \propto 1$ and using $m_0 = 0$
+gives unnormalized masses $(1, 1)$. Normalizing to $\sum_j \pi_j = 1$ yields
+$$
+\pi = \left(\tfrac{1}{2}, \tfrac{1}{2}\right).
+$$
+
+(1 point for the recursion, 1 point for the normalization.)
+\end{solution}
+
+\part[3]
+Derive per-capita aggregate bequests $b = \sum_j \pi_j m_j a_{j+1}$. Explain each
+factor, and evaluate $b$ in this two-period economy.
+
+\begin{solution}
+The product $\pi_j m_j$ is the per-capita mass of households that die at age $j$,
+and $a_{j+1}$ is the asset position they leave behind. Summing over ages gives the
+total asset mass pooled into the bequest process, expressed per capita.
+
+Since $m_0 = 0$ and $\pi_1 m_1 = 1/2$, only age-$1$ households bequeath, so
+$$
+b = \tfrac{1}{2} a_2.
+$$
+
+(1 point for interpreting $\pi_j m_j$, 1 point for interpreting $a_{j+1}$ and the
+sum, 1 point for evaluating $b = a_2 / 2$.)
+\end{solution}
+
+\part[3]
+The inheritance income received by a household of age $j$ is
+$\mathrm{inh}_j = b \cdot F_j / \pi_j$. Explain why $F_j$ must be divided by
+$\pi_j$, and evaluate $\mathrm{inh}_0$ and $\mathrm{inh}_1$ for $F = (0.8, 0.2)$.
+
+\begin{solution}
+The quantity $b F_j$ is the share of total per-capita bequests delivered to
+age-$j$ households as a group. That mass must be split among the $\pi_j$
+households of that age, so each household receives $b F_j / \pi_j$. Dividing by
+$\pi_j$ converts a group-level transfer into a per-person transfer, making
+inheritance income comparable across ages with different population masses.
+
+With $\pi_0 = \pi_1 = 1/2$, $\mathrm{inh}_j = 2 b F_j = a_2 F_j$, giving
+$\mathrm{inh}_0 = 0.8\, a_2$ and $\mathrm{inh}_1 = 0.2\, a_2$.
+
+(1 point for the group-level identity, 1 point for the per-person normalization,
+1 point for evaluating both inheritance levels.)
+\end{solution}
+
+Now consider $n$ permanent types, with type-$i$ bequest $b_i$, stationary type
+distribution $\pi_z$, and transition matrix $P$ with entry $P_{ik}$ equal to the
+probability that a type-$i$ parent's heir has type $k$.
+
+\part[4]
+With $n$ permanent types, derive
+$$
+\mathrm{inh}_{z_i} = \frac{[P'(\pi_z \odot b)]_i}{\pi_{z,i}},
+$$
+where $\pi_z \odot b$ denotes the element-wise product. Interpret the two polar
+cases $P = I$ (absorbing types) and $P = \mathbf{1} \pi_z'$ (each heir's type is
+drawn independently from $\pi_z$, regardless of the parent's type).
+
+\begin{solution}
+The mass of type-$i$ bequeathers is $\pi_{z,i}$, so the total bequest flow
+originating from type $i$ is $\pi_{z,i} b_i$. A fraction $P_{ik}$ of this flow
+reaches heirs of type $k$. Summing over parents, the flow into type $k$ is
+$$
+\sum_i P_{ik} \pi_{z,i} b_i = [P'(\pi_z \odot b)]_k.
+$$
+Dividing by $\pi_{z,k}$ (the mass of type-$k$ heirs) yields inheritance income
+per type-$k$ household.
+
+\textbf{Absorbing, $P = I$:} $[P'(\pi_z \odot b)]_i = \pi_{z,i} b_i$, so
+$\mathrm{inh}_{z_i} = b_i$. Each type inherits only from itself and the
+type-dimension of inequality is fully preserved across generations.
+
+\textbf{Independent heirs, $P = \mathbf{1} \pi_z'$:} each row of $P$ equals
+$\pi_z$, so $[P'(\pi_z \odot b)]_k = \pi_{z,k} \sum_i \pi_{z,i} b_i
+= \pi_{z,k} \bar{b}$. Hence $\mathrm{inh}_{z_k} = \bar{b}$ for every type: all
+heirs inherit the population-average bequest, and intergenerational
+type-transmission of wealth is completely broken.
+
+(1 point for the bequest flow by parent, 1 point for applying $P_{ik}$, 1 point
+for the per-capita normalization, 1 point for interpreting both polar cases.)
+\end{solution}
+
+\part[3]
+Take the following package output as given. For $r = 0.03$, $w = 1$, a
+single-type household with $\theta = 1$, income profile $(y_0, y_1) = (1, 0.1)$,
+warm-glow calibration $\beta(1+r) = 1$ and $\nu\beta = 1$, and $F = (0.8, 0.2)$,
+terminal assets are $a_2 = `j fmt(a2_val)`$, aggregate bequests are
+$b = `j fmt(b_val)`$, and age-specific inheritances are
+$\mathrm{inh}_0 = `j fmt(inh0_val)`$ and $\mathrm{inh}_1 = `j fmt(inh1_val)`$.
+
+Check these values against the formulas from parts (b) and (c), and explain the
+role of the age profile $F$ for intergenerational transmission.
+
+\begin{solution}
+From part (b), $b = a_2 / 2 \approx `j fmt(0.5 * a2_val)`$, consistent with the
+reported value (the tiny gap comes from the asset-grid lower bound used in the
+numerical solver). From part (c), $\mathrm{inh}_j = a_2 F_j$, giving
+$0.8\, a_2$ and $0.2\, a_2$, again consistent.
+
+The same aggregate bequest $b$ can be delivered very differently depending on
+$F$. A profile concentrating $F$ at young ages sends resources to households who
+still have a long horizon over which to compound the transfer; a profile that
+concentrates $F$ at old ages delivers resources to households whose remaining
+consumption horizon is short. The bequest total and the bequest timing are
+therefore both necessary to describe how inheritances reshape the next
+generation's resources.
+
+(1 point for verifying the formulas numerically, 2 points for interpreting the
+role of $F$ beyond just the aggregate.)
+\end{solution}
+\end{parts}

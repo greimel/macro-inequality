@@ -284,3 +284,5 @@ TSWLatexianTemp*
 *.lpz
 
 data-raw/
+
+**/Manifest.toml

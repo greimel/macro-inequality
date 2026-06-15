@@ -1,0 +1,242 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG, DimensionalData
+
+include("exercise_helpers.jl")
+
+r = 0.03
+β = 1 / (1 + r)
+γ = 2.0
+ν = 1 / β
+w = 1.0
+
+θL, θH = 0.5, 1.5
+p_stay = 3 / 4
+
+y = simple_income_profile(2, 1; y = 1.0, yR = 0.1)
+par = get_par(; demo = :perpetual_youth, mm = 0.0, annuities = true, y, β, γ, phi = β * ν, b_floor = 0.0, a̲ = 0.0)
+a_grid = range(1e-3, 4.0, length = 1001)
+
+F_vec = [0.8, 0.2]
+F = DimVector(Float64.(F_vec), Dim{:j}(0:1), name = :F)
+
+function solve_two_type(P_mat)
+    bpar = BequestParams(P_z = P_mat, π_z = [0.5, 0.5], F = F)
+    return solve_worker_with_bequests(EGM(), par, bpar, a_grid;
+        type_grid = [LaborProductivity(θL), LaborProductivity(θH)],
+        r, w, tol = 1e-10, maxiter = 2000, λ_inherit = 0.5)
+end
+
+function a2_by_type(res, t_i)
+    mask = (res.sim_df.type .== t_i) .& (res.sim_df.j .== 1)
+    return res.sim_df.a_next[mask][1]
+end
+
+P_nd  = [p_stay        (1 - p_stay); (1 - p_stay)  p_stay]
+P_abs = [1.0           0.0;          0.0           1.0]
+P_mix = [0.5           0.5;          0.5           0.5]
+
+res_nd  = solve_two_type(P_nd)
+res_abs = solve_two_type(P_abs)
+res_mix = solve_two_type(P_mix)
+
+xL_nd,  xH_nd  = a2_by_type(res_nd, 1),  a2_by_type(res_nd, 2)
+xL_abs, xH_abs = a2_by_type(res_abs, 1), a2_by_type(res_abs, 2)
+xL_mix, xH_mix = a2_by_type(res_mix, 1), a2_by_type(res_mix, 2)
+
+inhL_nd, inhH_nd = res_nd.inheritances_z[1], res_nd.inheritances_z[2]
+inh_mix          = res_mix.inheritances_z[1]
+
+# Closed-form cross check (non-degenerate sum/diff).
+A_coef = 3 + r
+K_coef = 2 * (1 + r) * ((1 + r) * F_vec[1] + F_vec[2])
+Yw     = (1 + r) * 1.0 + 0.1
+sum_x  = 2 * w * Yw / (A_coef - K_coef / 2)
+diff_x = w * Yw * (θH - θL) / (A_coef - K_coef * (2 * p_stay - 1) / 2)
+@assert isapprox(xL_nd + xH_nd, sum_x; atol = 5e-3)
+@assert isapprox(xH_nd - xL_nd, diff_x; atol = 5e-3)
+@assert isapprox(res_mix.inheritances_z[1], res_mix.inheritances_z[2]; atol = 1e-6)
+@
+
+\titledquestion{Stationary Equilibrium with Two Permanent Types}
+
+Consider a two-period OLG economy with two permanent productivity types
+$\theta \in \{\theta_L, \theta_H\}$ with $\theta_L + \theta_H = 2$, stationary masses
+$\pi_{z,L} = \pi_{z,H} = 1/2$, and symmetric type transition matrix
+$$
+P = \begin{pmatrix} p & 1 - p \\ 1 - p & p \end{pmatrix},
+\qquad p \in [1/2, 1],
+$$
+where $P_{ik}$ is the probability that a type-$i$ parent's heir has type $k$.
+
+At prices $(r, w) = (0.03, 1)$, income $(y_0, y_1) = (1, 0.1)$, and inheritance age profile
+$F = (0.8, 0.2)$, define the shorthand
+$$
+A \equiv 3 + r,
+\qquad
+K \equiv 2(1+r)\bigl[(1+r) F_0 + F_1\bigr],
+\qquad
+\mathcal{Y}_w \equiv (1+r) y_0 + y_1.
+$$
+Suppose the terminal assets $x_i \equiv a_2(\theta_i)$ of a household of type $i \in \{L, H\}$
+satisfy
+$$
+A\, x_i = w\, \theta_i\, \mathcal{Y}_w + K\, \mathrm{inh}_{z_i},
+$$
+given the type-specific inheritance schedule $\mathrm{inh}_{z_i}$.
+
+Per-type bequests are $b_i = x_i / 2$, and with the symmetric transition matrix above,
+$$
+\mathrm{inh}_{z_L} = p\, b_L + (1-p)\, b_H,
+\qquad
+\mathrm{inh}_{z_H} = (1-p)\, b_L + p\, b_H.
+$$
+
+A \emph{stationary equilibrium} requires that the inheritance schedule used by households is
+consistent with the bequest flow they generate.
+
+\begin{parts}
+\part[3]
+Explain why the two per-type equations are coupled when $p < 1$.
+
+\begin{solution}
+The per-type terminal-asset equation depends on the type-specific inheritance flow
+$\mathrm{inh}_{z_i}$ through the coefficient $K$. And with a symmetric transition matrix, the
+type-$L$ inheritance flow
+$\mathrm{inh}_{z_L} = p\, b_L + (1-p)\, b_H$ depends on type-$H$ bequests via the off-diagonal
+entry $(1-p)$, and vice versa. So whenever $p < 1$, the type-$L$ equation depends on
+$b_H = x_H/2$ and the type-$H$ equation depends on $b_L = x_L/2$; the two per-type equations
+cannot be solved independently.
+
+In equilibrium terms: when heirs are not sorted perfectly by parental type, bequests leaving
+type-$H$ dynasties land (in part) with type-$L$ heirs, so the wealth accumulation of the two types
+is linked through the inheritance channel.
+
+(1 point for identifying the dependence on $\mathrm{inh}_{z_i}$ via $K$, 1 point for explaining how
+$p$ couples the two type-specific inheritance flows, 1 point for verbalizing the equilibrium
+implication.)
+\end{solution}
+
+\part[4]
+Substitute $b_i = x_i / 2$ into the expressions for $\mathrm{inh}_{z_i}$ and write the resulting
+coupled $2 \times 2$ system for $(x_L, x_H)$. Solve for the sum $x_L + x_H$.
+
+\begin{solution}
+Substituting $b_i = x_i / 2$:
+\begin{align*}
+    A\, x_L &= w \theta_L\, \mathcal{Y}_w
+        + \tfrac{K}{2} \bigl(p\, x_L + (1-p)\, x_H\bigr), \\
+    A\, x_H &= w \theta_H\, \mathcal{Y}_w
+        + \tfrac{K}{2} \bigl((1-p)\, x_L + p\, x_H\bigr).
+\end{align*}
+Adding the two equations and using $\theta_L + \theta_H = 2$:
+$$
+A (x_L + x_H)
+= 2 w\, \mathcal{Y}_w + \tfrac{K}{2} (x_L + x_H).
+$$
+Hence
+$$
+x_L + x_H = \frac{2 w\, \mathcal{Y}_w}{A - K / 2}.
+$$
+
+(1 point for substituting $b_i = x_i/2$, 1 point for the coupled system, 1 point for adding and
+using $\theta_L + \theta_H = 2$, 1 point for solving.)
+\end{solution}
+
+\part[4]
+Solve for the difference $x_H - x_L$, and explain how the persistence parameter $p$ enters.
+
+\begin{solution}
+Subtracting the type-$L$ equation from the type-$H$ equation:
+$$
+A (x_H - x_L)
+= w (\theta_H - \theta_L)\, \mathcal{Y}_w
++ \tfrac{K}{2} (2 p - 1) (x_H - x_L).
+$$
+Collecting:
+$$
+x_H - x_L
+= \frac{w (\theta_H - \theta_L)\, \mathcal{Y}_w}
+       {A - \tfrac{K}{2}(2 p - 1)}.
+$$
+
+The coefficient on $(x_H - x_L)$ in the coupled equation is proportional to $2p - 1$: as $p$ rises
+from $1/2$ to $1$, the denominator $A - \tfrac{K}{2}(2p - 1)$ shrinks, so the wealth gap
+$x_H - x_L$ grows. Persistent types amplify the mapping from the primitive income gap
+$(\theta_H - \theta_L)$ into stationary wealth dispersion; non-persistent types mute it. At
+$p = 1/2$ the term drops out entirely and the wealth gap is governed only by the labor-income gap.
+
+(1 point for writing the difference equation, 1 point for solving, 2 points for interpreting the
+role of $p$.)
+\end{solution}
+
+\part[3]
+Analyze the two polar cases.
+\begin{enumerate}
+    \item $p = 1$ (absorbing types): verify that per-type terminal assets reduce to
+    $x_i = w\, \theta_i\, \mathcal{Y}_w / D$ with
+    $D = (3 + r) - (1+r)^2 F_0 - (1+r) F_1$.
+    \item $p = 1/2$ (independent draws): show that $\mathrm{inh}_{z_L} = \mathrm{inh}_{z_H}$ while
+    $b_L \neq b_H$ whenever $\theta_L \neq \theta_H$.
+\end{enumerate}
+
+\begin{solution}
+\textbf{$p = 1$:} The per-type equation collapses to
+$A x_i = w \theta_i\, \mathcal{Y}_w + (K/2) x_i$, i.e.,
+$x_i = w \theta_i\, \mathcal{Y}_w / (A - K/2)$. Expanding
+$A - K/2 = (3+r) - (1+r)\bigl[(1+r) F_0 + F_1\bigr] = (3+r) - (1+r)^2 F_0 - (1+r) F_1 = D$ shows
+this is exactly the stated formula.
+
+\textbf{$p = 1/2$:} With $p = 1/2$ both rows of $P$ equal $(1/2, 1/2)$, so every heir inherits the
+population-average bequest regardless of parent type:
+$\mathrm{inh}_{z_L} = \mathrm{inh}_{z_H} = \tfrac{1}{2}(b_L + b_H) \equiv \bar{b}$. Bequests
+$b_i = x_i / 2$, however, remain unequal because $x_H - x_L$ still depends on
+$\theta_H - \theta_L$ even in this regime: higher-$\theta$ households accumulate more through
+their own labor income and pass some of it on, even though every household receives the same
+inheritance.
+
+(1 point for the $p = 1$ collapse, 1 point for the $p = 1/2$ inheritance equalization, 1 point for
+noting that bequest inequality survives.)
+\end{solution}
+
+\uplevel{
+With $F = (0.8, 0.2)$, $\theta_L = 0.5$, and $\theta_H = 1.5$, take the following results as given.
+
+\begin{center}
+\begin{tabular}{@{} lcccc @{}}
+\toprule
+Regime & $x_L$ & $x_H$ & $\mathrm{inh}_{z_L}$ & $\mathrm{inh}_{z_H}$ \\
+\midrule
+$p = 3/4$ (non-degenerate)  & `j fmt(xL_nd)`  & `j fmt(xH_nd)`  & `j fmt(inhL_nd)` & `j fmt(inhH_nd)` \\
+$p = 1$ (absorbing)         & `j fmt(xL_abs)` & `j fmt(xH_abs)` & ---              & ---              \\
+$p = 1/2$ (full mixing)     & `j fmt(xL_mix)` & `j fmt(xH_mix)` & \multicolumn{2}{c}{$= `j fmt(inh_mix)`$} \\
+\bottomrule
+\end{tabular}
+\end{center}
+}
+
+\part[4]
+Explain how the persistence of the permanent-type process shapes stationary wealth inequality.
+Which regime produces the most wealth dispersion, and why?
+
+\begin{solution}
+Moving from $p = 1/2$ to $p = 1$ monotonically widens the wealth gap $x_H - x_L$. Under full
+mixing, every type receives the same inheritance transfer, so wealth differences across types
+reflect only the contemporaneous labor-income gap (a one-period effect). As $p$ rises,
+high-productivity dynasties increasingly keep their bequests within type, so inheritances compound
+across generations: the primitive income gap is amplified by an intergenerational-transmission
+channel.
+
+The numerical values confirm this: with $p = 3/4$, the low-type $x_L$ is pulled up relative to the
+absorbing case (heirs benefit from cross-type mixing), while $x_H$ is pulled down. The ordering of
+wealth dispersion is
+$$
+\text{absorbing } (p = 1) \;>\; \text{non-degenerate } (p = 3/4)
+\;>\; \text{full mixing } (p = 1/2).
+$$
+In applied work, the persistence of the permanent-type process is therefore a key determinant of
+how much warm-glow bequests can amplify steady-state wealth inequality.
+
+(1 point for the regime ordering, 2 points for the compounding-vs.-one-shot mechanism, 1 point for
+the applied takeaway.)
+\end{solution}
+\end{parts}

@@ -1,0 +1,189 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+r = 0.05
+β = 1 / (1 + r)
+γ = 2.0
+ν = 1 / β
+bbar = 1.0
+Y = 4.5
+
+X = 1 + ((β * (1 + r))^(1 / γ) + (β^2 * ν * (1 + r))^(1 / γ)) / (1 + r)
+c0_star = (Y + bbar / (1 + r)) / X
+κ = ((β^2 * ν * (1 + r))^(1 / γ)) / (1 + r + (β^2 * ν * (1 + r))^(1 / γ) + (β * (1 + r))^(1 / γ)) - 1
+
+y = simple_income_profile(2, 1; y = 4.5, yR = 0.0)
+par0 = get_par(; demo = :perpetual_youth, mm = 0.0, y, β, γ, phi = β * ν, b_floor = 0.0, a̲ = 0.0)
+sol0 = solve_backward_forward(VFI(), par0, 0.0:0.01:5.0; r, w = 1.0, a_init = 0.0)
+@assert isapprox(sol0.sim_df.c[1], sol0.sim_df.c[2]; atol = 5e-3)
+@assert isapprox(sol0.sim_df.a_next[2], sol0.sim_df.c[1]; atol = 5e-3)
+@assert isapprox(sol0.sim_df.c[1], Y * (1 + r) / (3 + r); atol = 5e-3)
+
+par_floor = get_par(; demo = :perpetual_youth, mm = 0.0, y = simple_income_profile(2, 1; y = 0.0, yR = 0.0), β = 1.0, γ = 2.0, phi = 1.0, b_floor = 1.0, a̲ = 0.0)
+allocation_floor = SimpleOLG.terminal_allocation(4.5, par_floor)
+@
+
+\titledquestion{Warm-Glow Bequests: Solving the Two-Period Problem}
+
+Consider the warm-glow bequest problem. Suppose the first-order conditions imply
+
+\begin{align*}
+    c_1^* &= c_0^* \bigl(\beta(1+r)\bigr)^{1/\gamma}, \\
+    a_2^* &= c_0^* \bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma} - \underline{b}, \\
+    \mathcal{Y} &= c_0^* + \frac{1}{1+r}(c_1^* + a_2^*),
+\end{align*}
+
+where $\beta \in (0,1)$ and $\gamma, r, \nu, \underline{b} > 0$.
+
+\begin{parts}
+\part[2]
+Interpret equations (1) and (3).
+
+\begin{solution}
+Equation (1) is the Euler equation linking current and old-age consumption. Equation (3) is the
+lifetime budget constraint, stating that total lifetime resources $\mathcal{Y}$ equal the present
+value of consumption plus terminal bequests.
+
+(1 point for identifying the Euler equation, 1 point for identifying the budget constraint.)
+\end{solution}
+
+\part[4]
+Solve for $c_0^*$.
+
+\begin{solution}
+Substituting (1) and (2) into (3) gives
+$$
+\mathcal{Y}
+= c_0^* + \frac{1}{1+r}\left(c_0^* \bigl(\beta(1+r)\bigr)^{1/\gamma}
++ c_0^* \bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma} - \underline{b}\right).
+$$
+Collecting terms yields
+$$
+\mathcal{Y} + \frac{\underline{b}}{1+r} = c_0^* X,
+$$
+where
+$$
+X = 1 + \frac{1}{1+r}\left(\bigl(\beta(1+r)\bigr)^{1/\gamma}
++ \bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma}\right).
+$$
+Hence
+$$
+c_0^* = \frac{\mathcal{Y} + \frac{\underline{b}}{1+r}}{X}.
+$$
+
+(1 point for substituting (1) and (2), 2 points for collecting the coefficient $X$, 1 point for the
+closed-form solution for $c_0^*$.)
+\end{solution}
+
+\part[4]
+What are homothetic preferences? Explain intuitively or formally. Why does (non-)homotheticity
+matter for the study of economic inequality?
+
+\begin{solution}
+Preferences are homothetic if optimal choices scale proportionally with lifetime resources. Intuitively,
+the rich are then just scaled-up versions of the poor: expenditure shares are constant as income
+changes.
+
+Homotheticity matters for inequality because, under homothetic preferences, redistributing income or
+wealth does not affect aggregate behavior through composition effects. With non-homothetic
+preferences, the distribution of resources changes choices, so inequality can matter for aggregate
+consumption, saving, and bequests.
+
+(2 points for explaining homotheticity, 2 points for explaining why it matters for inequality.)
+\end{solution}
+
+\part[3]
+Are the household's preferences homothetic when $\underline{b} > 0$?
+
+\begin{solution}
+No. The solution
+$$
+\frac{c_0^*}{\mathcal{Y}} = \frac{1}{X} + \frac{\underline{b}}{(1+r)X\mathcal{Y}}
+$$
+depends on lifetime resources $\mathcal{Y}$ when $\underline{b} > 0$. Therefore choices are not
+proportional to income, so the preferences are not homothetic.
+
+(1 point for identifying the relevant expenditure share, 1 point for showing why it depends on
+$\mathcal{Y}$, 1 point for concluding that preferences are not homothetic.)
+\end{solution}
+
+The solution for bequests can be written as
+\begin{align*}
+    a_2^* = \mathcal{Y}\frac{\bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma}}{X} + \kappa \underline{b},
+\end{align*}
+where
+\begin{align*}
+    \kappa
+    = \frac{\bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma}}
+    {1 + r + \bigl(\beta^2 \nu (1+r)\bigr)^{1/\gamma} + \bigl(\beta (1+r)\bigr)^{1/\gamma}}
+    - 1.
+\end{align*}
+
+\part[1]
+Show that $\kappa < 0$.
+
+\begin{solution}
+The first term in $\kappa$ has the form $A/(A+B)$ with $A,B>0$, so it is strictly smaller than $1$.
+Therefore $\kappa = A/(A+B) - 1 < 0$.
+
+(1 point for the argument that $A/(A+B) < 1$.)
+\end{solution}
+
+\part[3]
+Suppose $\beta(1+r) = 1$ and $\nu\beta = 1$, with $\underline{b} = 0$. Show that
+$c_0^* = c_1^* = a_2^*$. Derive $c_0^*$ as a function of $\mathcal{Y}$ and $r$, and verify that
+as $r \to 0$ this converges to the equal three-way split $c_0 = c_1 = a_2 = \mathcal{Y}/3$.
+
+\begin{solution}
+If $\beta(1+r)=1$, equation (1) becomes
+$$
+c_1^* = c_0^*.
+$$
+If also $\nu\beta = 1$, then
+$$
+\beta^2 \nu (1+r) = \beta \cdot \bigl(\beta(1+r)\bigr)\cdot \nu = \beta\nu = 1,
+$$
+so equation (2) implies
+$$
+a_2^* = c_0^* - \underline{b} = c_0^*
+$$
+because $\underline{b}=0$. Therefore $c_0^* = c_1^* = a_2^*$.
+
+Substituting this into the budget constraint gives
+$$
+\mathcal{Y} = c_0^* + \frac{1}{1+r}(c_0^* + c_0^*) = c_0^* \left(1 + \frac{2}{1+r}\right)
+= c_0^* \frac{3+r}{1+r}.
+$$
+Hence
+$$
+c_0^* = \mathcal{Y}\frac{1+r}{3+r}.
+$$
+As $r \to 0$, this converges to $c_0^* = \mathcal{Y}/3$. Since $c_1^* = a_2^* = c_0^*$, we recover
+the equal three-way split $c_0 = c_1 = a_2 = \mathcal{Y}/3$ in the $r=0$ special case.
+
+(1 point for showing $c_1^* = c_0^*$, 1 point for showing $a_2^* = c_0^*$, 1 point for deriving
+$c_0^* = \mathcal{Y}(1+r)/(3+r)$ and the $r \to 0$ special case.)
+\end{solution}
+
+\part[3]
+Discuss the role of $\underline{b}$ for bequests. Use the numerical results
+$c_0 = c_1 = `j fmt(sol0.sim_df.c[1])`$ and $a_2 = `j fmt(sol0.sim_df.a_next[2])`$ when
+$\underline{b}=0$, and terminal allocation $c = `j fmt(allocation_floor.c)`$,
+$a_2 = `j fmt(allocation_floor.a_next)`$ when $\underline{b}=1$ and resources equal $4.5$.
+
+\begin{solution}
+Because $\kappa < 0$, a larger bequest floor raises the value of leaving assets but does so in a way
+that makes bequest shares depend on income. Poor households are more strongly affected by the floor
+than rich households, which is the source of non-homotheticity.
+
+The numerical comparison illustrates this mechanism. Without a bequest floor, the package solution
+splits the two-period problem symmetrically. With $\underline{b}=1$, terminal resources are tilted
+toward bequests even when total resources are unchanged, because the marginal value of leaving a
+small bequest is higher.
+
+(1 point for linking $\underline{b}$ to non-homothetic bequest shares, 1 point for explaining the
+role of $\kappa < 0$, 1 point for interpreting the numerical example.)
+\end{solution}
+\end{parts}

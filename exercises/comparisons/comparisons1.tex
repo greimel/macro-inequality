@@ -1,0 +1,45 @@
+% !TeX root = ../collection-solutions.tex
+
+\titledquestion{Social comparisons} In the model of \citet{drechsel2025falling-behind}, the optimal house of a given type~$i$
+is given by $h^i = \kappa_2 y^i + \tilde \phi \tilde h^i$.
+
+\begin{parts}
+
+    \part Show that $\vec h = \kappa_2 (I + L) \vec y$ where $L$ is the social externality matrix.
+
+    \begin{solution}
+        \begin{itemize}
+            \item Stack the equations: $\vec h = \kappa_2 \vec y + \tilde \phi \tilde{\vec h}$
+            \item Use the definition $\tilde{\vec h} = G \vec h$: 
+            $$\vec h = \kappa_2 \vec y + \tilde \phi G \vec h$$
+            \item solve
+            $$(I - \tilde \phi G)\vec h = \kappa_2 \vec y \implies \vec h = \kappa_2 (I - \tilde \phi G)^{-1} \vec y $$
+            \item use that the Leontief inverse has a sum representation: $$(I - \tilde \phi G)^{-1} = \sum_{k=\textcolor{red}{0}}^\infty (\tilde \phi G)^k = I + \underbrace{\sum_{k=\textcolor{red}{1}}^\infty (\tilde \phi G)^k}_{=: L}$$
+            \item Plug in: $\vec h = \kappa_2 (I + L) \vec y$
+        \end{itemize}
+    \end{solution}
+
+    \part Compute $\frac{\partial}{\partial y^j} h^i$ (where $j \neq i$).
+
+    \begin{solution}
+        From (a) we know that $h_i = \kappa_2 (y_i + \sum_{\textcolor{blue}{k} = 1}^n  
+        L_{i\textcolor{blue}{k}}
+        y_{\textcolor{blue}{k}})
+        $, where $L_{ik}$ is the $(i, k)$-entry of the social externality matrix $L$.
+
+        Thus, $\frac{\partial}{\partial y^j} h^i = \kappa_2 L_{ij}$.
+    \end{solution}
+
+    \part Interpret this result and discuss its relevance.
+
+    \begin{solution}
+        \begin{itemize}
+            \item   $L_{ij}$ is the externality that $j$ exerts on $i$. It is positive, if $\phi > 0$ and if $i$ cares about $j$'s house (directly or indirectly).
+
+            \item If $j$'s income goes up, and $j$ exerts an externality on $i$, then $i$ will spend more on housing (and less on consumption).
+    
+            \item Such behavior is well-documented empirically. It can help explain why household debt has increased so much between 1980 and 2007.  
+        \end{itemize}
+      \end{solution}
+
+\end{parts}

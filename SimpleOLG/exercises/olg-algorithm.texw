@@ -1,0 +1,140 @@
+<<echo=false; results="hidden">>=
+using SimpleOLG
+
+include("exercise_helpers.jl")
+
+y = simple_income_profile(2, 1; y = 1.0, yR = 0.0)
+par = get_par(; demo = :perpetual_youth, y, α = 0.3, δ = 0.1)
+K_guess = 1.0
+r_guess = interest_rate(K_guess, par)
+w_guess = wage(K_guess, par)
+A_supply = 0.5 * 0.5 + 0.5 * 0.0
+zeta = K_guess - A_supply
+K_update = 0.5 * (K_guess + A_supply)
+@
+
+\titledquestion{The OLG Steady-State Algorithm}
+
+You are trying to find the steady-state general equilibrium of an OLG model.
+Households have a certain (non-stochastic) lifetime of two periods, $j \in \{0, 1\}$,
+and the total population is constant and has size one. Firms solve
+
+\begin{align*}
+    &\max_{K, L} \; K^\alpha L^{1-\alpha} - (r+\delta)K - wL,
+\end{align*}
+
+with $\alpha = 0.3$ and $\delta = 0.1$.
+
+Aggregate labor supply is inelastic at $L = 1$. Guess aggregate capital demand to be
+$K^{(0)} = 1$. Throughout, a parenthetical superscript $(n)$ indicates the $n$-th
+iteration of the algorithm.
+
+\begin{parts}
+\part[2]
+Derive the interest rate and wage rate as functions of $K$ and $L$.
+
+\begin{solution}[3cm]
+The firm's first-order conditions imply
+$$
+r(K,L) = \alpha \left(\frac{K}{L}\right)^{\alpha-1} - \delta
+$$
+and
+$$
+w(K,L) = (1-\alpha)\left(\frac{K}{L}\right)^\alpha.
+$$
+
+(1 point for the interest rate, 1 point for the wage rate.)
+\end{solution}
+
+\part[1]
+Compute the interest rate $r^{(0)}$ and the wage rate $w^{(0)}$ at the guess
+$K^{(0)} = 1$ and $L = 1$.
+
+\begin{solution}[3cm]
+At the guess, the package formulas give $r^{(0)} = `j fmt(r_guess)`$ and
+$w^{(0)} = `j fmt(w_guess)`$.
+
+(1 point for the correct numerical values.)
+\end{solution}
+
+\part[2]
+How many cohorts are alive in each period? What fraction of the population does each cohort account
+for?
+
+\begin{solution}[6cm]
+Because households live for two periods and a new cohort is born every period, there are always two
+cohorts alive: a young cohort and an old cohort. With a constant population of size one, each cohort
+accounts for one half of the population.
+
+(1 point for identifying the two live cohorts, 1 point for the population share of one half each.)
+\end{solution}
+
+\uplevel{
+Suppose that at prices $(r^{(0)}, w^{(0)})$, the household problem implies the following optimal
+choices:
+$$
+c_0 = 0.6,
+\qquad
+c_1 = 1.4,
+\qquad
+a_1 = 0.5,
+\qquad
+a_2 = 0.
+$$
+}
+
+\part[2]
+Compute aggregate capital supply $A^{(0)}$ at the current prices.
+
+\begin{solution}[4cm]
+Aggregate capital supply is the population-weighted average of household assets. Using the
+population shares from part (c),
+$$
+A^{(0)} = \frac{1}{2}a_1 + \frac{1}{2}a_2 = \frac{1}{2}\cdot 0.5 + \frac{1}{2}\cdot 0.
+$$
+Therefore $A^{(0)} = `j fmt(A_supply)`$.
+
+(1 point for the aggregation formula, 1 point for computing $A^{(0)} = `j fmt(A_supply)`$.)
+\end{solution}
+
+\part[3]
+Define excess demand for capital at iteration $n$ by
+$$
+\zeta^{(n)} \equiv K^{(n)} - A^{(n)}.
+$$
+Compute $\zeta^{(0)}$ and interpret its sign.
+
+\begin{solution}[5cm]
+Using the current guess $K^{(0)} = `j fmt(K_guess)`$ and aggregate supply
+$A^{(0)} = `j fmt(A_supply)`$, we get
+$$
+\zeta^{(0)} = `j fmt(zeta)`.
+$$
+Because $\zeta^{(0)} > 0$, firms want to use more capital than households are willing to supply at
+the guessed prices.
+
+(1 point for the definition, 1 point for the numerical value, 1 point for interpreting the sign.)
+\end{solution}
+
+\part[3]
+Explain how to proceed when $\zeta^{(n)} \neq 0$. In particular, state how you would construct
+$K^{(n+1)}$ from $K^{(n)}$ and $A^{(n)}$. No further computations are necessary.
+
+\begin{solution}[12cm]
+If $\zeta^{(n)} \neq 0$, the current guess for aggregate capital is not a market-clearing steady
+state. A damped update
+$$
+K^{(n+1)} = \lambda K^{(n)} + (1-\lambda)\, A^{(n)},
+\qquad \lambda \in (0, 1),
+$$
+moves the next guess in the direction of household asset supply. After updating, recompute factor
+prices from the firm's first-order conditions at $K^{(n+1)}$, resolve the household problem at the
+new prices, re-aggregate, and repeat until $\zeta \approx 0$.
+
+In this example, a simple damped update with $\lambda = 1/2$ chooses a new guess between
+$K^{(0)} = 1$ and $A^{(0)} = `j fmt(A_supply)`$, namely $K^{(1)} = `j fmt(K_update)`$.
+
+(1 point for explaining why $\zeta^{(n)} \neq 0$ means no equilibrium has been found, 1 point for
+the damped update rule, 1 point for describing the rest of the fixed-point iteration.)
+\end{solution}
+\end{parts}
