@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Build the exercise collection PDFs (with and without solutions).
-# Exam PDFs are built separately in the private exams repo.
+# Build the exercise-collection PDFs: collection (full) and final-exam-collection
+# (required-reading study set), each with and without solutions.
+# Actual exams (selections with answer boxes) are built separately in the private
+# exams repo.
 # Inputs tex files from SimpleOLG/exercises/generated/ and this directory.
 
 set -euo pipefail
@@ -8,7 +10,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-for master in collection; do
+for master in collection final-exam-collection; do
     if [ ! -f "${master}.tex" ]; then
         echo "error: ${master}.tex not found in $SCRIPT_DIR" >&2
         exit 1
@@ -34,14 +36,14 @@ build_variant() {
     latexmk -pdf -interaction=nonstopmode -halt-on-error "$target"
 }
 
-for master in collection; do
+for master in collection final-exam-collection; do
     build_variant "$master" "exercises" "false"
     build_variant "$master" "solutions" "true"
 done
 
 # All builds succeeded (set -e would have exited otherwise).
 # Remove aux files but keep the generated PDFs.
-for master in collection; do
+for master in collection final-exam-collection; do
     for name in exercises solutions; do
         latexmk -c "${master}-${name}.tex" >/dev/null
         rm -f "${master}-${name}.tex" "${master}-${name}.bbl"
@@ -50,7 +52,7 @@ done
 
 echo
 echo "Built PDFs:"
-for master in collection; do
+for master in collection final-exam-collection; do
     for name in exercises solutions; do
         echo "  $SCRIPT_DIR/${master}-${name}.pdf"
     done

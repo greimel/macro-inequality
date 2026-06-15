@@ -1,0 +1,92 @@
+\documentclass[12pt,a4paper,addpoints]{exam}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[shortlabels]{enumitem}
+\usepackage{hyperref}
+\usepackage[longnamesfirst]{natbib}
+\bibliographystyle{ecta}
+
+\renewcommand{\vec}{\bm}
+\renewcommand{\phi}{\varphi}
+
+\shadedsolutions
+\definecolor{SolutionColor}{rgb}{0.9,0.95,1}
+\renewcommand{\solutiontitle}{\noindent\emph{Solution} \par \noindent}
+
+% Ignore any optional length argument on \begin{solution}[Xcm] (see collection.tex).
+\cancelspacetrue
+
+\newif\ifshowsolutions
+\showsolutionsfalse % overridden by build script
+\ifshowsolutions
+\printanswers
+\fi
+\makeatletter
+\qformat{%
+    \thequestion. \bfseries\thequestiontitle
+    \@ifundefined{pointsofq@\romannumeral\value{question}}{}{~(\totalpoints~points)}%
+    \hfill}
+\makeatother
+
+\runningfooter{}{}{\copyright~Fabian Greimel, 2026}
+\runningheader{{\sc Macroeconomics and Inequality}}{}{\thepage}
+
+\title{Collected Exercises for the Final Exam}
+\author{Macroeconomics and Inequality}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+    \emph{Note: this document is preliminary and will be updated.}
+\end{center}
+
+\clearpage
+
+% This is the Required-Reading section assembled as a standalone study collection.
+% The section heading + intro sit OUTSIDE the questions environment (the exam class
+% rejects free text before the first question inside it). The 9 paper inputs are the
+% same sources collection.tex uses via papers-section.tex.
+\section{Required Reading}
+
+% paired paper exercises: question n' repeats the previous number with a prime
+\newcommand{\primedquestion}{\addtocounter{question}{-1}\renewcommand{\thequestion}{\arabic{question}$'$}}
+\newcommand{\unprimedquestion}{\renewcommand{\thequestion}{\arabic{question}}}
+
+Like the reading assignments, the exercises in this section come in pairs:
+exercises $n$ and $n'$ cover the two papers of one assignment pair. Answer the
+questions for the paper that you have read. The wealth-tax contrast exercise can
+be answered with either paper of its pair.
+
+\begin{questions}
+\input{papers/hubmer2021}
+\primedquestion
+\input{papers/hubmer2026}
+\unprimedquestion
+\input{papers/guvenen2023}
+\primedquestion
+\input{papers/boar-midrigan2023}
+\unprimedquestion
+\input{papers/wealth-tax-contrast}
+\input{papers/huber2026}
+\primedquestion
+\input{papers/drechsel-grau2026}
+\unprimedquestion
+\input{papers/deb2022}
+\primedquestion
+\input{papers/deb2024}
+\unprimedquestion
+\end{questions}
+
+\clearpage
+\bibliography{../inequality}
+
+\end{document}
